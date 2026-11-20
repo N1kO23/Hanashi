@@ -1,0 +1,71 @@
+services:
+  mariadb:
+    image: mariadb:11.8
+    environment:
+      MARIADB_DATABASE: hanashi
+      MARIADB_USER: hanashi
+      # Change both passwords (here and in HANASHI_DB_DSN below) before exposing the server.
+      MARIADB_PASSWORD: change-me
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+    volumes:
+      - hanashi-database:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  hanashi:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "${HANASHI_PUBLISH_PORT:-8080}:8080"
+    environment:
+      HANASHI_DB_DSN: hanashi:change-me@tcp(mariadb:3306)/hanashi
+      # The host part of user IDs (name@HANASHI_HOST). Set it to your domain before
+      # the first account: accounts stay tied to it, so changing it later means
+      # starting over with new accounts.
+      HANASHI_HOST: localhost
+      # open | invite | closed
+      HANASHI_REGISTRATION: open
+      # Comma-separated codes, used when HANASHI_REGISTRATION=invite.
+      HANASHI_INVITE_CODES: ""
+      HANASHI_MAX_UPLOAD_MB: "100"
+      # How push services (FCM, ntfy...) can reach you if pushes misbehave.
+      # HANASHI_PUSH_CONTACT: mailto:you@example.org
+      # Klipy key that is provided for clients to search gifs
+      HANASHI_KLIPY_API_KEY: ""
+      # Voice calls through the livekit service below (docs/calls.md): start
+      # it with `docker compose --profile calls up`. Apps reach LiveKit at
+      # HANASHI_LIVEKIT_URL (this machine's address on the network), this server
+      # at HANASHI_LIVEKIT_API_URL; the key and secret are livekit.yaml's.
+      # HANASHI_LIVEKIT_URL: ws://192.168.1.10:7880
+      # HANASHI_LIVEKIT_API_URL: http://livekit:7880
+      # HANASHI_LIVEKIT_API_KEY: hanashi
+      # HANASHI_LIVEKIT_API_SECRET: change-me-to-32-or-more-random-characters
+      # debug | info | warn | error
+      HANASHI_LOG_LEVEL: info
+    volumes:
+      - hanashi-media:/data
+    restart: unless-stopped
+
+  livekit:
+    image: livekit/livekit-server:v1.13.11
+    profiles: [calls]
+    command: --config /etc/livekit.yaml
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    restart: unless-stopped
+
+volumes:
+  hanashi-database:
+  hanashi-media:

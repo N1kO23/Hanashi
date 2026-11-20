@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the themes FileProvider (AndroidManifest.xml) serves: the installed
+     themes' files, <files dir>/themes/<id>/… (lib/data/themes/theme_store.dart),
+     as content://<package>.themes/themes/<id>/…, for notification sounds. -->
+<paths>
+    <files-path name="themes" path="themes/"/>
+</paths>

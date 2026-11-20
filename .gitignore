@@ -1,0 +1,16 @@
+.dart_tool/
+.idea/
+*.iml
+build/
+coverage/
+# Local server data (uploaded media)
+/data/
+server/data/
+# Go build output
+/server/hanashi-server
+# Packages built by packaging/*/build-*.sh
+/dist/
+
+# Sticker art as it came, to make packs of (see app/tool/make_sticker_pack.py):
+# packs are not part of the repository.
+/stickers/

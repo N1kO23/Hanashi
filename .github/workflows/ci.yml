@@ -1,0 +1,500 @@
+# Tests every change (server, protocol, app, and the Linux desktop app end to
+# end). Builds the app for every platform only for a tag like v0.2.0, or when
+# run by hand, and keeps the builds as workflow artifacts: the builds take
+# most of the Actions minutes, macOS's above all. A tag also publishes them
+# as a GitHub release, once the tests pass.
+#
+# Android release signing uses these repository secrets when they are set:
+#   ANDROID_KEYSTORE_BASE64    the .jks keystore, base64-encoded
+#   ANDROID_KEYSTORE_PASSWORD
+#   ANDROID_KEY_ALIAS
+#   ANDROID_KEY_PASSWORD
+# Without them the APK is signed with a throwaway key, and installed copies
+# cannot be updated by later builds.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: 3.50.0
+  # The MariaDB service of the test jobs (see server/internal/testdb).
+  HANASHI_TEST_DSN: root:hanashi-test@tcp(127.0.0.1:3306)/
+  APPIMAGETOOL_URL: https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+  APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+
+jobs:
+  server-tests:
+    name: Server tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      mariadb: &mariadb
+        image: mariadb:11.8
+        env:
+          MARIADB_ROOT_PASSWORD: hanashi-test
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s --health-timeout 5s --health-retries 30
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: Formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [[ -n "$unformatted" ]]; then
+            echo "::error::Not gofmt-formatted: $unformatted"
+            exit 1
+          fi
+      - run: go vet ./...
+      - run: go test -race ./...
+
+  app-tests:
+    name: App tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      mariadb: *mariadb
+    steps:
+      - uses: actions/checkout@v7
+      # The tray's native library (nativeapi) is compiled for the tests too.
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang pkg-config libgtk-3-dev libx11-dev libxi-dev
+      # The sync tests build and run the real server.
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: |
+          (cd protocol && dart analyze)
+          (cd app && dart analyze)
+      - name: Protocol tests
+        working-directory: protocol
+        run: dart test
+      - name: App tests
+        working-directory: app
+        # Widgets, screenshots (goldens) and sync against the real server.
+        run: flutter test
+      - name: Keep the screenshots that differ
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-failures
+          path: app/test/failures/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  desktop-tests:
+    name: Desktop tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      mariadb: *mariadb
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install build and desktop dependencies
+        # A virtual display, a window manager (the test maximizes the window),
+        # a notification server, ffmpeg for test videos and audio, and
+        # patchelf to package.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libsecret-1-dev libmpv-dev libepoxy-dev libx11-dev libxi-dev libpipewire-0.3-dev xvfb openbox dunst \
+            dbus-x11 ffmpeg patchelf
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: The real app end to end, and the desktop shell
+        working-directory: app
+        # One file per run: Flutter cannot start a second test app on Linux
+        # within one `flutter test` run.
+        run: |
+          xvfb-run -a -s "-screen 0 1600x1000x24" dbus-run-session -- bash -ec '
+            openbox & dunst &
+            sleep 2
+            flutter test integration_test/app_e2e_test.dart -d linux
+            flutter test integration_test/desktop_shell_test.dart -d linux
+            flutter test integration_test/media_viewer_test.dart -d linux
+          '
+      - name: Media plays in the packaged app
+        working-directory: app
+        # The viewer test again, built as an app and packaged as the Linux
+        # releases are, with their own libmpv: packaging mistakes (such as a
+        # second libmpv from the system) only show there. The test app keeps
+        # running after its tests.
+        run: |
+          flutter build linux --debug -t integration_test/media_viewer_test.dart
+          out="$RUNNER_TEMP/viewer"
+          ../packaging/linux/package.sh build/linux/x64/debug/bundle "$out" viewer-test 0.0.0
+          tar -xzf "$out/viewer-test.tar.gz" -C "$out"
+          xvfb-run -a -s "-screen 0 1600x1000x24" timeout 300 "$out/hanashi/hanashi" > "$out/log" 2>&1 || true
+          cat "$out/log"
+          grep -q 'All tests passed' "$out/log"
+
+  # Only for a tag or a run by hand; the builds need it, so they are skipped
+  # along with it.
+  version:
+    name: Version
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.version.outputs.name }}
+      number: ${{ steps.version.outputs.number }}
+      label: ${{ steps.version.outputs.label }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: version
+        name: Work out the version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            label="$GITHUB_REF_NAME"
+            name="${GITHUB_REF_NAME#v}"
+          else
+            name="$(sed -n 's/^version: *\([^+]*\).*/\1/p' app/pubspec.yaml)"
+            label="$name-${GITHUB_SHA::7}"
+          fi
+          # Apple and Android version names must be plain numbers (0.2.0, not 0.2.0-beta.1).
+          name="${name%%-*}"
+          if [[ ! "$name" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '$name' is not like 1.2.3"
+            exit 1
+          fi
+          {
+            echo "name=$name"
+            echo "number=$GITHUB_RUN_NUMBER"
+            echo "label=$label"
+          } >> "$GITHUB_OUTPUT"
+          echo "Building $label (version $name, build $GITHUB_RUN_NUMBER)"
+
+  android:
+    name: Android
+    needs: version
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      # Three CPU types of native code fill the runner's disk otherwise.
+      # (Toolchains this job never uses; the Android SDK stays.)
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift
+          df -h /
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Release signing key
+        if: env.ANDROID_KEYSTORE_BASE64 != ''
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+      - name: No release signing key
+        if: env.ANDROID_KEYSTORE_BASE64 == ''
+        run: echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; the APK is signed with a throwaway key and cannot update earlier installs."
+      - name: Build
+        working-directory: app
+        # One APK per CPU type: a universal one is three times as large.
+        # Phones are arm64-v8a; old phones armeabi-v7a; emulators x86_64.
+        run: flutter build apk --release --split-per-abi --build-name=${{ needs.version.outputs.name }} --build-number=${{ needs.version.outputs.number }}
+      - name: Package
+        run: |
+          mkdir dist
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            cp "app/build/app/outputs/flutter-apk/app-$abi-release.apk" "dist/hanashi-${{ needs.version.outputs.label }}-android-$abi.apk"
+          done
+      # One artifact per file, downloaded as the file itself (not zipped).
+      - uses: actions/upload-artifact@v7
+        with:
+          path: dist/hanashi-${{ needs.version.outputs.label }}-android-arm64-v8a.apk
+          archive: false
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        with:
+          path: dist/hanashi-${{ needs.version.outputs.label }}-android-armeabi-v7a.apk
+          archive: false
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        with:
+          path: dist/hanashi-${{ needs.version.outputs.label }}-android-x86_64.apk
+          archive: false
+          retention-days: 7
+
+  linux:
+    name: Linux
+    needs: version
+    # The oldest supported Ubuntu: the packages need at least the C library
+    # they were built against.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install build dependencies
+        # PipeWire's headers for sharing screens and windows on Wayland
+        # (app/linux/webrtc); the library itself is loaded at run time.
+        # packaging/linux/Dockerfile installs the same for local builds.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libsecret-1-dev libmpv-dev libepoxy-dev libx11-dev libxi-dev libpipewire-0.3-dev patchelf zsync
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Dependencies
+        run: flutter pub get
+      - name: Find the openmls package
+        id: openmls
+        run: |
+          dir="$(jq -r '.packages[] | select(.name == "openmls") | .rootUri | sub("^file://"; "")' .dart_tool/package_config.json)"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+          echo "version=$(basename "$dir")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        with:
+          path: ~/openmls-target
+          key: ${{ steps.openmls.outputs.version }}-ubuntu-22.04
+      - name: Build openmls for this C library
+        # Its published binary needs glibc 2.38; built here, it runs wherever
+        # the rest of the app does. The openmls build hook prefers a library
+        # in its rust/target/release/, and refuses one without the crate version
+        # and lock file it was built from, which its `make build` leaves there.
+        # (packaging/linux/container-build.sh does the same for local builds.)
+        env:
+          OPENMLS: ${{ steps.openmls.outputs.dir }}
+        run: |
+          export CARGO_TARGET_DIR="$HOME/openmls-target"
+          rustup toolchain install stable --profile minimal
+          cargo +stable build --release --locked --manifest-path "$OPENMLS/rust/Cargo.toml"
+          mkdir -p "$OPENMLS/rust/target/release"
+          cp "$CARGO_TARGET_DIR/release/libopenmls_frb.so" "$OPENMLS/rust/target/release/"
+          sed -n 's/^version = "\([^"]*\)".*/\1/p;T;q' "$OPENMLS/rust/Cargo.toml" > "$OPENMLS/rust/target/release/.crate-version"
+          cp "$OPENMLS/rust/Cargo.lock" "$OPENMLS/rust/target/release/.cargo-lock"
+      - name: Build
+        working-directory: app
+        run: flutter build linux --release --build-name=${{ needs.version.outputs.name }} --build-number=${{ needs.version.outputs.number }}
+      - name: Package
+        env:
+          NAME: hanashi-${{ needs.version.outputs.label }}-linux-x64
+          # Releases tell AppImage updaters where newer versions are.
+          UPDATE_INFO: ${{ startsWith(github.ref, 'refs/tags/v') && format('gh-releases-zsync|{0}|{1}|latest|hanashi-*-linux-x64.AppImage.zsync', github.repository_owner, github.event.repository.name) || '' }}
+          DEB_HOMEPAGE: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          mkdir dist
+          curl -sSfL -o "$RUNNER_TEMP/appimagetool" "$APPIMAGETOOL_URL"
+          echo "$APPIMAGETOOL_SHA256  $RUNNER_TEMP/appimagetool" | sha256sum -c
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          APPIMAGETOOL="$RUNNER_TEMP/appimagetool" packaging/linux/package.sh app/build/linux/x64/release/bundle dist \
+            "$NAME" "${{ needs.version.outputs.name }}+${{ needs.version.outputs.number }}" "$UPDATE_INFO"
+      # One artifact per file, downloaded as the file itself (not zipped).
+      - uses: actions/upload-artifact@v7
+        with:
+          path: dist/hanashi-${{ needs.version.outputs.label }}-linux-x64.AppImage
+          archive: false
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          path: dist/hanashi-${{ needs.version.outputs.label }}-linux-x64.AppImage.zsync
+          archive: false
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        with:
+          path: dist/hanashi-${{ needs.version.outputs.label }}-linux-x64.deb
+          archive: false
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        with:
+          path: dist/hanashi-${{ needs.version.outputs.label }}-linux-x64.tar.gz
+          archive: false
+          retention-days: 7
+
+  windows:
+    name: Windows
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Build and package
+        # The installer and the .zip, as packaging/windows/build-installer.ps1
+        # builds them on any Windows machine (it installs Inno Setup here if
+        # the runner lacks it).
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.version.outputs.name }}
+          NUMBER: ${{ needs.version.outputs.number }}
+          NAME: hanashi-${{ needs.version.outputs.label }}-windows-x64
+        run: ./packaging/windows/build-installer.ps1 -Version $env:VERSION -BuildNumber $env:NUMBER -Name $env:NAME
+      # One artifact per file, downloaded as the file itself (not zipped).
+      - uses: actions/upload-artifact@v7
+        with:
+          path: dist/hanashi-${{ needs.version.outputs.label }}-windows-x64-setup.exe
+          archive: false
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        with:
+          path: dist/hanashi-${{ needs.version.outputs.label }}-windows-x64.zip
+          archive: false
+          retention-days: 7
+
+  macos:
+    name: macOS
+    needs: version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Build
+        working-directory: app
+        run: flutter build macos --release --build-name=${{ needs.version.outputs.name }} --build-number=${{ needs.version.outputs.number }}
+      - name: Package
+        # Ad-hoc signed and not notarized. A disk image to drag into
+        # Applications, and a zip of the app.
+        run: |
+          mkdir -p dist dmg
+          app=app/build/macos/Build/Products/Release/Hanashi.app
+          ditto -c -k --sequesterRsrc --keepParent "$app" "dist/hanashi-${{ needs.version.outputs.label }}-macos.zip"
+          ditto "$app" dmg/Hanashi.app
+          ln -s /Applications dmg/Applications
+          # hdiutil now and then fails on CI runners ("Resource busy"): retry.
+          for attempt in 1 2 3 4 5; do
+            hdiutil create -volname Hanashi -srcfolder dmg -fs HFS+ -format UDZO \
+              "dist/hanashi-${{ needs.version.outputs.label }}-macos.dmg" && break
+            [[ $attempt == 5 ]] && exit 1
+            sleep $((attempt * 5))
+          done
+      # One artifact per file, downloaded as the file itself (not zipped).
+      - uses: actions/upload-artifact@v7
+        with:
+          path: dist/hanashi-${{ needs.version.outputs.label }}-macos.dmg
+          archive: false
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        with:
+          path: dist/hanashi-${{ needs.version.outputs.label }}-macos.zip
+          archive: false
+          retention-days: 7
+
+  ios:
+    name: iOS
+    needs: version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Build
+        working-directory: app
+        run: flutter build ios --release --no-codesign --build-name=${{ needs.version.outputs.name }} --build-number=${{ needs.version.outputs.number }}
+      - name: Package
+        # Unsigned: install with a sideloading tool that signs it (AltStore, Sideloadly).
+        run: |
+          mkdir -p dist ipa/Payload
+          cp -R app/build/ios/iphoneos/Runner.app ipa/Payload/
+          (cd ipa && zip -qry "../dist/hanashi-${{ needs.version.outputs.label }}-ios-unsigned.ipa" Payload)
+      # One artifact per file, downloaded as the file itself (not zipped).
+      - uses: actions/upload-artifact@v7
+        with:
+          path: dist/hanashi-${{ needs.version.outputs.label }}-ios-unsigned.ipa
+          archive: false
+          retention-days: 7
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs:
+      [
+        version,
+        server-tests,
+        app-tests,
+        desktop-tests,
+        android,
+        linux,
+        windows,
+        macos,
+        ios,
+      ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: hanashi-*
+          path: dist
+          merge-multiple: true
+          # Each is the file itself; the Windows and macOS .zip files would
+          # otherwise be unpacked into folders.
+          skip-decompress: true
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum -- * > SHA256SUMS.txt
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          ls -l dist
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            prerelease=()
+            [[ "$TAG" == *-* ]] && prerelease=(--prerelease)
+            gh release create "$TAG" dist/* --title "Hanashi $TAG" --generate-notes --verify-tag "${prerelease[@]}"
+          fi

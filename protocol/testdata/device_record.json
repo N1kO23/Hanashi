@@ -1,0 +1,7 @@
+{
+  "comment": "Shared by the Dart and Go tests: the exact bytes an identity key signs for a device.",
+  "userId": "alice@example.org",
+  "deviceId": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+  "mlsSigKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "message": "aGFuYXNoaS1kZXZpY2UtdjEKYWxpY2VAZXhhbXBsZS5vcmcKMDFKQjJZOFEzTTdXMlY2VDBROVg0QzVENkUKQUFFQ0F3UUZCZ2NJQ1FvTERBME9EeEFSRWhNVUZSWVhHQmthR3h3ZEhoOD0="
+}

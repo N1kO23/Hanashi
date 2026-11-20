@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Hanashi
+GenericName=Chat
+Comment=End-to-end encrypted chat on your own server
+Exec=hanashi
+Icon=app.nullpointr.hanashi
+Terminal=false
+Categories=Network;InstantMessaging;Chat;
+Keywords=messenger;chat;encrypted;
+StartupNotify=true
+StartupWMClass=app.nullpointr.hanashi

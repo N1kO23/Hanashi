@@ -1,0 +1,20 @@
+# LiveKit for Hanashi's voice calls (see docs/calls.md): with
+# `docker compose --profile calls up`, or by itself.
+port: 7880
+rtc:
+  tcp_port: 7881
+  udp_port: 7882
+  # Your machine's address on the network, so that phones there reach it; on
+  # the internet, use_external_ip: true instead (or its public address here).
+  # node_ip: 192.168.1.10
+  use_external_ip: false
+keys:
+  # The key and secret of HANASHI_LIVEKIT_API_KEY and HANASHI_LIVEKIT_API_SECRET.
+  # Change the secret: 32 or more random characters.
+  hanashi: change-me-to-32-or-more-random-characters
+webhook:
+  api_key: hanashi
+  urls:
+    # The Hanashi server: this is its name in docker-compose.yml; with
+    # LiveKit on the host network, http://127.0.0.1:8080/livekit/webhook.
+    - http://hanashi:8080/livekit/webhook

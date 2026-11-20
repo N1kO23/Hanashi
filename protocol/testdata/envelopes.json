@@ -1,0 +1,308 @@
+{
+  "comment": "Shared by the Dart protocol tests and the Go server tests; both implementations must agree. Envelopes on the wire are always end-to-end encrypted (v3).",
+  "valid": [
+    {
+      "v": 3,
+      "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+      "conv": "01JB2Y7Z0000000000000000AB",
+      "from": "yuriko@localhost",
+      "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+      "ts": 1729600000000,
+      "type": "mls.app",
+      "body": {
+        "epoch": 3,
+        "mls": "bWxzLXByaXZhdGUtbWVzc2FnZQ==",
+        "ct": "bm9uY2UrY2lwaGVydGV4dCt0YWc="
+      }
+    },
+    {
+      "v": 3,
+      "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+      "conv": "01JB2Y7Z0000000000000000AB",
+      "from": "sota@chat.example.org:8443",
+      "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+      "ts": 1729600000000,
+      "type": "mls.app",
+      "body": {
+        "epoch": 3,
+        "mls": "bWxzLXByaXZhdGUtbWVzc2FnZQ==",
+        "ct": "bm9uY2UrY2lwaGVydGV4dCt0YWc="
+      }
+    },
+    {
+      "v": 3,
+      "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+      "conv": "01JB2Y7Z0000000000000000AB",
+      "from": "yuriko@localhost",
+      "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+      "ts": 1729600000000,
+      "type": "mls.app",
+      "body": {
+        "epoch": 0,
+        "mls": "bQ==",
+        "ct": "Yw=="
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "plaintext v1 text message",
+      "envelope": {
+        "v": 1,
+        "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+        "conv": "c",
+        "from": "a@b",
+        "ts": 1,
+        "type": "text",
+        "body": {
+          "text": "hi"
+        }
+      }
+    },
+    {
+      "reason": "plaintext type in a v3 envelope",
+      "envelope": {
+        "v": 3,
+        "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+        "conv": "01JB2Y7Z0000000000000000AB",
+        "from": "yuriko@localhost",
+        "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+        "ts": 1729600000000,
+        "type": "text",
+        "body": {
+          "text": "hi"
+        }
+      }
+    },
+    {
+      "reason": "id is not a ULID",
+      "envelope": {
+        "v": 3,
+        "id": "nope",
+        "conv": "01JB2Y7Z0000000000000000AB",
+        "from": "yuriko@localhost",
+        "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+        "ts": 1729600000000,
+        "type": "mls.app",
+        "body": {
+          "epoch": 3,
+          "mls": "bWxzLXByaXZhdGUtbWVzc2FnZQ==",
+          "ct": "bm9uY2UrY2lwaGVydGV4dCt0YWc="
+        }
+      }
+    },
+    {
+      "reason": "I is not Crockford base32",
+      "envelope": {
+        "v": 3,
+        "id": "01ARZ3NDEKTSV4RRFFQ69G5FAI",
+        "conv": "01JB2Y7Z0000000000000000AB",
+        "from": "yuriko@localhost",
+        "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+        "ts": 1729600000000,
+        "type": "mls.app",
+        "body": {
+          "epoch": 3,
+          "mls": "bWxzLXByaXZhdGUtbWVzc2FnZQ==",
+          "ct": "bm9uY2UrY2lwaGVydGV4dCt0YWc="
+        }
+      }
+    },
+    {
+      "reason": "device missing",
+      "envelope": {
+        "v": 3,
+        "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+        "conv": "01JB2Y7Z0000000000000000AB",
+        "from": "yuriko@localhost",
+        "ts": 1729600000000,
+        "type": "mls.app",
+        "body": {
+          "epoch": 3,
+          "mls": "bWxzLXByaXZhdGUtbWVzc2FnZQ==",
+          "ct": "bm9uY2UrY2lwaGVydGV4dCt0YWc="
+        }
+      }
+    },
+    {
+      "reason": "device is not a ULID",
+      "envelope": {
+        "v": 3,
+        "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+        "conv": "01JB2Y7Z0000000000000000AB",
+        "from": "yuriko@localhost",
+        "device": "laptop",
+        "ts": 1729600000000,
+        "type": "mls.app",
+        "body": {
+          "epoch": 3,
+          "mls": "bWxzLXByaXZhdGUtbWVzc2FnZQ==",
+          "ct": "bm9uY2UrY2lwaGVydGV4dCt0YWc="
+        }
+      }
+    },
+    {
+      "reason": "from has no host",
+      "envelope": {
+        "v": 3,
+        "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+        "conv": "01JB2Y7Z0000000000000000AB",
+        "from": "nohost",
+        "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+        "ts": 1729600000000,
+        "type": "mls.app",
+        "body": {
+          "epoch": 3,
+          "mls": "bWxzLXByaXZhdGUtbWVzc2FnZQ==",
+          "ct": "bm9uY2UrY2lwaGVydGV4dCt0YWc="
+        }
+      }
+    },
+    {
+      "reason": "uppercase name",
+      "envelope": {
+        "v": 3,
+        "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+        "conv": "01JB2Y7Z0000000000000000AB",
+        "from": "Yuriko@b",
+        "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+        "ts": 1729600000000,
+        "type": "mls.app",
+        "body": {
+          "epoch": 3,
+          "mls": "bWxzLXByaXZhdGUtbWVzc2FnZQ==",
+          "ct": "bm9uY2UrY2lwaGVydGV4dCt0YWc="
+        }
+      }
+    },
+    {
+      "reason": "ts is not an integer",
+      "envelope": {
+        "v": 3,
+        "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+        "conv": "01JB2Y7Z0000000000000000AB",
+        "from": "yuriko@localhost",
+        "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+        "ts": 1.5,
+        "type": "mls.app",
+        "body": {
+          "epoch": 3,
+          "mls": "bWxzLXByaXZhdGUtbWVzc2FnZQ==",
+          "ct": "bm9uY2UrY2lwaGVydGV4dCt0YWc="
+        }
+      }
+    },
+    {
+      "reason": "empty conv",
+      "envelope": {
+        "v": 3,
+        "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+        "conv": "",
+        "from": "yuriko@localhost",
+        "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+        "ts": 1729600000000,
+        "type": "mls.app",
+        "body": {
+          "epoch": 3,
+          "mls": "bWxzLXByaXZhdGUtbWVzc2FnZQ==",
+          "ct": "bm9uY2UrY2lwaGVydGV4dCt0YWc="
+        }
+      }
+    },
+    {
+      "reason": "body missing",
+      "envelope": {
+        "v": 3,
+        "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+        "conv": "01JB2Y7Z0000000000000000AB",
+        "from": "yuriko@localhost",
+        "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+        "ts": 1729600000000,
+        "type": "mls.app"
+      }
+    },
+    {
+      "reason": "epoch missing",
+      "envelope": {
+        "v": 3,
+        "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+        "conv": "01JB2Y7Z0000000000000000AB",
+        "from": "yuriko@localhost",
+        "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+        "ts": 1729600000000,
+        "type": "mls.app",
+        "body": {
+          "mls": "bQ==",
+          "ct": "Yw=="
+        }
+      }
+    },
+    {
+      "reason": "negative epoch",
+      "envelope": {
+        "v": 3,
+        "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+        "conv": "01JB2Y7Z0000000000000000AB",
+        "from": "yuriko@localhost",
+        "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+        "ts": 1729600000000,
+        "type": "mls.app",
+        "body": {
+          "epoch": -1,
+          "mls": "bQ==",
+          "ct": "Yw=="
+        }
+      }
+    },
+    {
+      "reason": "mls is not base64",
+      "envelope": {
+        "v": 3,
+        "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+        "conv": "01JB2Y7Z0000000000000000AB",
+        "from": "yuriko@localhost",
+        "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+        "ts": 1729600000000,
+        "type": "mls.app",
+        "body": {
+          "epoch": 3,
+          "mls": "not base64!",
+          "ct": "Yw=="
+        }
+      }
+    },
+    {
+      "reason": "ct missing",
+      "envelope": {
+        "v": 3,
+        "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+        "conv": "01JB2Y7Z0000000000000000AB",
+        "from": "yuriko@localhost",
+        "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+        "ts": 1729600000000,
+        "type": "mls.app",
+        "body": {
+          "epoch": 3,
+          "mls": "bQ=="
+        }
+      }
+    },
+    {
+      "reason": "empty ct",
+      "envelope": {
+        "v": 3,
+        "id": "01JB2Y8Q3M7W2V6T0Q9X4C5D6E",
+        "conv": "01JB2Y7Z0000000000000000AB",
+        "from": "yuriko@localhost",
+        "device": "01JB2Y8Q3M7W2V6T0Q9X4C5D6F",
+        "ts": 1729600000000,
+        "type": "mls.app",
+        "body": {
+          "epoch": 3,
+          "mls": "bQ==",
+          "ct": ""
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+name: hanashi_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+workspace:
+  - protocol
+  - app
+
+hooks:
+  user_defines:
+    sqlite3:
+      # SQLite3MultipleCiphers instead of plain SQLite, so that the app's local
+      # database can be encrypted (see AppStorage.openDatabase).
+      source: sqlite3mc
