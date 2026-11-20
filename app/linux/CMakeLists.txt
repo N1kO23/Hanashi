@@ -2,9 +2,9 @@
 cmake_minimum_required(VERSION 3.13)
 project(runner LANGUAGES CXX)
 
-# The name of the executable created for the application. Change this to change
-# the on-disk name of your application.
-set(BINARY_NAME "hanashi")
+# The name of the executable created for the application. Not "hanashi": the
+# packages' launcher, which starts it, has that name (packaging/linux/package.sh).
+set(BINARY_NAME "hanashi_app")
 # The unique GTK application identifier for this application. See:
 # https://wiki.gnome.org/HowDoI/ChooseApplicationID
 set(APPLICATION_ID "app.nullpointr.hanashi")

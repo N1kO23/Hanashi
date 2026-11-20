@@ -33,7 +33,13 @@ version=$4
 update_info=${5:-}
 here=$(dirname "$(realpath "$0")")
 app_id=app.nullpointr.hanashi
-binary=hanashi
+# The app's executable (BINARY_NAME in app/linux/CMakeLists.txt). It is not
+# named hanashi: that is the launcher's name, below, which starts it.
+binary=hanashi_app
+if [[ ! -x "$bundle/$binary" ]]; then
+  echo "No $binary in $bundle" >&2
+  exit 1
+fi
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
