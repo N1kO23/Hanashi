@@ -606,6 +606,14 @@ class _Unavailable implements Exception {
   String toString() => 'It is not available.';
 }
 
+/// The player's controls for this kind of device: the phone's or the
+/// desktop's, as the viewer's own bars expect. media_kit's own choice
+/// (`AdaptiveVideoControls`) goes by `package:flutter/material`'s theme,
+/// which this app (on material_ui) does not have; without one, that is a
+/// theme made once, for whichever platform it was first asked on.
+VideoControlsBuilder get _videoControls =>
+    _MediaViewerScreenState._phone ? MaterialVideoControls : MaterialDesktopVideoControls;
+
 class _VideoView extends ConsumerStatefulWidget {
   const _VideoView({required this.load, this.audio = false, this.loop = false, this.bar});
 
@@ -682,7 +690,7 @@ class _VideoViewState extends ConsumerState<_VideoView> {
     }
     if (widget.loop) return Video(controller: controller, controls: NoVideoControls);
     if (!widget.audio) {
-      if (bar == null) return Video(controller: controller);
+      if (bar == null) return Video(controller: controller, controls: _videoControls);
       // The controls (the bar among them) keep clear of the system's bars,
       // while the video fills the screen.
       final padding = MediaQuery.paddingOf(context);
@@ -702,7 +710,7 @@ class _VideoViewState extends ConsumerState<_VideoView> {
             topButtonBarMargin: EdgeInsets.zero,
           ),
           fullscreen: kDefaultMaterialDesktopVideoControlsThemeDataFullscreen,
-          child: Video(controller: controller),
+          child: Video(controller: controller, controls: _videoControls),
         ),
       );
     }
@@ -721,7 +729,7 @@ class _VideoViewState extends ConsumerState<_VideoView> {
           child: MaterialDesktopVideoControlsTheme(
             normal: desktop,
             fullscreen: desktop,
-            child: Video(controller: controller, fill: Colors.transparent),
+            child: Video(controller: controller, fill: Colors.transparent, controls: _videoControls),
           ),
         ),
       ],

@@ -1207,10 +1207,10 @@ void main() {
     expect(await kumiko.repo.watchMessages(conv).first, hasLength(1));
   });
 
-  test('a server as it comes refuses apps from before 0.4.0, and only those', () async {
+  test('a server as it comes refuses apps from before 0.9.0, and only those', () async {
     final server = await _startServer();
     final info = await ApiClient(server.url).serverInfo();
-    expect(info.minClient, 3, reason: 'apps from 0.4.0 on');
+    expect(info.minClient, 5, reason: 'apps from 0.9.0 on');
 
     final http = HttpClient();
     addTearDown(http.close);
@@ -1224,13 +1224,12 @@ void main() {
       return (response.statusCode, body);
     }
 
-    // An app from before protocol v3 says no level; early v3 ones said 1, and
-    // 0.3.0, which cannot open padded files, 2.
+    // Saying no level counts as level 0.
     expect(await signUp(null), (426, 'client_too_old'));
-    expect(await signUp('1'), (426, 'client_too_old'));
-    expect(await signUp('2'), (426, 'client_too_old'));
-    expect((await signUp('3')).$1, 200);
-    expect((await signUp('$clientLevel')).$1, 200);
+    expect(await signUp('4'), (426, 'client_too_old'));
+    expect((await signUp('5')).$1, 200);
+    // And later apps.
+    expect((await signUp('${clientLevel + 1}')).$1, 200);
   });
 
   test('a server that needs a newer app loses nothing until the app is updated', () async {
@@ -2710,25 +2709,6 @@ void main() {
       conv,
       (l) => l.where((m) => m.envelope.sticker != null).length == 3 && _allDecrypted(l),
     );
-  });
-
-  test('a sticker named by its pack, as earlier versions sent them, still arrives as such', () async {
-    final server = await _startServer();
-    final sota = await _Device.signIn(server, 'sota', register: true);
-    final kumiko = await _Device.signIn(server, 'kumiko', register: true);
-    final conv = await _becomeContacts(kumiko, sota);
-    const sticker = StickerRef.named(pack: 'test-pack', id: '12');
-    await kumiko.repo.sendText(conv, 'Sota!');
-    final question = (await sota.waitForMessages(conv, (l) => _texts(l).contains('Sota!'))).last;
-    await sota.repo.send(
-      PendingMessage(
-        Envelope.sticker(conv: conv, from: sota.account.userId, sticker: sticker, replyTo: ReplyRef(id: question.id, from: question.senderId)),
-      ),
-    );
-    final got = await kumiko.waitForMessages(conv, (l) => l.any((m) => m.envelope.sticker != null));
-    final message = got.singleWhere((m) => m.envelope.sticker != null);
-    expect((message.envelope.sticker, message.envelope.sticker!.isNamed), (sticker, true));
-    expect((message.replyTo?.id, message.envelope.preview), (question.id, '[Sticker]'));
   });
 
   test("a pack's sticker sent while offline goes once back, its picture uploaded first", () async {

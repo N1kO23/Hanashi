@@ -684,12 +684,14 @@ class ApiClient {
       ..headers.addAll(_headers)
       ..headers['content-type'] = mime
       ..contentLength = await file.length();
-    final response = _guard(
+    // The file streams in as the request goes. Nothing reads it if the
+    // request fails first (the server cannot be reached, say), so only the
+    // response is waited for: it says how the upload went.
+    unawaited(request.sink.addStream(file.openRead()).whenComplete(request.sink.close));
+    final response = await _guard(
       () async => http.Response.fromStream(await _http.send(request)),
     );
-    await file.openRead().forEach(request.sink.add);
-    await request.sink.close();
-    final hash = _decode(await response)['hash'] as String;
+    final hash = _decode(response)['hash'] as String;
     _log.debug('POST /media: $hash (${request.contentLength} bytes)');
     return hash;
   }
