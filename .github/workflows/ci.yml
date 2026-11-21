@@ -219,10 +219,12 @@ jobs:
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift
           df -h /
       - uses: actions/checkout@v7
+      # The Android Gradle plugin's lint (9.3) needs Java 21 to run; the app
+      # itself is still compiled for Java 17 (app/android/app/build.gradle.kts).
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
           cache: gradle
       - uses: subosito/flutter-action@v2
         with:
