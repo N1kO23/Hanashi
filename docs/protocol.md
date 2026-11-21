@@ -1347,9 +1347,13 @@ an HTTP status code. Except where noted, requests need
 `Authorization: Bearer <token>`. The key, MLS, inbox, verification, account
 data and push endpoints are listed in their sections above.
 
+`GET /server`'s `source` is where the server's source code is (an http(s)
+URL), which apps offer its users: the AGPL asks whoever runs a changed server
+for others to offer them its source. Servers before 1.0.0 leave it out.
+
 | Method and path                                   | Body / query                                                                                           | Response                                                                                                                                                                     |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /server` (no auth)                           |                                                                                                        | `{"host", "version", "registration": "open"\|"invite"\|"closed", "maxUploadBytes", "minClient", "vapidKey"}`                                                                 |
+| `GET /server` (no auth)                           |                                                                                                        | `{"host", "version", "registration": "open"\|"invite"\|"closed", "maxUploadBytes", "minClient", "vapidKey", "source"}`                                                       |
 | `GET /integrations`                               |                                                                                                        | `{"klipyApiKey"?, "calls"?, "video"?}`: the KLIPY API key for GIF search, if the operator set one; whether the server carries calls, and video in them (see [Calls](#calls)) |
 | `POST /auth/register` (no auth)                   | `{"name", "password", "inviteCode"?, "deviceName", "platform"}`                                        | `{"userId", "token", "deviceId"}`                                                                                                                                            |
 | `POST /auth/login` (no auth)                      | `{"name", "password", "deviceName", "platform"}`                                                       | same as register                                                                                                                                                             |

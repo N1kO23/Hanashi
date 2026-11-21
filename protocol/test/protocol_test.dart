@@ -121,6 +121,17 @@ void main() {
     expect(info.toJson()['minClient'], 3);
   });
 
+  test("server info says where the server's source is: a web address, or nothing", () {
+    final base = {'host': 'a.example', 'version': '1', 'registration': 'open', 'maxUploadBytes': 1};
+    expect(ServerInfo.fromJson(base).source, isNull);
+    final info = ServerInfo.fromJson({...base, 'source': 'https://git.a.example/hanashi'});
+    expect(info.source, Uri.parse('https://git.a.example/hanashi'));
+    expect(info.toJson()['source'], 'https://git.a.example/hanashi');
+    for (final other in ['', 'git.a.example/hanashi', 'javascript:alert(1)', 'file:///etc/passwd', 'https://']) {
+      expect(ServerInfo.fromJson({...base, 'source': other}).source, isNull, reason: other);
+    }
+  });
+
   group('Envelope', () {
     test("lines about members say only what a member can say about their own change", () {
       Map<String, Object?> json(Map<String, Object?> body) =>

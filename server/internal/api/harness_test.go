@@ -104,6 +104,7 @@ func startServerWithLog(t *testing.T, log *slog.Logger, opts ...serverOption) st
 		InviteCodes:    map[string]bool{},
 		MaxUploadBytes: 1000,
 		DatabaseDSN:    dsn,
+		SourceURL:      config.DefaultSourceURL,
 	}
 	for _, opt := range opts {
 		opt(&cfg)

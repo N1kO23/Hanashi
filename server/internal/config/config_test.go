@@ -48,6 +48,29 @@ func TestMinClient(t *testing.T) {
 	}
 }
 
+func TestSourceURL(t *testing.T) {
+	load := func(value string) (Config, error) {
+		env := map[string]string{"HANASHI_DB_DSN": "dsn", "HANASHI_SOURCE_URL": value}
+		return FromEnv(func(key string) (string, bool) {
+			v, ok := env[key]
+			return v, ok
+		})
+	}
+	cfg, err := load("")
+	if err != nil || cfg.SourceURL != DefaultSourceURL {
+		t.Fatalf("unset: %q, %v", cfg.SourceURL, err)
+	}
+	cfg, err = load("https://git.example.org/chat/hanashi")
+	if err != nil || cfg.SourceURL != "https://git.example.org/chat/hanashi" {
+		t.Fatalf("set: %q, %v", cfg.SourceURL, err)
+	}
+	for _, bad := range []string{"git.example.org/hanashi", "ftp://example.org/hanashi.tar", "https://", "mailto:a@b.c"} {
+		if _, err := load(bad); err == nil {
+			t.Errorf("%q was taken", bad)
+		}
+	}
+}
+
 func TestFederation(t *testing.T) {
 	load := func(env map[string]string) (Config, error) {
 		env["HANASHI_DB_DSN"] = "dsn"

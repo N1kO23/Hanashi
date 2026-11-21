@@ -22,7 +22,7 @@ func TestAccounts(t *testing.T) {
 	}
 	var info protocol.ServerInfo
 	yuriko.must("GET", "/server", nil, &info)
-	if info.Host != testHost || info.Registration != "open" {
+	if info.Host != testHost || info.Registration != "open" || info.Source != config.DefaultSourceURL {
 		t.Fatalf("server info %+v", info)
 	}
 

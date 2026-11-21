@@ -69,6 +69,9 @@ type ServerInfo struct {
 	// VAPIDKey is the server's push key (base64url P-256 point); clients
 	// register push subscriptions for it.
 	VAPIDKey string `json:"vapidKey"`
+	// Source is where the server's source code is (an http(s) URL), which
+	// apps offer its users, as the AGPL asks of a server run for others.
+	Source string `json:"source"`
 }
 
 // Integrations are services the operator set up for signed-in users.

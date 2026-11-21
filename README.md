@@ -4,7 +4,7 @@
 
 A self-hostable chat app with a UI inspired by the messenger in _Blue
 Archive_. The app is Flutter (Android, iOS, Linux, Windows and macOS); the
-server is Go with MariaDB. 0.9 starts afresh under a new name (see
+server is Go with MariaDB. 0.9 started afresh under a new name (see
 [Coming from 0.8 or earlier](#coming-from-08-or-earlier)).
 
 - Text, photos, videos (WebM too) and any other files; audio files play in
@@ -117,17 +117,19 @@ server is Go with MariaDB. 0.9 starts afresh under a new name (see
 
 ## Coming from 0.8 or earlier
 
-0.9 starts afresh, under the app's new name and with encryption of its own;
-nothing carries over, and earlier apps and servers cannot talk to it.
+0.9 started afresh, under the app's new name and with encryption of its own;
+nothing carries over from 0.8 or earlier, and those apps and servers cannot
+talk to 0.9 or later.
 
 - **Apps** install as a new app, beside the old one: sign in again and set
   up encryption anew (with a new recovery key). Uninstall the old app when
   you like; until then its data stays in its own folders.
-- **Servers** need an empty database, and their users sign up again: a 0.9
-  server does not start with an earlier version's database in use, and says
-  so. With `docker-compose.yml`, `docker compose up -d --remove-orphans`
-  starts afresh (its volumes have new names) and removes the old container;
-  the old volumes stay until you `docker volume rm` them.
+- **Servers** need an empty database, and their users sign up again: a
+  server of 0.9 or later does not start with an earlier version's database in
+  use, and says so. With `docker-compose.yml`,
+  `docker compose up -d --remove-orphans` starts afresh (its volumes have new
+  names) and removes the old container; the old volumes stay until you
+  `docker volume rm` them.
 - **Server settings** are named `HANASHI_*` now, in place of `MOMO_*`. A server
   takes no notice of the old names, so rename them in your environment or
   compose file before starting it.
@@ -180,6 +182,7 @@ Settings are environment variables:
 | `HANASHI_PUSH_CONTACT`       | `mailto:admin@HANASHI_HOST` | How push services can reach you (`mailto:` or `https:` URL)                                                                                         |
 | `HANASHI_PUSH_ALLOW_PRIVATE` | `false`                     | Allow push endpoints on private networks (a self-hosted ntfy on your LAN)                                                                           |
 | `HANASHI_KLIPY_API_KEY`      |                             | Turns on GIF search (see below)                                                                                                                     |
+| `HANASHI_SOURCE_URL`         | Hanashi's repository        | Where your server's source code is, which the apps show its users. Running a changed server? Point it at your source (see [License](#license))      |
 | `HANASHI_LIVEKIT_URL`        |                             | Turns on calls: where apps reach LiveKit (`wss://`, or `ws://` on a local network; see [Calls](docs/calls.md))                                      |
 | `HANASHI_LIVEKIT_API_URL`    | from `HANASHI_LIVEKIT_URL`  | Where the server reaches LiveKit's API                                                                                                              |
 | `HANASHI_LIVEKIT_API_KEY`    |                             | The key LiveKit knows the server by                                                                                                                 |
@@ -456,7 +459,8 @@ Copyright © 2026 Niko Huuskonen.
 Hanashi, the app and the server, is free software: you can redistribute it and
 modify it under the terms of the GNU Affero General Public License, version 3
 ([LICENSE](LICENSE)). It comes with no warranty. If you run a modified server
-for others, the license asks you to offer them its source.
+for others, the license asks you to offer them its source: put it online and
+set `HANASHI_SOURCE_URL` to where it is, and the apps show your users that link.
 
 The emoji font the tests use is a subset of Noto Color Emoji, under the SIL
 Open Font License ([app/test/fonts/OFL.txt](app/test/fonts/OFL.txt)).

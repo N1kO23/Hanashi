@@ -468,17 +468,20 @@ final pushRegistrationProvider = FutureProvider<bool>((ref) async {
 
 const _permissionAskedKey = 'notify.permission-asked';
 
-/// The server's push key (null if it has none).
-final vapidKeyProvider = FutureProvider<String?>((ref) async {
+/// What the user's server says of itself (`GET /server`); null signed out.
+final serverInfoProvider = FutureProvider<ServerInfo?>((ref) async {
   final account = ref.watch(accountProvider.select((a) => a.value));
   if (account == null) return null;
   final api = ApiClient(account.serverUrl);
   try {
-    return (await api.serverInfo()).vapidKey;
+    return await api.serverInfo();
   } finally {
     api.close();
   }
 });
+
+/// The server's push key (null if it has none).
+final vapidKeyProvider = FutureProvider<String?>((ref) async => (await ref.watch(serverInfoProvider.future))?.vapidKey);
 
 final notificationPreferencesProvider = AsyncNotifierProvider<NotificationPreferencesController, NotificationPreferences>(
   NotificationPreferencesController.new,

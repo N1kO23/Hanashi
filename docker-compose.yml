@@ -40,6 +40,9 @@ services:
       # HANASHI_PUSH_CONTACT: mailto:you@example.org
       # Klipy key that is provided for clients to search gifs
       HANASHI_KLIPY_API_KEY: ""
+      # Where this server's source code is; the apps show it to its users.
+      # Running a changed server? Set it to where your changed source is.
+      # HANASHI_SOURCE_URL: https://git.example.org/you/hanashi
       # Voice calls through the livekit service below (docs/calls.md): start
       # it with `docker compose --profile calls up`. Apps reach LiveKit at
       # HANASHI_LIVEKIT_URL (this machine's address on the network), this server

@@ -22,13 +22,14 @@ import '../profile/profile_card.dart';
 import '../widgets/format.dart';
 import '../widgets/list_header.dart';
 import '../widgets/presence.dart';
+import 'about_settings.dart';
 import 'appearance_settings.dart';
 import 'log_view.dart';
 import 'chat_look_settings.dart';
 import 'notification_settings.dart';
 
-/// Account, encryption, notifications, appearance, signed-in devices and
-/// sign-out.
+/// Account, encryption, notifications, appearance, signed-in devices, about
+/// the app, and sign-out.
 class SettingsPane extends ConsumerWidget {
   const SettingsPane({super.key});
 
@@ -105,6 +106,8 @@ class SettingsPane extends ConsumerWidget {
             error: (e, _) => [ListTile(title: Text('Could not load devices: $e'))],
             data: (list) => [for (final d in list) _DeviceTile(device: d)],
           ),
+          const ListHeader(title: 'About'),
+          const AboutSettings(),
           const Divider(),
           Padding(
             padding: const EdgeInsets.all(16),

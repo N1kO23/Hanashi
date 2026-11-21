@@ -55,6 +55,11 @@ type Config struct {
 	// KlipyAPIKey enables GIF search: signed-in apps get it and call KLIPY
 	// themselves (KLIPY does not allow calls through a server).
 	KlipyAPIKey string
+	// SourceURL is where this server's source code is; apps show it to its
+	// users. The AGPL asks whoever runs a changed server for others to offer
+	// them its source, so a changed server's operator points it at theirs.
+	// DefaultSourceURL unless set.
+	SourceURL string
 	// LogLevel is the least important level logged. Debug adds each lease,
 	// commit, key change, sync and WebSocket frame, by user and device (never
 	// message contents, keys or tokens).
@@ -99,6 +104,10 @@ type Config struct {
 func (c Config) Calls() bool { return c.LiveKitURL != "" }
 
 var klipyAPIKey = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+// DefaultSourceURL is Hanashi's own repository: the source of a server that
+// nobody changed.
+const DefaultSourceURL = "https://github.com/N1kO23/Hanashi"
 
 func (c Config) MediaDir() string { return filepath.Join(c.DataDir, "media") }
 
@@ -168,6 +177,10 @@ func FromEnv(lookup func(string) (string, bool)) (Config, error) {
 	cfg.KlipyAPIKey = get("HANASHI_KLIPY_API_KEY", "")
 	if cfg.KlipyAPIKey != "" && !klipyAPIKey.MatchString(cfg.KlipyAPIKey) {
 		return cfg, fmt.Errorf("HANASHI_KLIPY_API_KEY may only contain letters, digits, \"-\" and \"_\"")
+	}
+	cfg.SourceURL = get("HANASHI_SOURCE_URL", DefaultSourceURL)
+	if u, err := url.Parse(cfg.SourceURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return cfg, fmt.Errorf("HANASHI_SOURCE_URL must be an http:// or https:// URL")
 	}
 	if err := cfg.LogLevel.UnmarshalText([]byte(get("HANASHI_LOG_LEVEL", "info"))); err != nil {
 		return cfg, fmt.Errorf("HANASHI_LOG_LEVEL must be debug, info, warn or error")

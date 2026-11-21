@@ -14,6 +14,7 @@ void main() {
 
   test('the app bundles only its own files', () {
     expect(filesIn('assets'), [
+      'assets/LICENSE',
       for (final theme in ['default', 'ember', 'forest', 'graphite', 'lavender', 'ocean', 'sakura'])
         'assets/branding/icon_$theme.png',
       'assets/sounds/ringtone.wav',
@@ -28,7 +29,7 @@ void main() {
         for (final line in listed.split('\n'))
           if (line.trim().startsWith('- ')) line.trim().substring(2),
       ],
-      ['assets/branding/', 'assets/sounds/'],
+      ['assets/branding/', 'assets/sounds/', 'assets/LICENSE'],
     );
   });
 

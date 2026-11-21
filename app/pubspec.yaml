@@ -1,7 +1,7 @@
 name: hanashi
 description: "Hanashi, a self-hostable chat app."
 publish_to: 'none'
-version: 0.9.0+1
+version: 1.0.0+1
 
 resolution: workspace
 
@@ -84,6 +84,9 @@ flutter:
   assets:
     - assets/branding/
     - assets/sounds/
+    # The app's own license, shown with the others' (a copy of the
+    # repository's LICENSE; test/about_test.dart sees that it stays one).
+    - assets/LICENSE
 
 # Generate with: dart run flutter_launcher_icons (its pictures are drawn by
 # tool/make_default_icon.dart).

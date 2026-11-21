@@ -31,7 +31,7 @@ import (
 	"hanashi/server/internal/store"
 )
 
-const Version = "0.9.0"
+const Version = "1.0.0"
 
 const (
 	snapshotMessages = 30
@@ -349,6 +349,7 @@ func (a *API) serverInfo(w http.ResponseWriter, r *http.Request) {
 		MaxUploadBytes: a.cfg.MaxUploadBytes,
 		MinClient:      a.cfg.MinClient,
 		VAPIDKey:       a.push.VAPID().PublicKey(),
+		Source:         a.cfg.SourceURL,
 	})
 }
 

@@ -365,6 +365,7 @@ class ServerInfo {
     required this.maxUploadBytes,
     this.minClient = 0,
     this.vapidKey,
+    this.source,
   });
 
   /// The host part of user IDs on this server.
@@ -382,6 +383,11 @@ class ServerInfo {
   /// for: base64url of a P-256 point. Null on servers without push.
   final String? vapidKey;
 
+  /// Where the server's source code is, to offer its users (the AGPL asks
+  /// it of a server run for others): an http(s) URL. Null where the server
+  /// does not say (before 1.0.0) or names something else.
+  final Uri? source;
+
   factory ServerInfo.fromJson(Map<String, Object?> json) => ServerInfo(
     host: json['host'] as String,
     version: json['version'] as String,
@@ -390,6 +396,10 @@ class ServerInfo {
     minClient: json['minClient'] as int? ?? 0,
     vapidKey: switch (json['vapidKey']) {
       final String key when key.isNotEmpty => key,
+      _ => null,
+    },
+    source: switch (Uri.tryParse(json['source'] as String? ?? '')) {
+      final Uri url when (url.isScheme('https') || url.isScheme('http')) && url.host.isNotEmpty => url,
       _ => null,
     },
   );
@@ -401,6 +411,7 @@ class ServerInfo {
     'maxUploadBytes': maxUploadBytes,
     'minClient': minClient,
     'vapidKey': ?vapidKey,
+    'source': ?source?.toString(),
   };
 }
 
