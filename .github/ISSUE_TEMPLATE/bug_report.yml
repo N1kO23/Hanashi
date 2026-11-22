@@ -1,0 +1,53 @@
+name: Bug report
+description: Something does not work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting it. A security problem goes privately instead: see [SECURITY.md](https://github.com/N1kO23/Hanashi/blob/main/SECURITY.md).
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: Settings → About shows it.
+      placeholder: "1.0.5"
+    validations:
+      required: true
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: Platforms
+      description: Where it happens.
+      multiple: true
+      options: [Android, iOS, Linux, Windows, macOS]
+    validations:
+      required: true
+  - type: input
+    id: server-version
+    attributes:
+      label: Server version
+      description: Settings → About, under "Your server". Say too if your server federates with others.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: And what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen
+      placeholder: |
+        1. Open a group chat
+        2. ...
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: >
+        Settings → Diagnostics → View log, then copy it here ("Detailed" there records more).
+        It holds no messages or keys, but names your contacts, chats and devices:
+        remove what you would rather not share.
+      render: text

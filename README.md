@@ -381,7 +381,9 @@ git tag v0.2.0 && git push origin v0.2.0
 Before tagging, give the release its version in `app/pubspec.yaml`, in the
 server's `Version` (`server/internal/api/api.go`) and in the image
 `docker-compose.yml` names; CI stops if the last two are not the tag's.
-Runs without a tag check them against `app/pubspec.yaml`.
+Runs without a tag check them against `app/pubspec.yaml`. Then turn
+"Unreleased" in [CHANGELOG.md](CHANGELOG.md) into the version's section: it
+becomes the release's notes (GitHub's own, without one).
 
 A tag also pushes the server's image to Docker Hub, for amd64 and arm64, as
 `n1ko23/hanashi-server:<version>` and, unless it is a pre-release, `latest`
@@ -484,6 +486,12 @@ keyPassword=...
   it (its creator's, or for a direct chat the one sorting first) cannot be
   reached, and cannot move to another. Off-grid transports
   (Meshtastic/Reticulum) are far off. See [where these stand](docs/federation.md).
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome: see
+[CONTRIBUTING.md](CONTRIBUTING.md). [CHANGELOG.md](CHANGELOG.md) says what
+changed in each release.
 
 ## Security
 

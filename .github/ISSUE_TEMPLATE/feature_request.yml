@@ -1,0 +1,16 @@
+name: Idea
+description: Something Hanashi could do, or do better.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What would you like Hanashi to do?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What it is for
+      description: What you would use it for, and how you get along without it now.

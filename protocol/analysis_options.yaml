@@ -1,1 +1,5 @@
 include: package:lints/recommended.yaml
+
+# The width `dart format` (and editors formatting on save) wraps at.
+formatter:
+  page_width: 120

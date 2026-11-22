@@ -530,6 +530,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      # For CHANGELOG.md: the release's notes.
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: CHANGELOG.md
+          sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@v8
         with:
           pattern: hanashi-*
@@ -553,5 +558,18 @@ jobs:
           else
             prerelease=()
             [[ "$TAG" == *-* ]] && prerelease=(--prerelease)
-            gh release create "$TAG" dist/* --title "Hanashi $TAG" --generate-notes --verify-tag "${prerelease[@]}"
+            # The version's section of CHANGELOG.md, without its heading;
+            # GitHub's own notes for one it has none.
+            notes="$(awk -v version="${TAG#v}" '
+              index($0, "## [" version "]") == 1 { on = 1; next }
+              on && /^## \[/ { exit }
+              on && /^\[[^]]+\]: / { exit }
+              on { print }
+            ' CHANGELOG.md)"
+            if [[ -n "${notes//[[:space:]]/}" ]]; then
+              about=(--notes "$notes")
+            else
+              about=(--generate-notes)
+            fi
+            gh release create "$TAG" dist/* --title "Hanashi $TAG" "${about[@]}" --verify-tag "${prerelease[@]}"
           fi
