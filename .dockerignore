@@ -5,3 +5,4 @@ protocol
 docs
 data
 .git
+server/DOCKERHUB.md
