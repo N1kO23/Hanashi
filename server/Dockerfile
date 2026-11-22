@@ -14,7 +14,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags=
 # another CPU type.
 RUN mkdir -p /rootfs/data
 
-FROM alpine:3.22
+FROM alpine:3.24
 ARG VERSION=dev
 LABEL org.opencontainers.image.title="Hanashi server" \
       org.opencontainers.image.description="Server of Hanashi, a self-hosted, end-to-end encrypted chat app" \
