@@ -888,10 +888,18 @@ packages:
     dependency: transitive
     description:
       name: livekit_client
-      sha256: c63211bd5073b308417de2b048809c156f50cb5bda02713150478742be2a1bc1
+      sha256: d13e2d38f0795c416f65c3e2decb03e451d48bf03baa4c8225c8a8baa8b470ca
       url: "https://pub.dev"
     source: hosted
-    version: "2.13.2"
+    version: "2.14.0"
+  livekit_ffi:
+    dependency: transitive
+    description:
+      name: livekit_ffi
+      sha256: c107a4c63d5c2a37f878bf9af7582238e12dec69f3041c80193dd6a2ccb2c694
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.15.0"
   logger:
     dependency: transitive
     description:
@@ -1288,10 +1296,10 @@ packages:
     dependency: transitive
     description:
       name: sdp_transform
-      sha256: "73e412a5279a5c2de74001535208e20fff88f225c9a4571af0f7146202755e45"
+      sha256: "8bf8144bb612ff308896eb665a5045e2551038ebfbd3bc067969653dce7f1c90"
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.2"
+    version: "0.4.0"
   shared_preferences:
     dependency: transitive
     description:

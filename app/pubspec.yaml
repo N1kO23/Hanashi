@@ -37,7 +37,7 @@ dependencies:
   image: ^4.12.0
   image_picker: ^1.2.4
   # Pinned: later versions download a prebuilt Rust library while building.
-  livekit_client: 2.13.2
+  livekit_client: 2.14.0
   # LiveKit's own pin, for screen sources and capture consent.
   flutter_webrtc: 1.6.3
   # Material widgets: package:flutter/material.dart's successor (Flutter 3.50).
