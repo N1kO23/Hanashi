@@ -197,5 +197,8 @@ func (a *API) nack(conn *hub.Conn, c *Caller, rid string, err error) {
 	if apiErr.Message != "" {
 		frame["message"] = apiErr.Message
 	}
+	if server := serverOf(err); server != "" {
+		frame["server"] = server
+	}
 	conn.Send(frame)
 }

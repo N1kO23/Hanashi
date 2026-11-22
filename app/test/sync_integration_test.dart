@@ -199,6 +199,8 @@ class _Device {
     onUnverified: () {
       if (!unverified.isCompleted) unverified.complete();
     },
+    // What waits for another server is tried again soon.
+    firstFlushRetry: const Duration(milliseconds: 300),
   );
 
   /// Signs in, sets up (first device) or verifies (later devices) encryption,
@@ -3120,6 +3122,68 @@ void main() {
         expect(ref.host, 'c.test');
         expect((await device.repo.mediaBytes(ref))!, photo.readAsBytesSync());
       }
+    });
+
+    test("what waits for a server that can't be reached says so and goes once it's back; other chats go on", () async {
+      final servers = await GoServer.federating(['a.test', 'b.test', 'c.test']);
+      for (final server in servers) {
+        addTearDown(server.dispose);
+      }
+      final [a, b, c] = servers;
+      final sota = await _Device.signIn(a, 'sota', register: true);
+      final kumiko = await _Device.signIn(b, 'kumiko', register: true);
+      final hiroko = await _Device.signIn(c, 'hiroko', register: true);
+      // Kumiko's group, which b.test orders, and Sota's chat with Hiroko, which it has nothing to do with.
+      final club = await _newGroup(kumiko, 'Club', [sota]);
+      await sota.waitForConversation((s) => s.id == club && s.title == 'Club');
+      final chat = await _becomeContacts(sota, hiroko);
+      await hiroko.waitForConversation((s) => s.id == chat);
+
+      await b.stop();
+      await sota.repo.sendText(club, 'Is anyone there?');
+      await sota.repo.sendText(chat, 'b.test is down');
+      await sota.repo.watchUnreachableHubs().firstWhere((hubs) => hubs[club] == 'b.test').timeout(_timeout);
+      await hiroko.waitForMessages(chat, (l) => _texts(l).contains('b.test is down'));
+      expect((await sota.repo.watchMessages(club).first).last.state, DeliveryState.pending);
+
+      // Back: the message goes by itself, and the note with it.
+      await b.restart();
+      await kumiko.waitForMessages(club, (l) => _texts(l).contains('Is anyone there?') && _allDecrypted(l));
+      await sota.repo.watchUnreachableHubs().firstWhere((hubs) => !hubs.containsKey(club)).timeout(_timeout);
+    });
+
+    test('a group goes on through another server once none of its users are on the one it was made on', () async {
+      final servers = await GoServer.federating(['a.test', 'b.test', 'c.test']);
+      for (final server in servers) {
+        addTearDown(server.dispose);
+      }
+      final [a, b, c] = servers;
+      final sota = await _Device.signIn(a, 'sota', register: true);
+      final kumiko = await _Device.signIn(b, 'kumiko', register: true);
+      final hiroko = await _Device.signIn(c, 'hiroko', register: true);
+      final club = await _newGroup(sota, 'Club', [kumiko, hiroko]);
+      for (final device in [kumiko, hiroko]) {
+        await device.waitForConversation((s) => s.id == club && s.title == 'Club');
+      }
+      await kumiko.repo.sendText(club, 'Before');
+      await hiroko.waitForMessages(club, (l) => _texts(l).contains('Before') && _allDecrypted(l));
+
+      // Sota leaves, the last of a.test, which hands the group over: to
+      // b.test, of the two with one member each the one that sorts first.
+      await sota.repo.leaveGroup(club);
+      await b.logged('this server orders the conversation now');
+      for (final device in [kumiko, hiroko]) {
+        await _eventually(
+          () async => !(await device.leaves(club)).any((leaf) => leaf.startsWith(sota.me)),
+          reason: "Sota's devices removed",
+        );
+      }
+      // a.test can go: the two go on without it.
+      await a.stop();
+      await hiroko.repo.renameGroup(club, 'Club, at b.test');
+      await kumiko.waitForConversation((s) => s.id == club && s.title == 'Club, at b.test');
+      await hiroko.repo.sendText(club, 'After');
+      await kumiko.waitForMessages(club, (l) => _texts(l).contains('After') && _allDecrypted(l));
     });
 
     test('a chat across servers started by the one whose server does not order it', () async {

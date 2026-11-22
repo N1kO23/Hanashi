@@ -111,6 +111,12 @@ func federatedPairWith(t *testing.T, aOpts, bOpts []serverOption) (a, b string, 
 // each other: what goes to each passes its gate. opts are every server's own.
 func federatedServers(t *testing.T, hosts []string, opts ...serverOption) ([]string, []*gate) {
 	t.Helper()
+	return federatedServersWith(t, hosts, func(string) []serverOption { return opts })
+}
+
+// federatedServersWith is federatedServers with each host's own options.
+func federatedServersWith(t *testing.T, hosts []string, optsOf func(host string) []serverOption) ([]string, []*gate) {
+	t.Helper()
 	gates := make([]*gate, len(hosts))
 	resolve := map[string]string{}
 	for i, host := range hosts {
@@ -128,7 +134,7 @@ func federatedServers(t *testing.T, hosts []string, opts ...serverOption) ([]str
 			}
 			c.FederationResolve = resolve
 		}
-		bases[i] = startServer(t, append([]serverOption{federating}, opts...)...)
+		bases[i] = startServer(t, append([]serverOption{federating}, optsOf(host)...)...)
 		u, _ := url.Parse(bases[i])
 		gates[i].target.Store(u)
 	}
@@ -527,11 +533,13 @@ func TestChatsAcrossServersWhenTheHubIsDown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Its hub down: no clear answer, and the same message goes once later.
+	// Its hub down: no clear answer, naming the server, and the same message
+	// goes once later.
 	toB.shut.Store(true)
 	env := sota.textEnvelope(chat.ID, "Are you there?")
-	if err := sota.do("POST", "/messages", env, nil); statusOf(err) != http.StatusBadGateway {
-		t.Fatalf("hub down: %v", err)
+	err = sota.do("POST", "/messages", env, nil)
+	if e, ok := err.(*apiError); !ok || e.Status != http.StatusBadGateway || e.Server != "b.test" {
+		t.Fatalf("hub down: %+v", err)
 	}
 	toB.shut.Store(false)
 	sota.must("POST", "/messages", env, nil)
@@ -872,8 +880,8 @@ func TestNoGroupAcrossServersWithAStranger(t *testing.T) {
 	}
 	st, _ := stores.Load(b)
 	eventually(t, "her server has its copy", func() bool {
-		_, at, err := st.(*store.Store).ConversationHub(context.Background(), group.ID)
-		return err == nil && at > 0
+		hub, err := st.(*store.Store).ConversationHub(context.Background(), group.ID)
+		return err == nil && hub.Seq > 0
 	})
 	delivered(t, a)
 	if yoko.inConversation(group.ID) {

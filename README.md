@@ -210,6 +210,7 @@ Settings are environment variables:
 | `HANASHI_FEDERATION_SERVERS` |                             | Required with federation on: the servers to federate with, comma-separated, or `*` for any server                                                   |
 | `HANASHI_FEDERATION_RESOLVE` |                             | `host=url,...`: where those hosts' servers answer, instead of looking it up (tests, private networks; the only way to use `http://`)                |
 | `HANASHI_FEDERATION_RATE`    | `100`                       | Requests a second each other server may make (in bursts of ten seconds' worth; file fetches a tenth of it)                                          |
+| `HANASHI_HAND_OVER`          | `auto`                      | `auto` hands a group over once none of your users are in it; `all`, everything with members elsewhere, to shut down (see below)                     |
 
 **Federation** (`HANASHI_FEDERATION=on`) lets your users and those of the servers
 you list in `HANASHI_FEDERATION_SERVERS` find each other by ID, become contacts,
@@ -219,6 +220,17 @@ any server instead, which anyone could flood with servers of made-up names. A fi
 another server is kept on yours once someone opens it. Other servers find yours
 at `https://HANASHI_HOST`. If it runs at another address, serve that address from
 your host's `/.well-known/hanashi/server` as `{"server": "https://chat.example.org"}`.
+
+A chat or group across servers is run by one of them, at first the one it was
+started on. Once none of your users are in a group, your server hands it over
+to another server of its members, so that it goes on without yours. To shut
+down a server that federates without ending its users' chats with others, set
+`HANASHI_HAND_OVER=all` and restart it: it hands over everything with members
+elsewhere, and logs when it is done ("every conversation with members on other
+servers is handed over"). Then give it a minute to tell the other servers
+before you shut it down. Your users stay in what it handed over while it runs.
+A conversation moves only if every server of its members can follow it: while
+one from before moves has members in it, it stays where it is.
 
 The server logs every request with the user and device that sent it, and the
 error code of those that failed. With `HANASHI_LOG_LEVEL=debug` it also logs
@@ -483,9 +495,9 @@ keyPassword=...
   developer account); it catches up when opened. Start at login is not
   available on macOS yet.
 - Across servers, a chat or group cannot change while the server that orders
-  it (its creator's, or for a direct chat the one sorting first) cannot be
-  reached, and cannot move to another. Off-grid transports
-  (Meshtastic/Reticulum) are far off. See [where these stand](docs/federation.md).
+  it cannot be reached (the app says so), and only that server can hand it to
+  another. Off-grid transports (Meshtastic/Reticulum) are far off. See
+  [where these stand](docs/federation.md).
 
 ## Contributing
 

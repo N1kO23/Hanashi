@@ -224,9 +224,9 @@ func (a *API) postCall(w http.ResponseWriter, r *http.Request, c *Caller) error 
 		if err := requireVerified(tx, c); err != nil {
 			return nil, err
 		}
-		if hub, _, err := tx.ConversationHub(req.Conv); err != nil {
+		if hub, err := tx.ConversationHub(req.Conv); err != nil {
 			return nil, err
-		} else if hub != "" {
+		} else if hub.Host != "" {
 			return nil, errCallsUnavailable
 		}
 		conv, err := tx.Conversation(req.Conv)

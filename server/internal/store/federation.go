@@ -224,24 +224,34 @@ func (tx *Tx) SetFederationCursor(origin, stream string, last int64) error {
 
 // Conversations another server orders
 
-// ConversationHub is the server that orders a conversation ("" for this one),
-// and the last of its events this one has.
-func (s *Store) ConversationHub(ctx context.Context, conv string) (string, int64, error) {
+// Hub is who orders a conversation, as this server has it. Each move to
+// another hub starts a new term, whose events that hub numbers from 1.
+type Hub struct {
+	Host string // "" for this server
+	Term int64
+	// For a copy: the last of its hub's events of Term it has.
+	Seq int64
+}
+
+// ConversationHub is who orders conv.
+func (s *Store) ConversationHub(ctx context.Context, conv string) (Hub, error) {
 	return conversationHub(ctx, s.db, conv)
 }
 
-func (tx *Tx) ConversationHub(conv string) (string, int64, error) {
+func (tx *Tx) ConversationHub(conv string) (Hub, error) {
 	return conversationHub(tx.ctx, tx.q, conv)
 }
 
-func conversationHub(ctx context.Context, q querier, conv string) (string, int64, error) {
-	var hub sql.NullString
-	var seq int64
-	err := q.QueryRowContext(ctx, `SELECT hub, hub_seq FROM conversations WHERE id = ?`, conv).Scan(&hub, &seq)
+func conversationHub(ctx context.Context, q querier, conv string) (Hub, error) {
+	var host sql.NullString
+	var h Hub
+	err := q.QueryRowContext(ctx, `SELECT hub, hub_term, hub_seq FROM conversations WHERE id = ?`, conv).
+		Scan(&host, &h.Term, &h.Seq)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", 0, ErrNotFound
+		return Hub{}, ErrNotFound
 	}
-	return hub.String, seq, err
+	h.Host = host.String
+	return h, err
 }
 
 // CreateMirror stores a conversation that hub orders, as it says it is.
@@ -265,41 +275,120 @@ func (tx *Tx) SetHubSeq(conv string, seq int64) error {
 	return err
 }
 
-// SeqOfHubEvent is the seq here of the hub's event hubSeq of conv.
-func (s *Store) SeqOfHubEvent(ctx context.Context, conv string, hubSeq int64) (int64, error) {
+// SetHub notes that host orders conv from the start of term on ("" for this
+// server).
+func (tx *Tx) SetHub(conv, host string, term int64) error {
+	_, err := tx.q.ExecContext(tx.ctx, `UPDATE conversations SET hub = ?, hub_term = ?, hub_seq = 0 WHERE id = ?`,
+		nullable(host), term, conv)
+	return err
+}
+
+// The rows of a conversation that are its order, as other servers are told
+// of it: none for one user only, which stay where they are. A term's rows are
+// either this server's own, if it was the term's hub, numbered by seq; or
+// else its hub's, numbered by hub_seq.
+const (
+	orderRows = `(target_user IS NULL OR target_user IN ('` + HistoryOnly + `', '` + HubOnly + `'))`
+	ownRows   = `hub_seq IS NULL AND (target_user IS NULL OR target_user = '` + HubOnly + `')`
+)
+
+// SeqOfHubEvent is the seq here of conv's event seq of term, as the hub of
+// that term numbered it.
+func (s *Store) SeqOfHubEvent(ctx context.Context, conv string, term, hubSeq int64) (int64, error) {
 	var seq int64
-	err := s.db.QueryRowContext(ctx, `SELECT seq FROM events WHERE conv_id = ? AND hub_seq = ?`, conv, hubSeq).Scan(&seq)
+	err := s.db.QueryRowContext(ctx, `SELECT seq FROM events WHERE conv_id = ? AND hub_term = ? AND hub_seq = ? LIMIT 1`,
+		conv, term, hubSeq).Scan(&seq)
+	if errors.Is(err, sql.ErrNoRows) {
+		// Of a term this server ordered.
+		err = s.db.QueryRowContext(ctx, `SELECT seq FROM events WHERE seq = ? AND conv_id = ? AND hub_term = ? AND `+ownRows,
+			hubSeq, conv, term).Scan(&seq)
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, ErrNotFound
 	}
 	return seq, err
 }
 
-// PreviousConvEvent is the seq of conv's last event that its members see,
-// before seq (0 if none).
-func (tx *Tx) PreviousConvEvent(conv string, seq int64) (int64, error) {
+// HubPosition is where event seq is in its conversation's order: its term,
+// and its seq as that term's hub numbered it.
+func (s *Store) HubPosition(ctx context.Context, seq int64) (term, hubSeq int64, err error) {
+	err = s.db.QueryRowContext(ctx, `SELECT hub_term, COALESCE(hub_seq, seq) FROM events WHERE seq = ?`, seq).
+		Scan(&term, &hubSeq)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, ErrNotFound
+	}
+	return term, hubSeq, err
+}
+
+// PreviousConvEvent is the seq of conv's last event of term that its members
+// see, before seq (0 if none), of a term this server orders.
+func (tx *Tx) PreviousConvEvent(conv string, term, seq int64) (int64, error) {
 	var prev int64
 	err := tx.q.QueryRowContext(tx.ctx, `
-		SELECT COALESCE(MAX(seq), 0) FROM events WHERE conv_id = ? AND target_user IS NULL AND seq < ?`,
-		conv, seq).Scan(&prev)
+		SELECT COALESCE(MAX(seq), 0) FROM events
+		WHERE conv_id = ? AND hub_term = ? AND hub_seq IS NULL AND target_user IS NULL AND seq < ?`,
+		conv, term, seq).Scan(&prev)
 	return prev, err
 }
 
-// ConvEvent is an event of a conversation as another server is told of it.
+// HasConvEvent reports whether this server has conv's event seq of term, as
+// the hub of that term numbered it, in its order.
+func (tx *Tx) HasConvEvent(conv string, term, hubSeq int64) (bool, error) {
+	var one int
+	err := tx.q.QueryRowContext(tx.ctx, `
+		SELECT 1 FROM events WHERE conv_id = ? AND hub_term = ? AND `+orderRows+`
+		AND (hub_seq = ? OR (hub_seq IS NULL AND seq = ?)) LIMIT 1`, conv, term, hubSeq, hubSeq).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// LastTermOrdered is the last term of conv this server was the hub of; -1 if
+// it never was.
+func (s *Store) LastTermOrdered(ctx context.Context, conv string) (int64, error) {
+	var term sql.NullInt64
+	err := s.db.QueryRowContext(ctx, `SELECT MAX(hub_term) FROM events WHERE conv_id = ? AND `+ownRows, conv).Scan(&term)
+	if err != nil || !term.Valid {
+		return -1, err
+	}
+	return term.Int64, nil
+}
+
+// ConvEvent is an event of a conversation as another server is told of it:
+// its seq is as the hub of its term numbered it.
 type ConvEvent struct {
-	Seq           int64
+	Term, Seq     int64
 	Type          string
 	TS            int64
 	Data          json.RawMessage
 	MsgID, Sender string
 }
 
-// ConvEventsSince lists conv's events its members see after since, oldest
-// first, at most limit.
-func (s *Store) ConvEventsSince(ctx context.Context, conv string, since int64, limit int) ([]ConvEvent, error) {
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT seq, type, ts, payload, msg_id, sender FROM events
-		WHERE conv_id = ? AND target_user IS NULL AND seq > ? ORDER BY seq LIMIT ?`, conv, since, limit)
+// ConvEventsQuery says which of a conversation's events ConvEventsSince
+// lists: those after the event Since of Term, up to the end of UpToTerm,
+// except those of the types Except; at most Limit.
+type ConvEventsQuery struct {
+	Term, Since, UpToTerm int64
+	Except                []string
+	Limit                 int
+}
+
+// ConvEventsSince lists conv's events in its order, oldest first: term by
+// term, and in each, as its hub numbered them.
+func (s *Store) ConvEventsSince(ctx context.Context, conv string, q ConvEventsQuery) ([]ConvEvent, error) {
+	query := `
+		SELECT hub_term, COALESCE(hub_seq, seq), type, ts, payload, msg_id, sender FROM events
+		WHERE conv_id = ? AND ` + orderRows + ` AND hub_term <= ?
+		AND (hub_term > ? OR (hub_term = ? AND COALESCE(hub_seq, seq) > ?))`
+	args := []any{conv, q.UpToTerm, q.Term, q.Term, q.Since}
+	if len(q.Except) > 0 {
+		query += ` AND type NOT IN (?` + strings.Repeat(`, ?`, len(q.Except)-1) + `)`
+		for _, t := range q.Except {
+			args = append(args, t)
+		}
+	}
+	rows, err := s.db.QueryContext(ctx, query+` ORDER BY hub_term, hub_seq, seq LIMIT ?`, append(args, q.Limit)...)
 	if err != nil {
 		return nil, err
 	}
@@ -309,13 +398,35 @@ func (s *Store) ConvEventsSince(ctx context.Context, conv string, since int64, l
 		var e ConvEvent
 		var payload string
 		var msgID, sender sql.NullString
-		if err := rows.Scan(&e.Seq, &e.Type, &e.TS, &payload, &msgID, &sender); err != nil {
+		if err := rows.Scan(&e.Term, &e.Seq, &e.Type, &e.TS, &payload, &msgID, &sender); err != nil {
 			return nil, err
 		}
 		e.Data, e.MsgID, e.Sender = json.RawMessage(payload), msgID.String, sender.String
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+// ConversationsToHandOver lists the conversations this server, of host,
+// orders that have members of other servers: of those, the groups none of
+// its own users are in, or with all, every one. stay counts the others it
+// orders, which have no members elsewhere.
+func (s *Store) ConversationsToHandOver(ctx context.Context, host string, all bool) (convs []string, stay int, err error) {
+	ours := "%@" + host
+	convs, err = strings0(s.db.QueryContext(ctx, `
+		SELECT c.id FROM conversations c
+		WHERE c.hub IS NULL AND (? OR c.direct_key IS NULL)
+		AND EXISTS (SELECT 1 FROM members m WHERE m.conv_id = c.id AND m.user_id NOT LIKE ?)
+		AND (? OR NOT EXISTS (SELECT 1 FROM members m WHERE m.conv_id = c.id AND m.user_id LIKE ?))
+		ORDER BY c.id`, all, ours, all, ours))
+	if err != nil {
+		return nil, 0, err
+	}
+	err = s.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM conversations c
+		WHERE c.hub IS NULL AND NOT EXISTS (SELECT 1 FROM members m WHERE m.conv_id = c.id AND m.user_id NOT LIKE ?)`,
+		ours).Scan(&stay)
+	return convs, stay, err
 }
 
 // RemoteMemberHosts lists the other servers whose users are members of conv.
@@ -362,6 +473,10 @@ func (tx *Tx) SessionIDs(user string) ([]string, error) {
 // from before any of this server's users were in the conversation, it is
 // read with the history, never sent to anyone as new.
 const HistoryOnly = "~history"
+
+// HubOnly is the target user of an event that is the servers' own business,
+// never any user's: a conversation's move to another hub.
+const HubOnly = "~hub"
 
 // IsContact reports whether user has accepted other as a contact.
 func (s *Store) IsContact(ctx context.Context, user, other string) (bool, error) {

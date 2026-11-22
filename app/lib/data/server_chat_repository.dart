@@ -66,6 +66,7 @@ class ServerChatRepository implements ChatRepository {
     this.onUnverified,
     SyncLock? lock,
     ApiClient? api,
+    this._firstFlushRetry = const Duration(seconds: 15),
   }) : api = api ?? ApiClient(account.serverUrl, token: account.token),
        _lock = lock ?? SyncLock(account.deviceId),
        _packStore = StickerPackStore(packsDir) {
@@ -160,6 +161,18 @@ class ServerChatRepository implements ChatRepository {
   /// The outbox flush under way, which [dispose] lets finish.
   Future<void>? _flushing;
   var _flushAgain = false;
+
+  /// Conversations whose hub, another server, cannot be reached now: the
+  /// host, as the user's own server named it ("" if it did not).
+  final _unreachableHubs = <String, String>{};
+  final _hubChanges = StreamController<Map<String, String>>.broadcast();
+
+  /// Flushes the outbox again while it holds something for another server's
+  /// trouble, which nothing else would: the connection to this server is up.
+  Timer? _flushRetry;
+  late var _flushRetryDelay = _firstFlushRetry;
+  final Duration _firstFlushRetry;
+  static const _lastFlushRetry = Duration(minutes: 5);
 
   // Key backup (see [_uploadBackups]).
   KeyBackupCipher? _backup;
@@ -310,6 +323,7 @@ class ServerChatRepository implements ChatRepository {
     }
     _disposed = true;
     _backupTimer?.cancel();
+    _flushRetry?.cancel();
     for (final timer in [..._upkeepRetries.values, ..._epochChecks.values, ..._sealChecks.values]) {
       timer.cancel();
     }
@@ -329,6 +343,7 @@ class ServerChatRepository implements ChatRepository {
     await _myEmojiChanges.close();
     await _offline.cancel();
     await _presenceChanges.close();
+    await _hubChanges.close();
     await _socket.stop();
     // A flush under way stops at its next message (the socket failed what it
     // was sending), once the one it sent is marked so: before the database
@@ -680,7 +695,9 @@ class ServerChatRepository implements ChatRepository {
   /// Encrypts and sends pending messages in order over the WebSocket (media
   /// is uploaded over HTTP first, already encrypted). Stops at the first
   /// network error; the next successful (re)connect flushes again. Messages
-  /// of a conversation whose group is not trusted right now stay pending.
+  /// of a conversation whose group is not trusted right now stay pending, as
+  /// do those of one whose hub (another server) cannot take them now: the
+  /// others go on, and those are tried again before long.
   Future<void> flushOutbox() async {
     // Not open yet (another engine holds the lock, say): sent once connected.
     if (_mls == null) return;
@@ -691,11 +708,17 @@ class ServerChatRepository implements ChatRepository {
     final done = Completer<void>();
     _flushing = done.future;
     try {
+      var hubTrouble = false;
       do {
         _flushAgain = false;
         final held = <String>{};
         final sentTo = <String>{};
-        for (final pending in await db.pendingMessages()) {
+        final pendingList = await db.pendingMessages();
+        // A note of an unreachable hub goes with the last message waiting for it.
+        for (final conv in [..._unreachableHubs.keys]) {
+          if (!pendingList.any((p) => p.envelope.conv == conv)) _noteHub(conv, null);
+        }
+        for (final pending in pendingList) {
           if (_disposed) return;
           final conv = pending.envelope.conv;
           if (held.contains(conv)) continue; // Keep the conversation's order.
@@ -720,6 +743,7 @@ class ServerChatRepository implements ChatRepository {
             _scheduleBackup();
             await db.noteSentWithKeys(conv, clock());
             sentTo.add(conv);
+            _noteHub(conv, null);
           } on SendBlocked catch (e) {
             _log.info('Holding ${pending.envelope.id} for $conv: ${e.reason}');
             held.add(conv);
@@ -745,6 +769,15 @@ class ServerChatRepository implements ChatRepository {
               _unverified();
               continue;
             }
+            if (e.isHubTrouble) {
+              // Another server orders this conversation, and cannot take it
+              // now: it waits, while the others go on.
+              _log.info('Holding ${pending.envelope.id} for $conv: ${e.code} ${e.server ?? ''}');
+              held.add(conv);
+              hubTrouble = true;
+              if (e.code == 'server_unreachable') _noteHub(conv, e.server ?? '');
+              continue;
+            }
             if (e.isPermanent) {
               _log.warning('Could not send ${pending.envelope.id} to $conv: ${e.status} ${e.code}: $e');
               await db.setState(pending.envelope.id, DeliveryState.failed);
@@ -762,10 +795,40 @@ class ServerChatRepository implements ChatRepository {
           await _serial(() => _repair(conv, () => groups.rotateKeysIfDue(conv)));
         }
       } while (_flushAgain);
+      _retryFlush(hubTrouble);
     } finally {
       _flushing = null;
       done.complete();
     }
+  }
+
+  /// Notes that the hub of conv, [host], cannot be reached now; or with null,
+  /// that something went through to it.
+  void _noteHub(String conv, String? host) {
+    if (_unreachableHubs[conv] == host || _hubChanges.isClosed) return;
+    if (host == null) {
+      _unreachableHubs.remove(conv);
+    } else {
+      _unreachableHubs[conv] = host;
+    }
+    _hubChanges.add(Map.unmodifiable(_unreachableHubs));
+  }
+
+  /// Flushes again later [when] something waits for another server: soon at
+  /// first, then less and less often.
+  void _retryFlush(bool when) {
+    if (!when || _disposed) {
+      _flushRetry?.cancel();
+      _flushRetry = null;
+      _flushRetryDelay = _firstFlushRetry;
+      return;
+    }
+    if (_flushRetry != null) return;
+    _flushRetry = Timer(_flushRetryDelay, () {
+      _flushRetry = null;
+      unawaited(flushOutbox());
+    });
+    _flushRetryDelay = _flushRetryDelay * 2 > _lastFlushRetry ? _lastFlushRetry : _flushRetryDelay * 2;
   }
 
   /// Before a deletion goes out, the server drops the deleted message and the
@@ -2172,6 +2235,12 @@ class ServerChatRepository implements ChatRepository {
   }
 
   @override
+  Stream<Map<String, String>> watchUnreachableHubs() async* {
+    yield Map.unmodifiable(_unreachableHubs);
+    yield* _hubChanges.stream;
+  }
+
+  @override
   Stream<List<StickerPack>> watchStickerPacks() async* {
     yield await _packViews();
     yield* _packChanges.stream;
@@ -3204,6 +3273,9 @@ class SignedOutRepository implements ChatRepository {
 
   @override
   Stream<Set<String>> watchIdentityChanges() => Stream.value(const {});
+
+  @override
+  Stream<Map<String, String>> watchUnreachableHubs() => Stream.value(const {});
 
   @override
   Stream<Set<String>> watchVerifiedUsers() => Stream.value(const {});

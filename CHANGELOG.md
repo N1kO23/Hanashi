@@ -6,6 +6,31 @@ release says so. Each release's notes on GitHub are its section here.
 
 ## [Unreleased]
 
+### Fixed
+
+- When the server a group runs on could not be reached, your messages to
+  every other chat waited too, until the app reconnected. Now only that
+  group's messages wait, and they go by themselves once its server is back.
+
+### Added
+
+- A chat whose server can't be reached says so, and names the server, while
+  its messages wait. Servers name it in their answer from this release on;
+  with an older server, the app says "the server this chat runs on".
+- Across servers, a group goes on without the server it was started on: once
+  none of that server's users are in it, the server hands the group to the
+  server with the most of its other members, which runs it from then on.
+  Nothing changes for the people in it, and their apps need no update. It
+  moves only if the servers of all its members run this release or later.
+- `HANASHI_HAND_OVER=all` hands over every chat and group with members on
+  other servers, for shutting a server down without ending its users' chats
+  with others (see the README).
+
+### Changed
+
+- Servers upgrade their database when they start: the event log gets a new
+  index, which takes a moment on a large one.
+
 ## [1.0.5] - 2026-11-22
 
 ### Changed

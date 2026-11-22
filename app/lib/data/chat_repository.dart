@@ -247,6 +247,11 @@ abstract interface class ChatRepository {
   /// Users whose security key changed and who the user has not reviewed yet.
   Stream<Set<String>> watchIdentityChanges();
 
+  /// Conversations whose messages wait because the server that orders them,
+  /// another than the user's, cannot be reached now: its host, by
+  /// conversation ("" when the user's server did not name it).
+  Stream<Map<String, String>> watchUnreachableHubs();
+
   /// Contacts the user verified by comparing emoji (and whose key has not
   /// changed since).
   Stream<Set<String>> watchVerifiedUsers();

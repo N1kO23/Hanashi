@@ -528,6 +528,13 @@ final identityChangesProvider = StreamProvider<Set<String>>(
   (ref) => ref.watch(chatRepositoryProvider).watchIdentityChanges(),
 );
 
+/// Conversations whose messages wait for their hub, another server that
+/// cannot be reached now, and its host (see
+/// [ChatRepository.watchUnreachableHubs]).
+final unreachableHubsProvider = StreamProvider<Map<String, String>>(
+  (ref) => ref.watch(chatRepositoryProvider).watchUnreachableHubs(),
+);
+
 /// Who else is typing in a conversation.
 final typingProvider = StreamProvider.autoDispose.family<Set<String>, String>(
   (ref, conversationId) => ref.watch(chatRepositoryProvider).watchTyping(conversationId),

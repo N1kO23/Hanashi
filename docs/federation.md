@@ -55,6 +55,22 @@ Round 4, groups, ordered by the creator's server:
 - Adding and leaving relayed to the hub; Welcomes reach the new member's server
   before the event that adds them.
 
+Round 5, moving to another hub:
+
+- **A hub hands a conversation over** to the server with the most of its other
+  members: by itself once none of its own users are in a group, and everything
+  it orders with `HANASHI_HAND_OVER=all`, before its operator shuts it down.
+  Only the hub decides, in its order of events, so two servers never both
+  order a conversation.
+- **Terms:** each move starts a new term of the conversation's order, which
+  the new hub numbers. Copies switch at the event that ends a term, and catch
+  up across terms.
+- **The whole order at every hub:** before taking over, the new hub takes from
+  the old one what its copy lacks, so that it can give a server joining later
+  everything from the start.
+- **In the app:** a conversation whose hub cannot be reached says which server
+  it waits for, and holds only its own messages: the others go on.
+
 ### What already fits
 
 These were in place before federation, which needed no change to them:
@@ -78,15 +94,16 @@ These were in place before federation, which needed no change to them:
 - **Contact gates.** The recipient's server enforces them, which is the side
   that should.
 - **Contacts and chats are separate steps.** Accepting a request makes two people
-  contacts; their direct chat is started after that, by either of them. (Apps of
-  client level 3 still send the chat along with the answer.)
+  contacts; their direct chat is started after that, by either of them.
 
 ### What is left, and what to know
 
 No client protocol break was needed for any of this. What remains:
 
-- **Moving a conversation to another hub.** Not planned: a conversation cannot
-  change while its hub cannot be reached.
+- **Moving without the hub.** A conversation moves only when its hub hands it
+  over. While the hub cannot be reached, nothing in the conversation can change,
+  and nothing can move it. A failover, the other servers agreeing on a new hub
+  without it, could build on the terms that moves use.
 - **Spam with any server allowed.** Each other server's requests are limited by
   rate, file fetches more so, and at most 1000 unanswered contact requests come
   from the users of one server. With `HANASHI_FEDERATION_SERVERS=*`, a server can
@@ -103,8 +120,13 @@ Known limits of what is built:
   device is verified, and, when relaying an addition, that whoever is added is
   a contact of whoever adds. The added user's own server checks that again
   before letting them in.
-- **Servers that federate need apps of client level 4,** which accept a contact
-  without sending the chat along.
+- **What a later hub says of the start.** A server that joins a conversation
+  after it moved takes its whole order from the hub it is at now, and cannot
+  check it with the first hub, which may be gone. Its users still get in only
+  through a contact, and devices still check each Welcome.
+- **Servers from before moves** can neither follow a conversation that moves (it
+  stays where it is while one of them has members in it) nor join one that
+  moved.
 
 ### Why each conversation has a hub
 

@@ -52,6 +52,11 @@ type API struct {
 	// the conversations whose copy is catching up.
 	mirrors    mirrorWaiters
 	catchingUp sync.Map
+	// Conversations to hand over to another hub, and how far this server is
+	// with being ready to order those it is to be handed.
+	handOvers  handOvers
+	backfillMu sync.Mutex
+	backfills  map[string]*backfill
 	// Files being fetched from other servers: hash -> what closes when done.
 	mediaFetches sync.Map
 	// calls is LiveKit's room API, when the server carries calls; liveKitOps
@@ -62,7 +67,8 @@ type API struct {
 
 func New(cfg config.Config, st *store.Store, h *hub.Hub, m *media.Store, p *push.Pusher, fed *federation.Federation,
 	log *slog.Logger) *API {
-	a := &API{cfg: cfg, store: st, hub: h, media: m, push: p, fed: fed, log: log, mux: http.NewServeMux()}
+	a := &API{cfg: cfg, store: st, hub: h, media: m, push: p, fed: fed, log: log, mux: http.NewServeMux(),
+		handOvers: handOvers{due: map[string]*handOverTry{}, wake: make(chan struct{}, 1)}, backfills: map[string]*backfill{}}
 	if cfg.Calls() {
 		a.calls = &livekit.Client{URL: cfg.LiveKitAPIURL, Keys: a.liveKitKeys(), HTTP: &http.Client{Timeout: 10 * time.Second}}
 	}
@@ -220,6 +226,25 @@ type Error struct {
 
 func (e *Error) Error() string { return fmt.Sprintf("%d %s: %s", e.Status, e.Code, e.Message) }
 
+// serverError is an Error about another server, which the app is told the
+// host of (as "server"): one that orders a conversation and cannot be
+// reached, say, so the app can tell its user why their messages wait.
+type serverError struct {
+	err    *Error
+	Server string
+}
+
+func (e *serverError) Error() string { return e.err.Error() + " (" + e.Server + ")" }
+func (e *serverError) Unwrap() error { return e.err }
+
+// serverOf is the other server err is about, if it is.
+func serverOf(err error) string {
+	if serverErr := (*serverError)(nil); errors.As(err, &serverErr) {
+		return serverErr.Server
+	}
+	return ""
+}
+
 func badRequest(msg string) *Error { return &Error{http.StatusBadRequest, "bad_request", msg} }
 
 var (
@@ -252,6 +277,9 @@ func (a *API) fail(w http.ResponseWriter, r *http.Request, err error) {
 	body := map[string]string{"error": apiErr.Code}
 	if apiErr.Message != "" {
 		body["message"] = apiErr.Message
+	}
+	if server := serverOf(err); server != "" {
+		body["server"] = server
 	}
 	writeJSON(w, apiErr.Status, body)
 }
@@ -838,7 +866,7 @@ func (a *API) newConversation(ctx context.Context, c *Caller, req conversationRe
 func (a *API) relayNewChat(ctx context.Context, c *Caller, hub string, req conversationRequest) (*protocol.ConversationInfo, error) {
 	a.markWelcomes(ctx, req.MLS.Welcomes)
 	var made protocol.ConversationInfo
-	if err := a.relay(ctx, c, hub, "conv.create", map[string]any{"request": req}, &made); err != nil {
+	if err := a.relay(ctx, c, hub, "", "conv.create", map[string]any{"request": req}, &made); err != nil {
 		return nil, err
 	}
 	if err := a.waitMirrorOf(ctx, made.ID); err != nil {
@@ -1046,6 +1074,7 @@ func (a *API) leaveConv(ctx context.Context, c *Caller, convID string) (int64, e
 			send()
 			a.hub.Publish(forMembers, members)
 			a.hub.Publish(forLeaver, []string{c.UserID})
+			a.leftByOurs(convID, members)
 		}, err
 	})
 	return seq, err

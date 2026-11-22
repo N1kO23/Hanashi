@@ -37,6 +37,15 @@ const (
 var errNoClearAnswer = &Error{http.StatusGatewayTimeout, "no_clear_answer",
 	"Their server took it, but this one has not heard back yet; try again"}
 
+// codeConvMoved: this server has the conversation, but does not order it (any
+// more, or yet): it was handed to another hub. Apps try again, and by then
+// their server relays to the hub it knows of (see "Handing a conversation
+// over" in docs/protocol.md).
+const codeConvMoved = "conv_moved"
+
+var errConvMoved = &Error{http.StatusServiceUnavailable, codeConvMoved,
+	"This conversation is moving to another server; try again in a moment"}
+
 // directHub is the server that orders the direct chat of a and b: that of the
 // one whose ID sorts first, which both servers work out alike, so two
 // starting their chat at once cannot make two.
@@ -64,13 +73,18 @@ func (a *API) appendConvEvent(tx *store.Tx, conv, typ string, data json.RawMessa
 // also (whose users were members until this event).
 func (a *API) appendConvEventTo(tx *store.Tx, conv, typ string, data json.RawMessage, opts store.AppendOptions,
 	also []string) (protocol.SyncEvent, func(), error) {
+	hub, err := tx.ConversationHub(conv)
+	if err != nil {
+		return protocol.SyncEvent{}, nil, err
+	}
+	if hub.Host != "" {
+		// Handed over since the request came: its new hub takes it, asked again.
+		return protocol.SyncEvent{}, nil, errConvMoved
+	}
+	opts.HubTerm = hub.Term
 	ev, err := tx.AppendEvent(conv, typ, data, opts)
 	if err != nil {
 		return ev, nil, err
-	}
-	hub, _, err := tx.ConversationHub(conv)
-	if err != nil || hub != "" {
-		return ev, func() {}, err
 	}
 	hosts, err := tx.RemoteMemberHosts(conv, a.cfg.Host)
 	if err != nil {
@@ -84,18 +98,28 @@ func (a *API) appendConvEventTo(tx *store.Tx, conv, typ string, data json.RawMes
 	if len(hosts) == 0 {
 		return ev, func() {}, nil
 	}
-	prev, err := tx.PreviousConvEvent(conv, ev.Seq)
+	send, err := a.passOn(tx, conv, hub.Term, ev.Seq, convEventJSON{Type: typ, TS: ev.TS, Data: data, MsgID: opts.MsgID,
+		Sender: opts.Sender}, hosts)
+	return ev, send, err
+}
+
+// passOn queues the event seq of conv's term, which this server orders, for
+// hosts, and returns what sends it once the transaction is committed.
+func (a *API) passOn(tx *store.Tx, conv string, term, seq int64, ev convEventJSON, hosts []string) (func(), error) {
+	prev, err := tx.PreviousConvEvent(conv, term, seq)
 	if err != nil {
-		return ev, nil, err
+		return nil, err
 	}
-	item := map[string]any{"type": itemConvEvent, "conv": conv, "seq": ev.Seq, "prev": prev,
-		"event": convEventJSON{Type: typ, TS: ev.TS, Data: data, MsgID: opts.MsgID, Sender: opts.Sender}}
+	item := map[string]any{"type": itemConvEvent, "conv": conv, "seq": seq, "prev": prev, "event": ev}
+	if term != 0 {
+		item["term"] = term
+	}
 	for _, host := range hosts {
 		if err := federation.Enqueue(tx, host, item); err != nil {
-			return ev, nil, err
+			return nil, err
 		}
 	}
-	return ev, func() {
+	return func() {
 		for _, host := range hosts {
 			a.fed.Wake(host)
 		}
@@ -112,11 +136,14 @@ func (a *API) remoteCaller(origin, user, device string) (*Caller, error) {
 }
 
 // requireHubHere refuses a request about a conversation this server does not
-// order.
+// order: one it has, it handed over (or was handed, and has not heard yet).
 func (a *API) requireHubHere(ctx context.Context, conv string) error {
-	hub, _, err := a.store.ConversationHub(ctx, conv)
-	if errors.Is(err, store.ErrNotFound) || (err == nil && hub != "") {
+	hub, err := a.store.ConversationHub(ctx, conv)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
 		return errNotFound
+	case err == nil && hub.Host != "":
+		return errConvMoved
 	}
 	return err
 }
@@ -130,6 +157,8 @@ func (a *API) answerConvQuery(ctx context.Context, origin, kind string, body []b
 		Member   string
 		Epoch    *int64
 		Since    int64
+		Term     int64
+		Except   []string
 		Data     string
 		Envelope json.RawMessage
 		Commit   *commitInput
@@ -138,8 +167,11 @@ func (a *API) answerConvQuery(ctx context.Context, origin, kind string, body []b
 	if err := json.Unmarshal(body, &req); err != nil {
 		return nil, badRequest("Not a request")
 	}
-	if kind == "conv.events" {
-		return a.answerCatchUp(ctx, origin, req.Conv, req.Since)
+	switch kind {
+	case "conv.events":
+		return a.answerCatchUp(ctx, origin, req.Conv, req.Term, req.Since, req.Except)
+	case "conv.handover":
+		return a.answerHandOver(ctx, origin, req.Conv, req.Term)
 	}
 	c, err := a.remoteCaller(origin, req.User, req.Device)
 	if err != nil {
@@ -163,8 +195,7 @@ func (a *API) answerConvQuery(ctx context.Context, origin, kind string, body []b
 	}
 	switch kind {
 	case "conv.message":
-		seq, err := a.postMessage(ctx, c, req.Envelope)
-		return map[string]int64{"seq": seq}, err
+		return a.positionOf(ctx)(a.postMessage(ctx, c, req.Envelope))
 	case "conv.lease":
 		return a.lease(ctx, c, req.Conv, req.Epoch)
 	case "conv.release":
@@ -173,8 +204,7 @@ func (a *API) answerConvQuery(ctx context.Context, origin, kind string, body []b
 		if req.Commit == nil {
 			return nil, badRequest("commit is required")
 		}
-		seq, err := a.commit(ctx, c, req.Conv, *req.Commit)
-		return map[string]int64{"seq": seq}, err
+		return a.positionOf(ctx)(a.commit(ctx, c, req.Conv, *req.Commit))
 	case "conv.group_info":
 		return a.groupInfoOf(ctx, c, req.Conv)
 	case "conv.state":
@@ -184,19 +214,52 @@ func (a *API) answerConvQuery(ctx context.Context, origin, kind string, body []b
 			return nil, badRequest("commit is required")
 		}
 		info, seq, err := a.addMemberTo(ctx, c, req.Conv, req.Member, *req.Commit)
-		return map[string]any{"conversation": info, "seq": seq}, err
+		if err != nil {
+			return nil, err
+		}
+		term, at, err := a.store.HubPosition(ctx, seq)
+		return map[string]any{"conversation": info, "seq": at, "term": term}, err
 	case "conv.leave":
-		seq, err := a.leaveConv(ctx, c, req.Conv)
-		return map[string]int64{"seq": seq}, err
+		return a.positionOf(ctx)(a.leaveConv(ctx, c, req.Conv))
 	}
 	return nil, errNotFound
 }
 
-// answerCatchUp gives a member's server the events of conv after since, for
-// its copy.
-func (a *API) answerCatchUp(ctx context.Context, origin, conv string, since int64) (any, error) {
-	if err := a.requireHubHere(ctx, conv); err != nil {
+// positionOf answers, to the server that relayed a request, where the event
+// seq it made is in the conversation's order: its term, and its seq in it,
+// which that server waits for.
+func (a *API) positionOf(ctx context.Context) func(seq int64, err error) (any, error) {
+	return func(seq int64, err error) (any, error) {
+		if err != nil {
+			return nil, err
+		}
+		term, at, err := a.store.HubPosition(ctx, seq)
+		return map[string]int64{"seq": at, "term": term}, err
+	}
+}
+
+// answerCatchUp gives a member's server the events of conv after the event
+// since of term, for its copy, but for those of the types except. A server
+// that handed conv over gives those of the terms it ordered, up to the move,
+// for copies that missed it.
+func (a *API) answerCatchUp(ctx context.Context, origin, conv string, term, since int64, except []string) (any, error) {
+	hub, err := a.store.ConversationHub(ctx, conv)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, errNotFound
+	} else if err != nil {
 		return nil, err
+	}
+	upTo := hub.Term
+	if hub.Host != "" {
+		if upTo, err = a.store.LastTermOrdered(ctx, conv); err != nil {
+			return nil, err
+		}
+		if term > upTo {
+			return nil, errConvMoved
+		}
+	}
+	if len(except) > 8 {
+		return nil, badRequest("except lists too many types")
 	}
 	hosts, err := a.store.RemoteMemberHosts(ctx, conv, a.cfg.Host)
 	if err != nil {
@@ -205,7 +268,8 @@ func (a *API) answerCatchUp(ctx context.Context, origin, conv string, since int6
 	if !slices.Contains(hosts, origin) {
 		return nil, errNotFound
 	}
-	events, err := a.store.ConvEventsSince(ctx, conv, since, catchUpPage+1)
+	events, err := a.store.ConvEventsSince(ctx, conv,
+		store.ConvEventsQuery{Term: term, Since: since, UpToTerm: upTo, Except: except, Limit: catchUpPage + 1})
 	if err != nil {
 		return nil, err
 	}
@@ -220,22 +284,37 @@ func (a *API) answerCatchUp(ctx context.Context, origin, conv string, since int6
 			break
 		}
 	}
-	type eventJSON struct {
-		Seq int64 `json:"seq"`
-		convEventJSON
-	}
-	out := make([]eventJSON, 0, len(events))
+	out := make([]caughtUpEvent, 0, len(events))
 	for _, e := range events {
-		out = append(out, eventJSON{e.Seq, convEventJSON{e.Type, e.TS, e.Data, e.MsgID, e.Sender}})
+		out = append(out, caughtUpEvent{e.Term, e.Seq, convEventJSON{e.Type, e.TS, e.Data, e.MsgID, e.Sender}})
 	}
 	return map[string]any{"events": out, "more": more}, nil
 }
 
+// caughtUpEvent is an event of a conversation as a catch-up gives it: its
+// term, and its seq as the hub of that term numbered it.
+type caughtUpEvent struct {
+	Term int64 `json:"term,omitempty"`
+	Seq  int64 `json:"seq"`
+	convEventJSON
+}
+
+// caughtUp is a page of a catch-up.
+type caughtUp struct {
+	Events []caughtUpEvent `json:"events"`
+	More   bool            `json:"more"`
+}
+
 // A member's side
 
-// relay asks hub what c asked of this server, as c, and passes the hub's
-// answer back: its refusals unchanged, as apps go by them.
-func (a *API) relay(ctx context.Context, c *Caller, hub, kind string, req map[string]any, out any) error {
+// relay asks hub what c asked of this server about conv, as c, and passes the
+// hub's answer back: its refusals unchanged, as apps go by them.
+func (a *API) relay(ctx context.Context, c *Caller, hub, conv, kind string, req map[string]any, out any) error {
+	if a.remote(c.UserID) {
+		// Relayed here, just as this server handed the conversation over:
+		// their server asks the new hub, once it hears.
+		return errConvMoved
+	}
 	req["user"], req["device"] = c.UserID, c.SessionID
 	err := a.fed.Query(ctx, hub, kind, req, out)
 	if err == nil {
@@ -248,21 +327,28 @@ func (a *API) relay(ctx context.Context, c *Caller, hub, kind string, req map[st
 		return errOtherServer
 	case errors.As(err, &fedErr) && (fedErr.Code == "not_signed" || fedErr.Code == "not_allowed" || fedErr.Code == "federation_off"):
 		return errOtherServer
+	case errors.As(err, &fedErr) && fedErr.Code == codeConvMoved:
+		// It handed the conversation over: this copy hears of it from there,
+		// and the app tries again in a moment.
+		if conv != "" {
+			go a.catchUp(conv, hub)
+		}
+		return errConvMoved
 	case errors.As(err, &fedErr) && fedErr.Status < http.StatusInternalServerError:
 		return &Error{fedErr.Status, fedErr.Code, fedErr.Message}
 	default:
-		return errServerUnreachable
+		return &serverError{errServerUnreachable, hub}
 	}
 }
 
 // mirrorHub is the server that orders conv, when it is not this one; "" if
 // it is (or there is no such conversation).
 func (a *API) mirrorHub(ctx context.Context, conv string) (string, error) {
-	hub, _, err := a.store.ConversationHub(ctx, conv)
+	hub, err := a.store.ConversationHub(ctx, conv)
 	if errors.Is(err, store.ErrNotFound) {
 		return "", nil
 	}
-	return hub, err
+	return hub.Host, err
 }
 
 // mirrorWaiters wake requests waiting for a conversation's copy to move on.
@@ -292,18 +378,18 @@ func (m *mirrorWaiters) moved(conv string) {
 }
 
 // waitMirror waits until this server's copy of conv has the hub's event
-// hubSeq, and answers its seq here.
-func (a *API) waitMirror(ctx context.Context, conv string, hubSeq int64) (int64, error) {
+// hubSeq of term, and answers its seq here.
+func (a *API) waitMirror(ctx context.Context, conv string, term, hubSeq int64) (int64, error) {
 	deadline := time.After(mirrorWait)
 	for {
 		moved := a.mirrors.wait(conv)
-		seq, err := a.store.SeqOfHubEvent(ctx, conv, hubSeq)
+		seq, err := a.store.SeqOfHubEvent(ctx, conv, term, hubSeq)
 		if err == nil {
 			return seq, nil
 		} else if !errors.Is(err, store.ErrNotFound) {
 			return 0, err
 		}
-		if _, at, err := a.store.ConversationHub(ctx, conv); err == nil && at >= hubSeq {
+		if at, err := a.store.ConversationHub(ctx, conv); err == nil && (at.Term > term || at.Term == term && at.Seq >= hubSeq) {
 			return 0, errNoClearAnswer // Taken, and gone since (a deleted message).
 		}
 		select {
@@ -321,7 +407,7 @@ func (a *API) waitMirrorOf(ctx context.Context, conv string) error {
 	deadline := time.After(mirrorWait)
 	for {
 		moved := a.mirrors.wait(conv)
-		if _, _, err := a.store.ConversationHub(ctx, conv); err == nil {
+		if _, err := a.store.ConversationHub(ctx, conv); err == nil {
 			return nil
 		} else if !errors.Is(err, store.ErrNotFound) {
 			return err
@@ -341,11 +427,11 @@ func (a *API) relayMessage(ctx context.Context, c *Caller, hub, conv string, raw
 	if err := a.requireMember(ctx, conv, c); err != nil {
 		return 0, err
 	}
-	var out struct{ Seq int64 }
-	if err := a.relay(ctx, c, hub, "conv.message", map[string]any{"envelope": raw}, &out); err != nil {
+	var out position
+	if err := a.relay(ctx, c, hub, conv, "conv.message", map[string]any{"envelope": raw}, &out); err != nil {
 		return 0, err
 	}
-	return a.waitMirror(ctx, conv, out.Seq)
+	return a.waitMirror(ctx, conv, out.Term, out.Seq)
 }
 
 // relayCommit sends c's commit to a conversation another server orders,
@@ -355,11 +441,11 @@ func (a *API) relayCommit(ctx context.Context, c *Caller, hub, conv string, in c
 		return 0, err
 	}
 	a.markWelcomes(ctx, in.Welcomes)
-	var out struct{ Seq int64 }
-	if err := a.relay(ctx, c, hub, "conv.commit", map[string]any{"conv": conv, "commit": in}, &out); err != nil {
+	var out position
+	if err := a.relay(ctx, c, hub, conv, "conv.commit", map[string]any{"conv": conv, "commit": in}, &out); err != nil {
 		return 0, err
 	}
-	return a.waitMirror(ctx, conv, out.Seq)
+	return a.waitMirror(ctx, conv, out.Term, out.Seq)
 }
 
 // relayAdd adds user to a group another server orders. Whoever is added must
@@ -371,14 +457,12 @@ func (a *API) relayAdd(ctx context.Context, c *Caller, hub, conv, user string, i
 		return nil, 0, errNotAContact
 	}
 	a.markWelcomes(ctx, in.Welcomes)
-	var out struct {
-		Seq int64 `json:"seq"`
-	}
+	var out position
 	req := map[string]any{"conv": conv, "member": user, "commit": in}
-	if err := a.relay(ctx, c, hub, "conv.add_member", req, &out); err != nil {
+	if err := a.relay(ctx, c, hub, conv, "conv.add_member", req, &out); err != nil {
 		return nil, 0, err
 	}
-	seq, err := a.waitMirror(ctx, conv, out.Seq)
+	seq, err := a.waitMirror(ctx, conv, out.Term, out.Seq)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -388,13 +472,18 @@ func (a *API) relayAdd(ctx context.Context, c *Caller, hub, conv, user string, i
 
 // relayLeave takes c out of a group another server orders.
 func (a *API) relayLeave(ctx context.Context, c *Caller, hub, conv string) (int64, error) {
-	var out struct {
-		Seq int64 `json:"seq"`
-	}
-	if err := a.relay(ctx, c, hub, "conv.leave", map[string]any{"conv": conv}, &out); err != nil {
+	var out position
+	if err := a.relay(ctx, c, hub, conv, "conv.leave", map[string]any{"conv": conv}, &out); err != nil {
 		return 0, err
 	}
-	return a.waitMirror(ctx, conv, out.Seq)
+	return a.waitMirror(ctx, conv, out.Term, out.Seq)
+}
+
+// position is where an event the hub made is in the conversation's order:
+// hubs before moves say no term, which is 0.
+type position struct {
+	Term int64 `json:"term"`
+	Seq  int64 `json:"seq"`
 }
 
 // markWelcomes says whose each device is, for the hub, which may not know
@@ -413,42 +502,63 @@ func (a *API) markWelcomes(ctx context.Context, welcomes []welcomeInput) {
 
 type convEventItem struct {
 	Conv  string        `json:"conv"`
+	Term  int64         `json:"term"`
 	Seq   int64         `json:"seq"`
 	Prev  int64         `json:"prev"`
 	Event convEventJSON `json:"event"`
 }
 
+var errNotTheHub = &Error{http.StatusForbidden, "not_the_hub", "That server does not order this conversation"}
+
 // takeConvEvent takes an event of a conversation origin orders into this
 // server's copy, in the hub's order: a repeat changes nothing, and a gap is
-// filled from the hub once the transaction is done.
+// filled from the hub once the transaction is done. Of a later term, the
+// copy first hears of the move from the hub it has, and fetches the rest
+// from the new one.
 func (a *API) takeConvEvent(tx *store.Tx, origin string, it convEventItem) ([]func(), error) {
-	hub, at, err := tx.ConversationHub(it.Conv)
+	hub, err := tx.ConversationHub(it.Conv)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		if it.Event.Type != protocol.EventConversationCreated || it.Prev != 0 {
-			return a.catchUpLater(origin, it.Conv), nil // Its start is missing.
+		if it.Term != 0 || it.Event.Type != protocol.EventConversationCreated || it.Prev != 0 {
+			return a.catchUpLater(it.Conv, origin), nil // Its start is missing.
 		}
 	case err != nil:
 		return nil, err
-	case hub != origin:
-		return nil, &Error{http.StatusForbidden, "not_the_hub", "That server does not order this conversation"}
-	case it.Seq <= at:
+	case it.Term < hub.Term:
+		return nil, nil // Of a term this copy is past.
+	case hub.Host == "":
+		return nil, errNotTheHub
+	case it.Term > hub.Term:
+		// From the hub it has, which says when it moved; or if that one is
+		// gone, from origin, which has every move since in its order, as it
+		// would give a server that joins.
+		return a.catchUpLater(it.Conv, hub.Host, origin), nil
+	case hub.Host != origin:
+		return nil, errNotTheHub
+	case it.Seq <= hub.Seq:
 		return nil, nil
-	case it.Prev > at:
-		return a.catchUpLater(origin, it.Conv), nil
+	case it.Prev > hub.Seq:
+		return a.catchUpLater(it.Conv, origin), nil
 	}
-	return a.mirrorEvent(tx, origin, it.Conv, it.Seq, it.Event)
+	return a.mirrorEvent(tx, origin, it.Conv, it.Term, it.Seq, it.Event)
 }
 
-// mirrorEvent appends the hub's event seq of conv here, and does for this
-// server's users what the hub does for its own. A conversation_created makes
-// the copy; member_added and member_removed change who of it is in it. While
-// nobody of this server is, its messages are kept as history only, for
-// whoever of it joins later: never sent to anyone as new.
-func (a *API) mirrorEvent(tx *store.Tx, hub, conv string, seq int64, ev convEventJSON) ([]func(), error) {
-	if ev.Type == protocol.EventConversationCreated {
-		if _, _, err := tx.ConversationHub(conv); errors.Is(err, store.ErrNotFound) {
-			if err := a.createMirror(tx, hub, conv, ev.Data); err != nil {
+// mirrorEvent appends the hub's event seq of conv's term here, and does for
+// this server's users what the hub does for its own. A conversation_created
+// makes the copy, from origin, its first hub (from catch-up, origin is ""); a
+// hub_moved moves it to its next hub; member_added and member_removed change
+// who of it is in it. While nobody of this server is, its messages are kept
+// as history only, for whoever of it joins later: never sent to anyone as new.
+func (a *API) mirrorEvent(tx *store.Tx, origin, conv string, term, seq int64, ev convEventJSON) ([]func(), error) {
+	switch ev.Type {
+	case eventHubMoved:
+		return a.mirrorMove(tx, conv, term, seq, ev)
+	case protocol.EventConversationCreated:
+		if _, err := tx.ConversationHub(conv); errors.Is(err, store.ErrNotFound) {
+			if term != 0 {
+				return nil, badRequest("A conversation starts in term 0")
+			}
+			if err := a.createMirror(tx, origin, conv, ev.Data); err != nil {
 				return nil, err
 			}
 		} else if err != nil {
@@ -489,7 +599,7 @@ func (a *API) mirrorEvent(tx *store.Tx, hub, conv string, seq int64, ev convEven
 		return nil, err
 	}
 	ours := slices.DeleteFunc(slices.Clone(members), a.remote)
-	opts := store.AppendOptions{MsgID: ev.MsgID, Sender: ev.Sender, HubSeq: seq, TS: ev.TS}
+	opts := store.AppendOptions{MsgID: ev.MsgID, Sender: ev.Sender, HubSeq: seq, HubTerm: term, TS: ev.TS}
 	var publish []func()
 	if leaver != "" {
 		// No longer a member, they get their own copy, as on the hub.
@@ -507,6 +617,10 @@ func (a *API) mirrorEvent(tx *store.Tx, hub, conv string, seq int64, ev convEven
 			if _, err := tx.AppendEvent(conv, ev.Type, ev.Data, opts); err != nil {
 				return nil, err
 			}
+		} else {
+			// The copy goes without it: it would have to take it from the hub
+			// before ordering the conversation.
+			a.forgetBackfill(conv)
 		}
 		return append(publish, func() { a.mirrors.moved(conv) }), nil
 	}
@@ -575,11 +689,53 @@ func (a *API) mirrorMembers(tx *store.Tx, conv string, ev convEventJSON) (string
 	return "", tx.AddMember(conv, change.User)
 }
 
-// createMirror makes this server's copy of a conversation hub orders, from
-// its conversation_created event. A direct chat's hub is directHub of the
-// two, a group's its creator's server. Users of this server are in it only
-// with a contact of theirs who made it (in a direct chat, the other).
-func (a *API) createMirror(tx *store.Tx, hub, conv string, data json.RawMessage) error {
+// mirrorMove takes a hub_moved, the last event of its hub's term: from the
+// next term on, the server it names orders conv. If that is this one, it does
+// so with the GroupInfo and state the hub had, which its copy does not have.
+func (a *API) mirrorMove(tx *store.Tx, conv string, term, seq int64, ev convEventJSON) ([]func(), error) {
+	var move hubMove
+	if err := json.Unmarshal(ev.Data, &move); err != nil || move.Term != term+1 || !protocol.ValidHost(move.Hub) {
+		return nil, badRequest("A move must name the next hub, for the next term")
+	}
+	opts := store.AppendOptions{TargetUser: store.HubOnly, HubSeq: seq, HubTerm: term, TS: ev.TS}
+	if _, err := tx.AppendEvent(conv, eventHubMoved, ev.Data, opts); err != nil {
+		return nil, err
+	}
+	next := move.Hub
+	if next == a.cfg.Host {
+		next = ""
+		if err := tx.SetConversationEpoch(conv, move.Epoch); err != nil {
+			return nil, err
+		}
+		if err := tx.PutGroupInfo(conv, move.Epoch, move.GroupInfo, move.State); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.SetHub(conv, next, move.Term); err != nil {
+		return nil, err
+	}
+	members, err := tx.MemberIDs(conv)
+	if err != nil {
+		return nil, err
+	}
+	return []func(){func() {
+		if next == "" {
+			a.log.Info("federation: this server orders the conversation now", "conv", conv, "term", move.Term)
+			a.leftByOurs(conv, members) // Its users left meanwhile: on it goes.
+		} else {
+			a.log.Debug("federation: conversation moved", "conv", conv, "hub", next, "term", move.Term)
+		}
+		a.mirrors.moved(conv)
+	}}, nil
+}
+
+// createMirror makes this server's copy of a conversation, from its
+// conversation_created event, which origin passed on: its first hub, which
+// for a direct chat is directHub of the two, and for a group its creator's
+// server. From catch-up (origin ""), the server asked may be a later hub.
+// Users of this server are in it only with a contact of theirs who made it
+// (in a direct chat, the other).
+func (a *API) createMirror(tx *store.Tx, origin, conv string, data json.RawMessage) error {
 	var created struct {
 		Conversation protocol.ConversationInfo `json:"conversation"`
 		By           string                    `json:"by"`
@@ -600,14 +756,17 @@ func (a *API) createMirror(tx *store.Tx, hub, conv string, data json.RawMessage)
 		return badRequest("by must be a member")
 	}
 	var directKey *string
+	hub := hostOf(created.By)
 	if created.Conversation.IsDirect {
-		if len(members) != 2 || directHub(members[0], members[1]) != hub || !a.remote(members[0]) && !a.remote(members[1]) {
+		if len(members) != 2 || !a.remote(members[0]) && !a.remote(members[1]) {
 			return &Error{http.StatusForbidden, "not_the_hub", "That server does not order this chat"}
 		}
+		hub = directHub(members[0], members[1])
 		key := strings.Join(members, "|")
 		directKey = &key
-	} else if hostOf(created.By) != hub {
-		return &Error{http.StatusForbidden, "not_the_hub", "A group is ordered by its creator's server"}
+	}
+	if origin != "" && hub != origin || hub == a.cfg.Host {
+		return &Error{http.StatusForbidden, "not_the_hub", "A conversation starts at its creator's server, a direct chat at its hub"}
 	}
 	var kept []string
 	for _, m := range members {
@@ -647,14 +806,17 @@ func (a *API) createMirror(tx *store.Tx, hub, conv string, data json.RawMessage)
 
 // catchUpLater fills a gap in this server's copy of conv from its hub, once
 // the transaction that found it is done.
-func (a *API) catchUpLater(hub, conv string) []func() {
-	return []func(){func() { go a.catchUp(hub, conv) }}
+func (a *API) catchUpLater(conv string, hubs ...string) []func() {
+	return []func(){func() { go a.catchUp(conv, hubs...) }}
 }
 
-// catchUp takes from hub the events of conv this server's copy lacks, one
-// catch-up per conversation at a time; one asked for meanwhile runs once it
-// is done.
-func (a *API) catchUp(hub, conv string) {
+// catchUp takes the events of conv this server's copy lacks from the first
+// of hubs that answers, one catch-up per conversation at a time; one asked
+// for meanwhile runs once it is done. A copy that is not there yet is taken
+// from its start, perhaps from a later hub than its first. Once that hub has
+// nothing more, a copy that moved meanwhile goes on with its new hub.
+func (a *API) catchUp(conv string, hubs ...string) {
+	hub, others := hubs[0], hubs[1:]
 	again := &atomic.Bool{}
 	if running, busy := a.catchingUp.LoadOrStore(conv, again); busy {
 		running.(*atomic.Bool).Store(true)
@@ -664,52 +826,92 @@ func (a *API) catchUp(hub, conv string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	for {
-		_, since, err := a.store.ConversationHub(ctx, conv)
-		if err != nil && !errors.Is(err, store.ErrNotFound) {
+		at, err := a.store.ConversationHub(ctx, conv)
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+		case err != nil:
 			a.log.Warn("federation: catching up", "conv", conv, "err", err)
 			return
+		case at.Host == "":
+			return // Ordered here.
 		}
-		var page struct {
-			Events []struct {
-				Seq int64 `json:"seq"`
-				convEventJSON
-			} `json:"events"`
-			More bool `json:"more"`
+		var page caughtUp
+		req := map[string]any{"conv": conv, "since": at.Seq}
+		if at.Term != 0 {
+			req["term"] = at.Term
 		}
-		if err := a.fed.Query(ctx, hub, "conv.events", map[string]any{"conv": conv, "since": since}, &page); err != nil {
+		if err := a.fed.Query(ctx, hub, "conv.events", req, &page); err != nil {
 			a.log.Info("federation: could not catch up", "conv", conv, "hub", hub, "err", err)
-			return
-		}
-		a.log.Debug("federation: catching up", "conv", conv, "since", since, "events", len(page.Events))
-		err = a.store.AppendEvents(ctx, func(tx *store.Tx) (func(), error) {
-			var publish []func()
-			for _, e := range page.Events {
-				// One after another from where this copy is: in order.
-				_, at, err := tx.ConversationHub(conv)
-				if err != nil && !errors.Is(err, store.ErrNotFound) {
-					return nil, err
-				}
-				if e.Seq <= at {
-					continue
-				}
-				done, err := a.mirrorEvent(tx, hub, conv, e.Seq, e.convEventJSON)
-				if err != nil {
-					return nil, err
-				}
-				publish = append(publish, done...)
+			if len(others) == 0 {
+				return
 			}
-			return func() {
-				for _, p := range publish {
-					p()
-				}
-			}, nil
-		})
-		if err != nil {
+			hub, others = others[0], others[1:]
+			continue
+		}
+		a.log.Debug("federation: catching up", "conv", conv, "hub", hub, "term", at.Term, "since", at.Seq,
+			"events", len(page.Events))
+		inOrder := true
+		if err := a.store.AppendEvents(ctx, func(tx *store.Tx) (publish func(), err error) {
+			publish, inOrder, err = a.takeCaughtUp(tx, conv, page)
+			return publish, err
+		}); err != nil {
 			a.log.Warn("federation: taking what was caught up", "conv", conv, "err", err)
 			return
 		}
-		if !page.More && !again.Swap(false) {
+		if !inOrder {
+			a.log.Warn("federation: catching up skipped a move", "conv", conv, "hub", hub)
 			return
+		}
+		if page.More {
+			continue
+		}
+		now, err := a.store.ConversationHub(ctx, conv)
+		if err == nil && now.Host != "" && now.Host != hub && now.Term > at.Term {
+			hub = now.Host // It moved: what came after is there.
+			continue
+		}
+		if !again.Swap(false) {
+			return
+		}
+		if err == nil && now.Host != "" {
+			hub = now.Host
+		}
+	}
+}
+
+// takeCaughtUp takes a page of a catch-up of conv into this server's copy,
+// from where the copy is: in order, term by term. It stops at an event of a
+// term the copy has not heard of a move to, which is out of order.
+func (a *API) takeCaughtUp(tx *store.Tx, conv string, page caughtUp) (func(), bool, error) {
+	var publish []func()
+	for _, e := range page.Events {
+		at, err := tx.ConversationHub(conv)
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			if e.Term != 0 || e.Type != protocol.EventConversationCreated {
+				continue // Not there yet: from its start.
+			}
+		case err != nil:
+			return nil, false, err
+		case e.Term < at.Term || e.Term == at.Term && e.Seq <= at.Seq:
+			continue
+		case e.Term > at.Term:
+			return run(publish), false, nil
+		}
+		done, err := a.mirrorEvent(tx, "", conv, e.Term, e.Seq, e.convEventJSON)
+		if err != nil {
+			return nil, false, err
+		}
+		publish = append(publish, done...)
+	}
+	return run(publish), true, nil
+}
+
+// run is what runs each of fns.
+func run(fns []func()) func() {
+	return func() {
+		for _, fn := range fns {
+			fn()
 		}
 	}
 }
@@ -736,14 +938,15 @@ func (a *API) takeWelcome(tx *store.Tx, origin string, w welcomeItem) ([]func(),
 	} else if err != nil {
 		return nil, err
 	}
-	hub, _, err := tx.ConversationHub(w.Conv)
+	hub, err := tx.ConversationHub(w.Conv)
 	member := false
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 	case err != nil:
 		return nil, err
-	case hub != origin:
-		return nil, &Error{http.StatusForbidden, "not_the_hub", "That server does not order this conversation"}
+	case hub.Host != origin:
+		// Not from the hub this copy has (perhaps from its next, whose move
+		// it has not heard of yet): as for a conversation it has no copy of.
 	default:
 		members, err := tx.MemberIDs(w.Conv)
 		if err != nil {

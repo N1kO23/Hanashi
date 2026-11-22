@@ -164,6 +164,14 @@ func (a *API) answerQuery(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	ctx := r.Context()
+	if r.PathValue("kind") == "server" {
+		about, err := a.aboutThisServer()
+		if err != nil {
+			return err
+		}
+		writeJSON(w, http.StatusOK, about)
+		return nil
+	}
 	if kind := r.PathValue("kind"); strings.HasPrefix(kind, "conv.") || kind == "claim" {
 		var out any
 		if kind == "claim" {

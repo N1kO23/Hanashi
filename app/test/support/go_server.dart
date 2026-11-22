@@ -139,6 +139,16 @@ class GoServer {
     );
   }
 
+  /// Waits until the server has logged [text]: for what it does by itself,
+  /// which no app sees.
+  Future<void> logged(String text, {Duration timeout = const Duration(seconds: 20)}) async {
+    final deadline = DateTime.now().add(timeout);
+    while (!_log.toString().contains(text)) {
+      if (DateTime.now().isAfter(deadline)) throw TimeoutException('$host never logged "$text":\n$_log');
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+  }
+
   /// Runs [statements] on the server's database: for tests that play a
   /// server that misbehaves, which its API cannot be made to do.
   Future<void> sql(List<String> statements) async {

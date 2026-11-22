@@ -237,6 +237,7 @@ class SocketClient {
                 frame['status'] as int? ?? 400,
                 frame['error'] as String? ?? 'error',
                 frame['message'] as String?,
+                frame['server'] as String?,
               ),
             );
       case Frame.inbox:

@@ -394,6 +394,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
         children: [
           _TitleBar(summary: summary, nameOf: nameOf, fullScreen: widget.fullScreen),
           if (summary != null) _SecurityBanner(summary: summary, nameOf: nameOf),
+          _HubBanner(conversationId: widget.conversationId),
           CallStrip(conversationId: widget.conversationId),
           CallStage(conversationId: widget.conversationId),
           Expanded(
@@ -771,6 +772,42 @@ class _TitleBar extends ConsumerWidget {
 
 /// Says why sending is paused in this chat and, when the fix is the user's to
 /// make, offers it. Messages written meanwhile wait in the outbox.
+/// Says why messages wait when the server that orders the conversation,
+/// another than the user's, cannot be reached.
+class _HubBanner extends ConsumerWidget {
+  const _HubBanner({required this.conversationId});
+
+  final String conversationId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final host = ref.watch(unreachableHubsProvider.select((hubs) => hubs.value?[conversationId]));
+    if (host == null) return const SizedBox.shrink();
+    final server = host.isEmpty ? 'The server this chat runs on' : '$host, the server this chat runs on,';
+    return Container(
+      key: const Key('hub-banner'),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      decoration: BoxDecoration(
+        color: context.palette.warningBackground,
+        border: Border(bottom: BorderSide(color: context.palette.panelDivider)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.cloud_off_outlined, color: context.palette.warning),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "$server can't be reached right now, so messages here wait. They're sent once it's back.",
+              style: TextStyle(color: context.palette.textPrimary, fontSize: 13.5, height: 1.3),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SecurityBanner extends ConsumerWidget {
   const _SecurityBanner({required this.summary, required this.nameOf});
 

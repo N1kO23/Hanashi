@@ -148,6 +148,8 @@ func startServerWithLog(t *testing.T, log *slog.Logger, opts ...serverOption) st
 type apiError struct {
 	Status int
 	Code   string `json:"error"`
+	// Server is the other server it is about, if it says.
+	Server string `json:"server"`
 }
 
 func (e *apiError) Error() string { return fmt.Sprintf("%d %s", e.Status, e.Code) }

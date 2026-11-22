@@ -81,7 +81,7 @@ func TestFederation(t *testing.T) {
 	}
 	cfg, err := load(map[string]string{})
 	if err != nil || cfg.Federation || len(cfg.FederationServers) != 0 || len(cfg.FederationResolve) != 0 ||
-		cfg.FederationRate != 100 {
+		cfg.FederationRate != 100 || cfg.HandOver != HandOverGroupsLeft {
 		t.Fatalf("unset: %+v, %v", cfg, err)
 	}
 	if cfg, err := load(map[string]string{"HANASHI_FEDERATION_RATE": "2.5"}); err != nil || cfg.FederationRate != 2.5 {
@@ -105,6 +105,11 @@ func TestFederation(t *testing.T) {
 	if err != nil || !cfg.FederationAnyServer || len(cfg.FederationServers) != 0 {
 		t.Fatalf("any server: %+v, %v", cfg, err)
 	}
+	// Before shutting it down, everything it orders goes to other servers.
+	cfg, err = load(map[string]string{"HANASHI_FEDERATION": "on", "HANASHI_FEDERATION_SERVERS": "*", "HANASHI_HAND_OVER": "all"})
+	if err != nil || cfg.HandOver != HandOverAll {
+		t.Fatalf("hand over all: %v, %v", cfg.HandOver, err)
+	}
 	for _, bad := range []map[string]string{
 		{"HANASHI_FEDERATION": "yes"},
 		// On, it needs to know with whom: a list, or * for any.
@@ -116,6 +121,9 @@ func TestFederation(t *testing.T) {
 		{"HANASHI_FEDERATION_RESOLVE": "a.test=http://"},
 		{"HANASHI_FEDERATION_RATE": "0"},
 		{"HANASHI_FEDERATION_RATE": "fast"},
+		{"HANASHI_FEDERATION": "on", "HANASHI_FEDERATION_SERVERS": "*", "HANASHI_HAND_OVER": "some"},
+		// Without federation, there is nobody to hand anything to.
+		{"HANASHI_HAND_OVER": "all"},
 	} {
 		if _, err := load(bad); err == nil {
 			t.Errorf("%v was taken", bad)

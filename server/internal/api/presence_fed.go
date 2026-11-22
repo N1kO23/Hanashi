@@ -36,6 +36,7 @@ func (a *API) Run(ctx context.Context) {
 	if !a.fed.Enabled() {
 		return
 	}
+	go a.runHandOvers(ctx)
 	interval := a.presenceInterval()
 	repeat := time.NewTicker(interval)
 	defer repeat.Stop()

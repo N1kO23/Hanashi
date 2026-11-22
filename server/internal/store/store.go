@@ -393,8 +393,16 @@ var schema = []string{
 }
 
 // migrations[v] takes a database from schema v-1 to v, for those after
-// firstSchema.
-var migrations = map[int][]string{}
+// firstSchema. Each statement can run again, should a step stop halfway.
+var migrations = map[int][]string{
+	// Conversations move from hub to hub: what there was is of term 0.
+	14: {
+		`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS hub_term int(11) NOT NULL DEFAULT 0`,
+		`ALTER TABLE events ADD COLUMN IF NOT EXISTS hub_term int(11) NOT NULL DEFAULT 0`,
+		`ALTER TABLE events ADD KEY IF NOT EXISTS events_hub (conv_id,hub_term,hub_seq)`,
+		`ALTER TABLE events DROP KEY IF EXISTS events_hub_seq`,
+	},
+}
 
 // latestSchema is the schema of a database this version made or upgraded.
 func latestSchema() int {
@@ -737,6 +745,8 @@ type AppendOptions struct {
 	// and when it happened there.
 	HubSeq int64
 	TS     int64
+	// The term of its conversation it is of: the one its hub numbered it in.
+	HubTerm int64
 }
 
 // AppendEvent appends an event; conv is empty for user-level events, which
@@ -751,8 +761,10 @@ func (tx *Tx) AppendEvent(conv, typ string, data json.RawMessage, opt AppendOpti
 		hubSeq = opt.HubSeq
 	}
 	res, err := tx.q.ExecContext(tx.ctx,
-		`INSERT INTO events (conv_id, type, target_user, msg_id, sender, payload, ts, hub_seq) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		nullable(conv), typ, nullable(opt.TargetUser), nullable(opt.MsgID), nullable(opt.Sender), string(data), ts, hubSeq)
+		`INSERT INTO events (conv_id, type, target_user, msg_id, sender, payload, ts, hub_seq, hub_term)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		nullable(conv), typ, nullable(opt.TargetUser), nullable(opt.MsgID), nullable(opt.Sender), string(data), ts, hubSeq,
+		opt.HubTerm)
 	if err != nil {
 		return protocol.SyncEvent{}, err
 	}

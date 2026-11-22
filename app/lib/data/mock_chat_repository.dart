@@ -709,6 +709,9 @@ class MockChatRepository implements ChatRepository {
   Stream<Set<String>> watchIdentityChanges() => Stream.value(const {});
 
   @override
+  Stream<Map<String, String>> watchUnreachableHubs() => Stream.value(const {});
+
+  @override
   Future<void> acceptIdentityChange(String userId) async {}
 
   /// Contacts shown as verified (demo and tests).

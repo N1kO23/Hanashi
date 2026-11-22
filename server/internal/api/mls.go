@@ -86,13 +86,16 @@ func (a *API) lease(ctx context.Context, c *Caller, convID string, deviceEpoch *
 	if hub, err := a.mirrorHub(ctx, convID); err != nil || hub != "" {
 		var out map[string]any
 		if err == nil {
-			err = a.relay(ctx, c, hub, "conv.lease", map[string]any{"conv": convID, "epoch": deviceEpoch}, &out)
+			err = a.relay(ctx, c, hub, convID, "conv.lease", map[string]any{"conv": convID, "epoch": deviceEpoch}, &out)
 		}
 		return out, err
 	}
 	var out map[string]any
 	err := a.store.AppendEvents(ctx, func(tx *store.Tx) (func(), error) {
 		if err := requireVerified(tx, c); err != nil {
+			return nil, err
+		}
+		if err := requireHubTx(tx, convID); err != nil {
 			return nil, err
 		}
 		epoch, err := tx.ConversationEpoch(convID)
@@ -140,7 +143,7 @@ func (a *API) release(ctx context.Context, c *Caller, convID, leaseID string) er
 		if err := a.requireMember(ctx, convID, c); err != nil {
 			return err
 		}
-		return a.relay(ctx, c, hub, "conv.release", map[string]any{"conv": convID, "lease": leaseID}, nil)
+		return a.relay(ctx, c, hub, convID, "conv.release", map[string]any{"conv": convID, "lease": leaseID}, nil)
 	}
 	released, err := a.store.ReleaseLease(ctx, convID, leaseID, c.SessionID)
 	if err != nil {
@@ -412,7 +415,7 @@ func (a *API) groupInfoOf(ctx context.Context, c *Caller, convID string) (map[st
 	if hub, err := a.mirrorHub(ctx, convID); err != nil || hub != "" {
 		var out map[string]any
 		if err == nil {
-			err = a.relay(ctx, c, hub, "conv.group_info", map[string]any{"conv": convID}, &out)
+			err = a.relay(ctx, c, hub, convID, "conv.group_info", map[string]any{"conv": convID}, &out)
 		}
 		return out, err
 	}
@@ -461,7 +464,7 @@ func (a *API) sealState(ctx context.Context, c *Caller, convID string, epoch *in
 	if hub, err := a.mirrorHub(ctx, convID); err != nil {
 		return err
 	} else if hub != "" {
-		return a.relay(ctx, c, hub, "conv.state", map[string]any{"conv": convID, "epoch": *epoch, "data": data}, nil)
+		return a.relay(ctx, c, hub, convID, "conv.state", map[string]any{"conv": convID, "epoch": *epoch, "data": data}, nil)
 	}
 	return a.store.AppendEvents(ctx, func(tx *store.Tx) (func(), error) {
 		if err := requireVerified(tx, c); err != nil {

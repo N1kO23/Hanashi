@@ -33,9 +33,15 @@ type GroupInfo struct {
 }
 
 func (s *Store) GroupInfo(ctx context.Context, convID string) (*GroupInfo, error) {
+	return groupInfo(ctx, s.db, convID)
+}
+
+func (tx *Tx) GroupInfo(convID string) (*GroupInfo, error) { return groupInfo(tx.ctx, tx.q, convID) }
+
+func groupInfo(ctx context.Context, q querier, convID string) (*GroupInfo, error) {
 	var g GroupInfo
 	var state sql.NullString
-	err := s.db.QueryRowContext(ctx, `SELECT epoch, data, state FROM group_info WHERE conv_id = ?`, convID).
+	err := q.QueryRowContext(ctx, `SELECT epoch, data, state FROM group_info WHERE conv_id = ?`, convID).
 		Scan(&g.Epoch, &g.Data, &state)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound

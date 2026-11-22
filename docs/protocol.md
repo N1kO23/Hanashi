@@ -1208,7 +1208,7 @@ Write the message to a local outbox first so it survives restarts, then:
 2. Encrypt the message for the current epoch and send it over the WebSocket:
    `{"type":"send","rid":"<request id>","envelope":Envelope}`.
    The server answers `{"type":"ack","rid":...,"seq":n}` or
-   `{"type":"nack","rid":...,"error":"<code>","status":<http status>,"message"?}`.
+   `{"type":"nack","rid":...,"error":"<code>","status":<http status>,"message"?,"server"?}`.
 3. The message also arrives as a `message` event on every device of every
    member, the sending device included (possibly before the ack). Match it to
    the outbox entry by envelope `id`.
@@ -1231,6 +1231,15 @@ again after reconnecting; the server answers a repeated `id` with the original
 seq. On a `nack` with status 4xx other than 401/408/429 (and
 `epoch_mismatch` and `not_verified`), mark it failed: retrying unchanged will
 not help.
+
+A conversation another server orders can be held up on its own: on
+`502 server_unreachable`, `504 no_clear_answer` (see
+[Conversations across servers](#conversations-across-servers)) and
+`503 conv_moved` (see [Handing a conversation over](#handing-a-conversation-over)),
+keep that conversation's messages pending, go on sending the other
+conversations', and try again later (apps wait 15 s, doubling up to 5 minutes,
+and at once after reconnecting). The `server` of a `server_unreachable` names the server that
+could not be reached, for telling the user why their messages wait.
 
 Read markers work the same way:
 `{"type":"read","rid":...,"conv":"...","upTo":seq}` is answered with
@@ -1343,7 +1352,9 @@ process per database**. Leases and epoch checks happen under the same lock.
 ## REST API
 
 All bodies are JSON. Errors are `{"error": "<code>", "message": "..."}` with
-an HTTP status code. Except where noted, requests need
+an HTTP status code. A `502 server_unreachable` for a conversation another
+server orders adds `"server": "<host>"`, the server that could not be reached
+(older servers leave it out). Except where noted, requests need
 `Authorization: Bearer <token>`. The key, MLS, inbox, verification, account
 data and push endpoints are listed in their sections above.
 
@@ -1399,7 +1410,7 @@ Every frame is a JSON object with a `type`. Requests carry a client-chosen
 | client -> server | `{"type":"commit","rid":"...","conv":"...","commit":{...}}`, answered with an `ack` carrying `seq`                       |
 | client -> server | `{"type":"read","rid":"...","conv":"...","upTo":seq}`                                                                    |
 | server -> client | `{"type":"ack","rid":"...","seq":n}` or `{"type":"ack","rid":"...","readUpTo":n}`                                        |
-| server -> client | `{"type":"nack","rid":"...","error":"<code>","status":<http status>,"message"?}`                                         |
+| server -> client | `{"type":"nack","rid":"...","error":"<code>","status":<http status>,"message"?,"server"?}`                               |
 | both             | `{"type":"typing","conv":"..."}` (the server adds `"user"`; ephemeral, never stored)                                     |
 | both             | `{"type":"presence",...}`: who is online, and whether this device is in use (see [Presence](#presence))                  |
 | server -> client | `{"type":"error","error":"unauthorized"\|"session_revoked"\|"client_too_old"}`, then the socket closes                   |
@@ -1463,12 +1474,13 @@ make this one knock on many doors.
 **Queries** are answered at once, for an app's request that waits for them: 10
 seconds at most, or the app gets `502 server_unreachable`.
 
-| Path            | Body                   | Answer                                                                   |
-| --------------- | ---------------------- | ------------------------------------------------------------------------ |
-| `query/user`    | `{"user"}`             | `{"user"}`, or `404 user_not_found`                                      |
-| `query/keys`    | `{"user"}`             | As `GET /keys/users/{id}`                                                |
-| `query/profile` | `{"user", "asker"}`    | As `GET /users/{id}/profile` for `asker`, a user of the server that asks |
-| `query/claim`   | `{"asker", "devices"}` | `{"packages"}`: as `POST /keys/packages/claim` for `asker`               |
+| Path            | Body                   | Answer                                                                                                                              |
+| --------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `query/server`  | `{}`                   | `{"version", "features", "handingOver"?}`: what the server can do (see [Handing a conversation over](#handing-a-conversation-over)) |
+| `query/user`    | `{"user"}`             | `{"user"}`, or `404 user_not_found`                                                                                                 |
+| `query/keys`    | `{"user"}`             | As `GET /keys/users/{id}`                                                                                                           |
+| `query/profile` | `{"user", "asker"}`    | As `GET /users/{id}/profile` for `asker`, a user of the server that asks                                                            |
+| `query/claim`   | `{"asker", "devices"}` | `{"packages"}`: as `POST /keys/packages/claim` for `asker`                                                                          |
 
 An app asks its own server as always: `GET /users/{id}`, `GET /keys/users/{id}`
 and `GET /users/{id}/profile` of a user of another server go through these, and
@@ -1533,25 +1545,33 @@ of the conversation, which apps use as any other.
   start their chat at once cannot make two.
 - **A group** is ordered by its creator's server, which is where it is made.
 - **While its hub cannot be reached,** a conversation cannot change: no
-  messages, commits or members. A conversation does not move to another hub.
+  messages, commits or members. Apps keep what is sent to it, say which server
+  they wait for (see [Sending](#sending)), and send it once that one is back.
+- **A hub can hand a conversation over** to the server of some of its other
+  members, which orders it from then on: see
+  [Handing a conversation over](#handing-a-conversation-over).
 
 **Events, in the hub's order.** The hub sends each event of the conversation
 that its members see to the servers of its members of other servers:
-`conv.event {conv, seq, prev, event: {type, ts, data, msgId?, sender?}}`.
+`conv.event {conv, term?, seq, prev, event: {type, ts, data, msgId?, sender?}}`.
 `seq` is its seq at the hub, and `prev` that of the conversation's previous such
-event there (0 for the first). Events for one user only (read markers) stay
-where they are.
+event there in the same term (0 for the first). `term` counts the times the
+conversation moved to another hub (absent: 0); each hub numbers the events of
+its term. Events for one user only (read markers) stay where they are.
 
 - **On the copy:** the server appends the event to its own log, with its own
   seq, and wakes its users as the hub does its own.
 - **A repeat** (a `seq` it has) changes nothing.
 - **A gap** (a `prev` it does not have) is filled from the hub with
-  `query/conv.events {conv, since}`, which answers `{"events": [...], "more"}`
-  after `since`.
+  `query/conv.events {conv, term?, since, except?}`, which answers
+  `{"events": [{term?, seq, type, ts, data, msgId?, sender?}], "more"}`: the
+  events after the one `since` of `term`, in order, term by term, but for those
+  of the types `except` lists.
 - **A new copy** starts with the conversation's `conversation_created`, if
   that server is its hub by the rules above. When one of the receiver's users
   is added to a conversation it has no copy of, it fetches the conversation
-  from its start (`conv.events` from 0).
+  from its start (`conv.events` from 0), from the server that told it, which
+  may be a later hub than the first.
 - **Who of the receiver's users is in it** follows `member_added` and
   `member_removed`, with one rule of its own: a user of the receiver is in a
   conversation only if whoever made it or added them is their contact, on the
@@ -1584,7 +1604,8 @@ member, and relays the request to the hub as a query naming the acting `user`
 | `POST /conversations/{id}/leave`                                      | `query/conv.leave`                       | `{}`, once the copy has it                     |
 
 - **Seqs on the app's own server:** an answer with a seq comes once the copy has
-  the hub's event, which the hub sends at once.
+  the hub's event, which the hub sends at once. The hub answers where the event
+  is in the conversation's order, `{"term", "seq"}`, for the copy to wait for.
 - **The hub's refusals pass through unchanged:** `epoch_mismatch`, `lease_held`,
   `lease_invalid`, `not_a_contact`, …
 - **No clear answer:** if the hub cannot be reached, the app gets
@@ -1605,6 +1626,70 @@ tells the servers of the other members (`messages.deleted`). When a member of
 another server leaves, their server hears of it too, and gives them their own
 copy of `member_removed`; once none of its users are in a conversation, the hub
 sends it nothing more.
+
+### Handing a conversation over
+
+A hub hands a conversation over to the server of some of its other members,
+which orders it from then on, so that the conversation goes on without the
+server it started on:
+
+- **By itself,** once none of its own users are in a group that has members on
+  other servers.
+- **Everything it orders** that has members elsewhere, direct chats too, when
+  its operator sets `HANASHI_HAND_OVER=all`, before shutting it down. Its own
+  users stay in what it hands over, which their server relays as for any
+  conversation another server orders.
+
+Only the hub decides, in its order of events, so two servers never both
+order a conversation. Without the hub, a conversation cannot move: it waits
+for the hub to be back.
+
+**Which server.** The hub asks every other member's server what it is,
+`query/server`, answered with
+`{"version", "features": ["hub-move"], "handingOver"?}`. Servers from before
+moves answer it with an error. If any of them lacks `hub-move` or cannot be
+reached, the conversation stays for now, and the hub tries again later (after
+10 minutes, doubling up to 6 hours). Of the others that are not handing over all
+they order themselves, it chooses the one with the most of the conversation's
+members (of two with as many, the host that sorts first).
+
+**Ready.** The hub asks that server `query/conv.handover {conv, term}`, again
+and again, until it answers `{"ready": true}`; if it is not ready within a
+minute, or refuses, the hub goes on to the next. A server is ready once its copy
+of the conversation is of that hub and term, some of its users are in it, and
+it holds the conversation's whole order, which it has to give to servers that
+join later. Its copy lacks what came while none of its users were in it but
+messages, which a copy always keeps: it takes that from the hub
+(`conv.events` with `"except": ["message"]`), and answers `{"ready": false}`
+meanwhile. It answers `409 not_ready` while its copy is of another term, and
+`409 no_members` if none of its users are in it.
+
+**The move.** In one step, the hub ends its term with a `hub_moved` event,
+`{hub, term, epoch, groupInfo, state?}`: the next hub, the term it orders, and
+the epoch, GroupInfo and sealed state, which only a hub keeps. It is the last
+`conv.event` of the term, to the servers of all members. It is the servers'
+own: no app ever gets it, and apps need not know a conversation moved. The
+hub's lease ends with it.
+
+- **Each copy** switches at that event, so all switch at the same point of the
+  conversation's order: from then on it takes the events of the new term from
+  the new hub, and relays to it. The new hub takes the GroupInfo and state.
+- **An event of a later term** than a copy knows of comes before the copy has
+  heard of the move. The copy catches up from the hub it has, which says where
+  it moved; or, if that one cannot be reached, from the server that sent the
+  event, which has every move since in its order.
+- **An event of a past term** changes nothing.
+- **A Welcome** from another server than the hub a copy has is taken as for a
+  conversation it has no copy of: from a contact of the user's, or from one of
+  their own devices.
+
+**After the move,** the old hub answers what is relayed to it about the
+conversation with `503 conv_moved`, as does the new hub until it has the
+`hub_moved` itself. Apps hold what they sent and try again (see
+[Sending](#sending)); by then their server relays to the new hub, which it also
+learns of at once from the old one, told so. The old hub still gives copies
+that missed the move the events of the terms it ordered, `hub_moved` included.
+A server from before moves cannot join a conversation that moved.
 
 ### Files, verification, typing and presence across servers
 

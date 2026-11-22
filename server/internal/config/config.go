@@ -82,6 +82,19 @@ type Config struct {
 	FederationRate     float64
 	FederationBurst    int
 	FederationInFlight int
+	// HandOver is what this server hands over to the servers of their other
+	// members, which order them from then on: the groups none of its users
+	// are in (HandOverGroupsLeft), or everything it orders (HandOverAll), for
+	// an operator about to shut it down. See docs/federation.md.
+	HandOver HandOver
+	// HandOverRetry is how long a conversation that could not be handed over
+	// waits for its next try, at first (10 minutes, doubling up to 6 hours);
+	// with HandOverAll, also how often the server looks for new ones. Tests
+	// shorten it.
+	HandOverRetry time.Duration
+	// NoHubMove makes the server one that cannot follow a conversation to
+	// another hub, as older servers cannot (for tests).
+	NoHubMove bool
 	// LiveKitURL is where apps reach the LiveKit server that carries calls
 	// (ws:// or wss://; see docs/calls.md), with tokens this server signs
 	// with LiveKitAPIKey and LiveKitAPISecret. LiveKitAPIURL is where this
@@ -99,6 +112,13 @@ type Config struct {
 	CallSweepInterval     time.Duration
 	CallReconcileInterval time.Duration
 }
+
+type HandOver string
+
+const (
+	HandOverGroupsLeft HandOver = "auto"
+	HandOverAll        HandOver = "all"
+)
 
 // Calls reports whether the operator set up a LiveKit server for calls.
 func (c Config) Calls() bool { return c.LiveKitURL != "" }
@@ -216,6 +236,16 @@ func FromEnv(lookup func(string) (string, bool)) (Config, error) {
 		return cfg, fmt.Errorf("HANASHI_FEDERATION_RATE must be a number of requests a second, above 0")
 	}
 	cfg.FederationRate = rate
+	switch cfg.HandOver = HandOver(get("HANASHI_HAND_OVER", string(HandOverGroupsLeft))); cfg.HandOver {
+	case HandOverGroupsLeft:
+	case HandOverAll:
+		if !cfg.Federation {
+			return cfg, fmt.Errorf("HANASHI_HAND_OVER=all hands conversations to other servers: it needs HANASHI_FEDERATION=on")
+		}
+	default:
+		return cfg, fmt.Errorf("HANASHI_HAND_OVER must be auto or all")
+	}
+	cfg.HandOverRetry = 10 * time.Minute
 	cfg.FederationResolve = map[string]string{}
 	for _, pair := range strings.Split(get("HANASHI_FEDERATION_RESOLVE", ""), ",") {
 		if pair = strings.TrimSpace(pair); pair == "" {

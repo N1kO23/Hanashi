@@ -12,11 +12,20 @@ const _log = Log('api');
 
 /// An error response from the server, or a network failure ([status] 0).
 class ApiException implements Exception {
-  const ApiException(this.status, this.code, [this.message]);
+  const ApiException(this.status, this.code, [this.message, this.server]);
 
   final int status;
   final String code;
   final String? message;
+
+  /// The other server it is about, if the user's own says: one that orders a
+  /// conversation and cannot be reached, say.
+  final String? server;
+
+  /// About another server, which orders the conversation asked about: it
+  /// cannot be reached, took it without this one hearing back, or no longer
+  /// orders it. That conversation waits; others go on.
+  bool get isHubTrouble => code == 'server_unreachable' || code == 'no_clear_answer' || code == 'conv_moved';
 
   bool get isNetworkError => status == 0;
   bool get isUnauthorized => status == 401;
@@ -113,7 +122,12 @@ class ApiClient {
       throw ApiException(response.statusCode, 'bad_response', 'Unexpected response from the server');
     }
     if (response.statusCode != 200) {
-      throw ApiException(response.statusCode, body['error'] as String? ?? 'error', body['message'] as String?);
+      throw ApiException(
+        response.statusCode,
+        body['error'] as String? ?? 'error',
+        body['message'] as String?,
+        body['server'] as String?,
+      );
     }
     return body;
   }
