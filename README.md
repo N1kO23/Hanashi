@@ -366,9 +366,9 @@ GitHub Actions (`.github/workflows/ci.yml`) runs all the tests above (the
 desktop ones under a virtual display) on every push to `main` and every pull
 request. Screenshots that no longer match are uploaded as `golden-failures`.
 
-Every push (not pull requests) also builds every platform and the server's
-Docker image, as does starting it by hand (**Run workflow** on the Actions
-page, or `gh workflow run ci.yml --ref main`). The files are under the run's
+Every push also builds every platform and the server's Docker image, as does
+starting it by hand (**Run workflow** on the Actions page, or
+`gh workflow run ci.yml --ref main`); a pull request builds only the image. The files are under the run's
 **Artifacts** for 7 days. A version tag also publishes them as a GitHub
 release once the tests pass (a tag with a suffix, like `v0.2.0-beta.1`,
 becomes a pre-release):

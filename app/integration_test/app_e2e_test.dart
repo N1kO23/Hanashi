@@ -542,6 +542,9 @@ void main() {
       expect(find.text('Verify kumiko?'), findsOneWidget);
       await tester.tap(find.byKey(const Key('verification-accept')));
       await pumpUntil(tester, find.byKey(const Key('verification-emoji')));
+      // Kumiko's device has its emoji too, a moment later: only then can it
+      // confirm them.
+      await pumpUntilValue(tester, () async => kumiko.verification.find(asked!)?.emoji, reason: "Kumiko's emoji");
       await tester.tap(find.byKey(const Key('verification-match')));
       await tester.runAsync(() => kumiko.verification.confirm(asked!));
       await pumpUntil(tester, find.byKey(const Key('verification-done')));

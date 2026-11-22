@@ -21,6 +21,11 @@ updates:
       pub:
         patterns: ["*"]
         update-types: [minor, patch]
+    ignore:
+      # Pinned (see app/pubspec.yaml): later versions download LiveKit's Rust
+      # core while building. flutter_webrtc is the version LiveKit pins.
+      - dependency-name: livekit_client
+      - dependency-name: flutter_webrtc
 
   - package-ecosystem: gomod
     directory: /server

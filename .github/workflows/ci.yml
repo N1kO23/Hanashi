@@ -1,8 +1,8 @@
 # Tests every change (server, protocol, app, and the Linux desktop app end to
 # end). Every push, and a run by hand, also builds the app for every platform
-# and the server's Docker image, keeping the builds as workflow artifacts;
-# pull requests are only tested. A tag like v0.2.0 also publishes the builds
-# as a GitHub release once the tests pass, and pushes the image.
+# and the server's Docker image, keeping the builds as workflow artifacts; a
+# pull request builds only the image. A tag like v0.2.0 also publishes the
+# builds as a GitHub release once the tests pass, and pushes the image.
 #
 # Android release signing uses these repository secrets when they are set:
 #   ANDROID_KEYSTORE_BASE64    the .jks keystore, base64-encoded
@@ -464,9 +464,10 @@ jobs:
           archive: false
           retention-days: 7
 
+  # Also for pull requests, which change it too (Dependabot's base images).
   docker:
     name: Docker image
-    needs: [version, server-tests]
+    needs: server-tests
     runs-on: ubuntu-latest
     env:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
