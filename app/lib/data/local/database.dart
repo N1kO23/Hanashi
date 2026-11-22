@@ -530,8 +530,9 @@ class AppDatabase extends _$AppDatabase {
           );
         }
       case EventType.readMarker:
-        if (event.data['user'] == me)
+        if (event.data['user'] == me) {
           await advanceReadMarker(event.conv, event.data['upTo'] as int);
+        }
       default:
         break; // MLS commits are handled by the group manager; unknown types are skipped.
     }
@@ -671,13 +672,15 @@ class AppDatabase extends _$AppDatabase {
         );
         if (apart) continue;
         final distance = high - low;
-        if (best == null || distance < bestDistance)
+        if (best == null || distance < bestDistance) {
           (best, bestDistance) = (line.id, distance);
+        }
       }
       if (best != null) taken.add(best);
     }
-    if (taken.isNotEmpty)
+    if (taken.isNotEmpty) {
       await (delete(messages)..where((m) => m.id.isIn(taken))).go();
+    }
   }
 
   /// Who a line about members is about ('' for the group itself), or null if
@@ -728,8 +731,9 @@ class AppDatabase extends _$AppDatabase {
   /// delete a message. And a message (or edit) that was deleted before it got here keeps no
   /// content, nor does a quote of one.
   Future<void> _applyEffects(Envelope envelope) async {
-    if (envelope.type == Envelope.memberType)
+    if (envelope.type == Envelope.memberType) {
       await _pairGroupLines(envelope.conv);
+    }
     if (envelope.sharedWith != null) {
       final seq = (await messageRow(envelope.id))?.seq;
       if (seq != null) await _addHistoryLine(envelope, seq);
@@ -783,8 +787,9 @@ class AppDatabase extends _$AppDatabase {
             .get();
     for (final reply in mentions) {
       final quoted = _envelope(reply).replyTo;
-      if (quoted != null && quoted.id == target && quoted.from == author)
+      if (quoted != null && quoted.id == target && quoted.from == author) {
         await _forgetQuote(reply);
+      }
     }
   }
 
@@ -868,8 +873,9 @@ class AppDatabase extends _$AppDatabase {
           ),
         );
     final row = updated > 0 ? await messageRow(id) : null;
-    if (row != null && row.kind == Envelope.historyType)
+    if (row != null && row.kind == Envelope.historyType) {
       await _addHistoryLine(_envelope(row), seq);
+    }
     if (row != null && row.isSystem) await _pairGroupLines(row.convId);
     return updated;
   }
@@ -899,8 +905,9 @@ class AppDatabase extends _$AppDatabase {
     for (final event in page.messages) {
       final message = received[event.seq];
       // Never overwrite a message this device already holds in plaintext.
-      if (message != null && (await messageRow(message.envelope.id)) == null)
+      if (message != null && (await messageRow(message.envelope.id)) == null) {
         await _upsertMessage(event.seq, message);
+      }
     }
     await (update(conversations)..where((c) => c.id.equals(convId))).write(
       ConversationsCompanion(moreHistory: Value(page.more)),
@@ -1124,8 +1131,9 @@ class AppDatabase extends _$AppDatabase {
       if (key.convId != row.convId ||
           rowSeq == null ||
           shareSeq == null ||
-          rowSeq >= shareSeq)
+          rowSeq >= shareSeq) {
         continue;
+      }
       (out[key.messageId] ??= []).add(key.contentKey);
     }
     return out;
@@ -1331,8 +1339,9 @@ class AppDatabase extends _$AppDatabase {
     final addedBy = <String, String>{};
     for (final row in hidden) {
       if (row.kind != Envelope.reactionType ||
-          row.state == DeliveryState.failed)
+          row.state == DeliveryState.failed) {
         continue;
+      }
       final e = _envelope(row);
       final target = e.target;
       if (target == null) continue;
@@ -1359,8 +1368,9 @@ class AppDatabase extends _$AppDatabase {
   ) {
     final edits = <String, Envelope>{}; // '<target>|<editor>' -> latest edit
     for (final row in hidden) {
-      if (row.kind != Envelope.editType || row.state == DeliveryState.failed)
+      if (row.kind != Envelope.editType || row.state == DeliveryState.failed) {
         continue;
+      }
       final e = _envelope(row);
       if (e.target case final target?) edits['$target|${e.from}'] = e;
     }
@@ -1704,8 +1714,9 @@ class AppDatabase extends _$AppDatabase {
     );
     // Its first document comes with the group, whose line says so already.
     if (before == null) return;
-    if (before.title != after.title && after.title != null)
+    if (before.title != after.title && after.title != null) {
       await line('renamed', title: after.title);
+    }
     final (was, now) = (before.picture?.hash, after.picture?.hash);
     if (was != now) await line(now == null ? 'pictureRemoved' : 'picture');
     if (before.description != after.description) {
@@ -1901,8 +1912,9 @@ class AppDatabase extends _$AppDatabase {
       await _hiddenAbout([for (final r in rows) r.id]),
     )) {
       // Deleted before it was read: nothing to notify about.
-      if (!message.isDeleted)
+      if (!message.isDeleted) {
         out.putIfAbsent(message.envelope.conv, () => []).add(message);
+      }
     }
     return out;
   }
@@ -1953,8 +1965,9 @@ class AppDatabase extends _$AppDatabase {
       // Taken back since.
       if (emoji == null ||
           standing['${reaction.target}|${reaction.sender}|$emoji'] !=
-              reaction.id)
+              reaction.id) {
         continue;
+      }
       if (reacted.type == Envelope.deletedType) continue;
       out
           .putIfAbsent(reaction.convId, () => [])

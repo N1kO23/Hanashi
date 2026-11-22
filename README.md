@@ -149,14 +149,28 @@ talk to 0.9 or later.
 
 ## Running the server
 
-With Docker (starts MariaDB too):
+With Docker (starts MariaDB too), from the released image,
+[`n1ko23/hanashi-server`](https://hub.docker.com/r/n1ko23/hanashi-server)
+(amd64 and arm64):
 
 ```sh
-docker compose up --build
-HANASHI_PUBLISH_PORT=9090 docker compose up --build   # if port 8080 is taken
+docker compose up -d
+HANASHI_PUBLISH_PORT=9090 docker compose up -d   # if port 8080 is taken
+docker compose up -d --build                     # this checkout's server, built from source
 ```
 
 Change the database password in `docker-compose.yml` before exposing it.
+The compose file names the image of its own version, so after a `git pull`,
+`docker compose up -d` fetches the new one.
+
+The image runs without Compose too, with a MariaDB of your own:
+
+```sh
+docker run -d --name hanashi -p 8080:8080 -v hanashi-media:/data \
+  -e HANASHI_DB_DSN='hanashi:secret@tcp(db.example.org:3306)/hanashi' \
+  -e HANASHI_HOST=chat.example.org \
+  n1ko23/hanashi-server:1.0.0
+```
 
 From source (needs Go 1.26+ and a MariaDB database):
 
@@ -359,6 +373,23 @@ pre-release):
 ```sh
 git tag v0.2.0 && git push origin v0.2.0
 ```
+
+Before tagging, give the release its version in `app/pubspec.yaml`, in the
+server's `Version` (`server/internal/api/api.go`) and in the image
+`docker-compose.yml` names; CI stops if the last two are not the tag's. A
+run by hand checks them against `app/pubspec.yaml`.
+
+A tag also pushes the server's image to Docker Hub, for amd64 and arm64, as
+`n1ko23/hanashi-server:<version>` and, unless it is a pre-release, `latest`
+(a run by hand only builds it). That needs a Docker Hub
+[access token](https://app.docker.com/settings/personal-access-tokens) that
+may read and write, as the repository secret `DOCKERHUB_TOKEN`:
+
+```sh
+gh secret set DOCKERHUB_TOKEN   # paste the token when asked
+```
+
+Without it, CI builds the image, pushes nothing and warns about it.
 
 | Platform | Files                                                                   |
 | -------- | ----------------------------------------------------------------------- |

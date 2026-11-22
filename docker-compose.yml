@@ -17,6 +17,9 @@ services:
     restart: unless-stopped
 
   hanashi:
+    # The released image (amd64 and arm64), this repository's version of it.
+    # `docker compose up --build` builds this checkout's server instead.
+    image: n1ko23/hanashi-server:1.0.0
     build:
       context: .
       dockerfile: server/Dockerfile
