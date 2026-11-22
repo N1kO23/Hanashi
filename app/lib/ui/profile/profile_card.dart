@@ -12,8 +12,10 @@ import '../widgets/format.dart';
 import '../widgets/presence.dart';
 import 'edit_profile_dialog.dart';
 
-Future<void> showProfileCard(BuildContext context, String userId) =>
-    showDialog<void>(context: context, builder: (_) => ProfileCardDialog(userId: userId));
+Future<void> showProfileCard(BuildContext context, String userId) => showDialog<void>(
+  context: context,
+  builder: (_) => ProfileCardDialog(userId: userId),
+);
 
 /// Opens the chat with [userId], starting it if there is none: its ID, or
 /// null after saying why it could not be started.
@@ -76,8 +78,7 @@ class ProfileDetails extends ConsumerWidget {
     final name = profile?.displayName ?? UserId.fallbackName(userId, me: me);
     final card = profile?.card ?? ProfileCard.empty;
     final verified = ref.watch(verifiedUsersProvider.select((v) => v.value?.contains(userId) ?? false));
-    final invisible =
-        userId == me && ref.watch(presenceModeProvider.select((m) => m.value == PresenceMode.invisible));
+    final invisible = userId == me && ref.watch(presenceModeProvider.select((m) => m.value == PresenceMode.invisible));
     final birthday = card.birthday;
     final facts = [
       if (birthday != null)

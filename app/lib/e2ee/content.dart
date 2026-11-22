@@ -81,7 +81,14 @@ Future<Envelope> openMessage(EncryptedEnvelope wire, ContentKey key) async {
   // What this device makes for itself (a line saying the group was renamed,
   // say) is never taken from someone else.
   if (Envelope.localTypes.contains(inner['type'])) {
-    return Envelope(id: wire.id, conv: wire.conv, from: wire.from, ts: wire.ts, type: Envelope.refusedType, body: const {});
+    return Envelope(
+      id: wire.id,
+      conv: wire.conv,
+      from: wire.from,
+      ts: wire.ts,
+      type: Envelope.refusedType,
+      body: const {},
+    );
   }
   return Envelope.fromJson({
     'v': Envelope.version,

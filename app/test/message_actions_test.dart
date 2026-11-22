@@ -85,7 +85,8 @@ void main() {
       await tester.pumpAndSettle();
       return [
         for (final e in find.byWidgetPredicate((w) => w.key is ValueKey<String>).evaluate())
-          if ((e.widget.key! as ValueKey<String>).value case final key when key.startsWith('react-') && key != 'react-more')
+          if ((e.widget.key! as ValueKey<String>).value case final key
+              when key.startsWith('react-') && key != 'react-more')
             key.substring('react-'.length),
       ];
     }
@@ -105,7 +106,9 @@ void main() {
     expect(await quick(), ['😮', '😀', '👍', '❤️', '😂', '😢']);
     await tester.tap(find.byKey(const ValueKey('react-😀')));
     await tester.pumpAndSettle();
-    expect(bubbleWith(tester, question).message.reactions, {'😮': ['sota@localhost']});
+    expect(bubbleWith(tester, question).message.reactions, {
+      '😮': ['sota@localhost'],
+    });
     expect(await quick(), ['😮', '😀', '👍', '❤️', '😂', '😢']);
     // The picker keeps its own recent emoji in memory: not for other tests.
     await EmojiPickerUtils().clearRecentEmojis(key: GlobalKey<EmojiPickerState>());
@@ -256,7 +259,9 @@ void main() {
     expect(said('Snacks 😀'), findsOneWidget);
   });
 
-  testWidgets('with a mouse: hover buttons react and reply; emoji go into the text; Escape closes the panel', (tester) async {
+  testWidgets('with a mouse: hover buttons react and reply; emoji go into the text; Escape closes the panel', (
+    tester,
+  ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.linux;
     await openClubRoom(tester);
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -333,7 +338,9 @@ void main() {
       // Across the bubble's top edge, over the corner facing the middle.
       expect(bar.top < before.top && bar.bottom > before.top, isTrue, reason: '$bar, bubble $before');
       expect(
-        isMine ? bar.left < before.left && bar.right > before.left : bar.left < before.right && bar.right > before.right,
+        isMine
+            ? bar.left < before.left && bar.right > before.left
+            : bar.left < before.right && bar.right > before.right,
         isTrue,
         reason: '$bar, bubble $before',
       );

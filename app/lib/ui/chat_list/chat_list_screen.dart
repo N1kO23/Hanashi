@@ -74,10 +74,7 @@ class _ChatListState extends ConsumerState<ChatList> {
     ];
     return switch (_sort) {
       ChatSort.newest => list,
-      ChatSort.unread => [
-        ...list.where((c) => c.unreadCount > 0),
-        ...list.where((c) => c.unreadCount == 0),
-      ],
+      ChatSort.unread => [...list.where((c) => c.unreadCount > 0), ...list.where((c) => c.unreadCount == 0)],
       ChatSort.name => [...list]..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase())),
     };
   }

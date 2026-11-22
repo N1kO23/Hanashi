@@ -104,7 +104,10 @@ void main() {
     await tester.pump();
     expect(find.text('Calling...'), findsOneWidget, reason: 'it rings Kumiko');
     connection.emit(
-      const CallRoomState(encrypted: true, peers: [CallPeer(user: kumiko, device: 'phone', speaking: true)]),
+      const CallRoomState(
+        encrypted: true,
+        peers: [CallPeer(user: kumiko, device: 'phone', speaking: true)],
+      ),
     );
     await tester.pump();
     await tester.pump();
@@ -120,7 +123,12 @@ void main() {
 
   testWidgets('a call that rings: answered, or declined', (tester) async {
     await openApp(tester);
-    final ringing = testCall(id: 'ui-ring', conv: 'dm-kumiko', startedBy: kumiko, ringUntil: testNow.add(const Duration(seconds: 45)));
+    final ringing = testCall(
+      id: 'ui-ring',
+      conv: 'dm-kumiko',
+      startedBy: kumiko,
+      ringUntil: testNow.add(const Duration(seconds: 45)),
+    );
     repo.tell(ringing);
     await tester.pump();
     await tester.pump();
@@ -180,9 +188,15 @@ void main() {
       await tester.pump();
     }
 
-    await show(testCall(id: 'missed', conv: 'dm', startedBy: kumiko, endedAt: testNow, reason: CallEnd.missed), mine: false);
+    await show(
+      testCall(id: 'missed', conv: 'dm', startedBy: kumiko, endedAt: testNow, reason: CallEnd.missed),
+      mine: false,
+    );
     expect(find.text('Missed voice call'), findsOneWidget);
-    await show(testCall(id: 'unanswered', conv: 'dm', startedBy: calls.me, endedAt: testNow, reason: CallEnd.missed), mine: true);
+    await show(
+      testCall(id: 'unanswered', conv: 'dm', startedBy: calls.me, endedAt: testNow, reason: CallEnd.missed),
+      mine: true,
+    );
     expect(find.text('No answer'), findsOneWidget);
     await show(
       testCall(
@@ -206,7 +220,12 @@ void main() {
   testWidgets('phone: a call ringing, and one going on', (tester) async {
     await openApp(tester, chat: 'Kumiko');
     repo.tell(
-      testCall(id: 'ui-golden', conv: 'dm-naoko', startedBy: 'naoko@localhost', ringUntil: testNow.add(const Duration(seconds: 45))),
+      testCall(
+        id: 'ui-golden',
+        conv: 'dm-naoko',
+        startedBy: 'naoko@localhost',
+        ringUntil: testNow.add(const Duration(seconds: 45)),
+      ),
     );
     await tester.pump();
     await tester.pump();
@@ -229,7 +248,12 @@ void main() {
         participants: [CallParticipant(user: kumiko, device: 'phone', joinedAt: testNow)],
       ),
     );
-    connection.emit(const CallRoomState(encrypted: true, peers: [CallPeer(user: kumiko, device: 'phone', speaking: true)]));
+    connection.emit(
+      const CallRoomState(
+        encrypted: true,
+        peers: [CallPeer(user: kumiko, device: 'phone', speaking: true)],
+      ),
+    );
     await tester.pump();
     await tester.pump();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('../goldens/phone_call_going_on.png'));
@@ -262,20 +286,33 @@ void main() {
     expect(find.byKey(const Key('locked-hang-up')), findsOneWidget);
     // Kumiko muted, then deafened too: on her picture, and in words. (Each
     // change: one pump takes it in, the next draws it.)
-    connection.emit(const CallRoomState(encrypted: true, peers: [CallPeer(user: kumiko, device: 'phone', muted: true)]));
+    connection.emit(
+      const CallRoomState(
+        encrypted: true,
+        peers: [CallPeer(user: kumiko, device: 'phone', muted: true)],
+      ),
+    );
     await tester.pump();
     await tester.pump();
     // ignore: avoid_print
     expect(find.byKey(const ValueKey('call-peer-muted-$kumiko')), findsOneWidget);
     expect((find.text('Muted').evaluate().length, find.text('Deafened').evaluate().length), (1, 0));
     connection.emit(
-      const CallRoomState(encrypted: true, peers: [CallPeer(user: kumiko, device: 'phone', muted: true, deafened: true)]),
+      const CallRoomState(
+        encrypted: true,
+        peers: [CallPeer(user: kumiko, device: 'phone', muted: true, deafened: true)],
+      ),
     );
     await tester.pump();
     await tester.pump();
     expect(find.byKey(const ValueKey('call-peer-deafened-$kumiko')), findsOneWidget);
     expect((find.text('Muted').evaluate().length, find.text('Deafened').evaluate().length), (1, 1));
-    connection.emit(const CallRoomState(encrypted: true, peers: [CallPeer(user: kumiko, device: 'phone')]));
+    connection.emit(
+      const CallRoomState(
+        encrypted: true,
+        peers: [CallPeer(user: kumiko, device: 'phone')],
+      ),
+    );
     await tester.pump();
     await tester.pump();
     expect(find.byKey(const Key('locked-peer-state')), findsNothing);
@@ -332,49 +369,61 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('a video call: its video in the chat, everyone in a grid, one large with a click; the window filled, and back', (
+  testWidgets(
+    'a video call: its video in the chat, everyone in a grid, one large with a click; the window filled, and back',
+    (tester) async {
+      await videoCallWithKumiko(tester);
+      expect((repo.joinedVideo.single, connection.camera), (true, true));
+      expect(find.byKey(const Key('call-stage')), findsOneWidget);
+      expect(find.byKey(const Key('call-pill')), findsNothing, reason: 'the stage is the call here');
+      expect(find.byKey(const ValueKey('video-kumiko-screen')), findsOneWidget);
+      expect(find.byKey(const ValueKey('video-kumiko')), findsOneWidget);
+      expect(find.text('me (mirrored)'), findsOneWidget, reason: 'a picture of oneself, mirrored');
+      final screen = find.byKey(const ValueKey('call-tile-screen $kumiko/phone'));
+      final camera = find.byKey(const ValueKey('call-tile-$kumiko/phone'));
+      expect(tester.getSize(screen), tester.getSize(camera), reason: 'nothing large until picked, her screen neither');
+      await tester.tap(screen);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(screen).width, greaterThan(tester.getSize(camera).width * 2));
+      await expectLater(find.byType(MaterialApp), matchesGoldenFile('../goldens/desktop_call_stage.png'));
+      // Clicked again: everyone in the grid again.
+      await tester.tap(screen);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(screen), tester.getSize(camera));
+
+      await tester.tap(find.byKey(const Key('stage-full')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('full-call-stage')), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('full-call-stage')), findsNothing);
+      expect(find.byKey(const Key('call-stage')), findsOneWidget);
+      // The system's back (Android tablets) too, and no further.
+      await tester.tap(find.byKey(const Key('stage-full')));
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(
+        (
+          find.byKey(const ValueKey('full-call-stage')).evaluate().length,
+          find.byKey(const Key('call-stage')).evaluate().length,
+        ),
+        (0, 1),
+      );
+
+      // Elsewhere in the app, the call bar again.
+      await tester.tap(find.text('Naoko'));
+      await tester.pumpAndSettle();
+      expect(
+        (find.byKey(const Key('call-stage')).evaluate().length, find.byKey(const Key('call-pill')).evaluate().length),
+        (0, 1),
+      );
+    },
+  );
+
+  testWidgets('desktop: full screen from the stage or the keys, back to where it was; its controls fade', (
     tester,
   ) async {
-    await videoCallWithKumiko(tester);
-    expect((repo.joinedVideo.single, connection.camera), (true, true));
-    expect(find.byKey(const Key('call-stage')), findsOneWidget);
-    expect(find.byKey(const Key('call-pill')), findsNothing, reason: 'the stage is the call here');
-    expect(find.byKey(const ValueKey('video-kumiko-screen')), findsOneWidget);
-    expect(find.byKey(const ValueKey('video-kumiko')), findsOneWidget);
-    expect(find.text('me (mirrored)'), findsOneWidget, reason: 'a picture of oneself, mirrored');
-    final screen = find.byKey(const ValueKey('call-tile-screen $kumiko/phone'));
-    final camera = find.byKey(const ValueKey('call-tile-$kumiko/phone'));
-    expect(tester.getSize(screen), tester.getSize(camera), reason: 'nothing large until picked, her screen neither');
-    await tester.tap(screen);
-    await tester.pumpAndSettle();
-    expect(tester.getSize(screen).width, greaterThan(tester.getSize(camera).width * 2));
-    await expectLater(find.byType(MaterialApp), matchesGoldenFile('../goldens/desktop_call_stage.png'));
-    // Clicked again: everyone in the grid again.
-    await tester.tap(screen);
-    await tester.pumpAndSettle();
-    expect(tester.getSize(screen), tester.getSize(camera));
-
-    await tester.tap(find.byKey(const Key('stage-full')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('full-call-stage')), findsOneWidget);
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('full-call-stage')), findsNothing);
-    expect(find.byKey(const Key('call-stage')), findsOneWidget);
-    // The system's back (Android tablets) too, and no further.
-    await tester.tap(find.byKey(const Key('stage-full')));
-    await tester.pumpAndSettle();
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect((find.byKey(const ValueKey('full-call-stage')).evaluate().length, find.byKey(const Key('call-stage')).evaluate().length), (0, 1));
-
-    // Elsewhere in the app, the call bar again.
-    await tester.tap(find.text('Naoko'));
-    await tester.pumpAndSettle();
-    expect((find.byKey(const Key('call-stage')).evaluate().length, find.byKey(const Key('call-pill')).evaluate().length), (0, 1));
-  });
-
-  testWidgets('desktop: full screen from the stage or the keys, back to where it was; its controls fade', (tester) async {
     final desktop = FakeWindowControls();
     await videoCallWithKumiko(tester, windowControls: desktop);
     // Her screen made large (once a double click can no longer come).
@@ -390,7 +439,13 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(desktop.calls.last, 'leaveFullScreen');
-    expect((find.byKey(const ValueKey('full-call-stage')).evaluate().length, find.byKey(const Key('call-stage')).evaluate().length), (0, 1));
+    expect(
+      (
+        find.byKey(const ValueKey('full-call-stage')).evaluate().length,
+        find.byKey(const Key('call-stage')).evaluate().length,
+      ),
+      (0, 1),
+    );
 
     // From the filled window: F11 in, Esc out, the window still filled.
     await tester.tap(find.byKey(const Key('stage-full')));
@@ -426,7 +481,9 @@ void main() {
     expect(desktop.calls.last, 'leaveFullScreen');
   });
 
-  testWidgets('desktop: a double click, or its button, makes a video full screen and large; again, back', (tester) async {
+  testWidgets('desktop: a double click, or its button, makes a video full screen and large; again, back', (
+    tester,
+  ) async {
     final desktop = FakeWindowControls();
     await videoCallWithKumiko(tester, windowControls: desktop);
     final camera = find.byKey(const ValueKey('call-tile-$kumiko/phone'));
@@ -437,7 +494,10 @@ void main() {
     expect(desktop.calls.last, 'fullScreen');
     // Kumiko's camera large, her screen in the strip.
     final strip = find.byKey(const Key('call-stage-strip'));
-    expect(find.descendant(of: strip, matching: find.byKey(const ValueKey('call-tile-screen $kumiko/phone'))), findsOneWidget);
+    expect(
+      find.descendant(of: strip, matching: find.byKey(const ValueKey('call-tile-screen $kumiko/phone'))),
+      findsOneWidget,
+    );
     expect(find.descendant(of: strip, matching: camera), findsNothing);
     await tester.tap(camera);
     await tester.pump(const Duration(milliseconds: 50));
@@ -480,8 +540,15 @@ void main() {
       200,
       scrollable: find.descendant(of: find.byType(SettingsPane), matching: find.byType(Scrollable)).first,
     );
-    expect(find.descendant(of: resolution, matching: find.text('1080p')), findsOneWidget, reason: 'as before');
-    expect(find.descendant(of: find.byKey(const Key('share-fps')), matching: find.text('15 frames a second')), findsOneWidget);
+    expect(
+      find.descendant(of: resolution, matching: find.text('1080p')),
+      findsOneWidget,
+      reason: 'as before',
+    );
+    expect(
+      find.descendant(of: find.byKey(const Key('share-fps')), matching: find.text('15 frames a second')),
+      findsOneWidget,
+    );
     expect(find.textContaining('about 2.5 Mbit/s'), findsOneWidget);
     await tester.tap(resolution);
     await tester.pumpAndSettle();
@@ -526,7 +593,13 @@ void main() {
     await tester.pump();
     connection
       ..sources = []
-      ..emit(CallRoomState(encrypted: true, camera: FakeVideo('me'), peers: const [CallPeer(user: kumiko, device: 'phone')]));
+      ..emit(
+        CallRoomState(
+          encrypted: true,
+          camera: FakeVideo('me'),
+          peers: const [CallPeer(user: kumiko, device: 'phone')],
+        ),
+      );
     await tester.pump();
     await tester.tap(find.byKey(const Key('stage-share')));
     await tester.pumpAndSettle();
@@ -552,7 +625,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('share-bitrate-auto')));
     await tester.pumpAndSettle();
-    expect(find.descendant(of: find.byKey(const Key('share-bitrate')), matching: find.text('Automatic')), findsOneWidget);
+    expect(
+      find.descendant(of: find.byKey(const Key('share-bitrate')), matching: find.text('Automatic')),
+      findsOneWidget,
+    );
     expect(await db.getValue('calls.share.bitrate'), isNull);
     await tester.tap(find.byKey(const Key('call-hang-up')));
     await tester.pumpAndSettle();
@@ -948,9 +1024,7 @@ void main() {
     connection.emit(
       CallRoomState(
         encrypted: true,
-        peers: [
-          CallPeer(user: kumiko, device: 'phone', screen: FakeVideo('kumiko-screen'), screenSound: true),
-        ],
+        peers: [CallPeer(user: kumiko, device: 'phone', screen: FakeVideo('kumiko-screen'), screenSound: true)],
       ),
     );
     await tester.pump();
@@ -970,7 +1044,12 @@ void main() {
     repo.keys.add(testKey(1));
     await tester.pump();
     await tester.pump();
-    connection.emit(const CallRoomState(encrypted: true, peers: [CallPeer(user: kumiko, device: 'phone', speaking: true)]));
+    connection.emit(
+      const CallRoomState(
+        encrypted: true,
+        peers: [CallPeer(user: kumiko, device: 'phone', speaking: true)],
+      ),
+    );
     await tester.pumpAndSettle();
     final stage = find.byKey(const Key('call-stage'));
     final pill = find.byKey(const Key('call-pill'));
@@ -1001,7 +1080,9 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets("phone: a voice call's view, opened from the call bar: everyone in a grid; put away, and back", (tester) async {
+  testWidgets("phone: a voice call's view, opened from the call bar: everyone in a grid; put away, and back", (
+    tester,
+  ) async {
     await openApp(tester, chat: 'Kumiko', phone: true);
     await tester.tap(find.byKey(const Key('call-button')));
     await sayYesToCall(tester);
@@ -1009,7 +1090,12 @@ void main() {
     repo.keys.add(testKey(1));
     await tester.pump();
     await tester.pump();
-    connection.emit(const CallRoomState(encrypted: true, peers: [CallPeer(user: kumiko, device: 'phone')]));
+    connection.emit(
+      const CallRoomState(
+        encrypted: true,
+        peers: [CallPeer(user: kumiko, device: 'phone')],
+      ),
+    );
     await tester.pumpAndSettle();
     final view = find.byKey(const Key('phone-call-view'));
     expect(view, findsNothing);
@@ -1081,7 +1167,12 @@ void main() {
     repo.keys.add(testKey(1));
     await tester.pump();
     await tester.pump();
-    connection.emit(const CallRoomState(encrypted: true, peers: [CallPeer(user: kumiko, device: 'phone')]));
+    connection.emit(
+      const CallRoomState(
+        encrypted: true,
+        peers: [CallPeer(user: kumiko, device: 'phone')],
+      ),
+    );
     await tester.pump();
     await tester.pump();
     await tester.tap(find.byKey(const Key('call-pill-people')));
@@ -1125,7 +1216,10 @@ void main() {
     }
 
     await rightClick(camera);
-    expect(find.descendant(of: menu, matching: find.byKey(const ValueKey('call-volume-voice-$kumiko'))), findsOneWidget);
+    expect(
+      find.descendant(of: menu, matching: find.byKey(const ValueKey('call-volume-voice-$kumiko'))),
+      findsOneWidget,
+    );
     expect(screenSound, findsNothing, reason: 'her screen has no sound');
     // Its sound on: a slider of its own, in the menu still open.
     connection.emit(
@@ -1182,17 +1276,30 @@ void main() {
       find.byKey(const ValueKey('call-peer-muted-$kumiko')).evaluate().length,
       find.byKey(const ValueKey('call-peer-deafened-$kumiko')).evaluate().length,
     );
-    connection.emit(const CallRoomState(encrypted: true, peers: [CallPeer(user: kumiko, device: 'phone', muted: true)]));
+    connection.emit(
+      const CallRoomState(
+        encrypted: true,
+        peers: [CallPeer(user: kumiko, device: 'phone', muted: true)],
+      ),
+    );
     await tester.pump();
     await tester.pump();
     expect(badges(), (1, 0));
-    connection.emit(const CallRoomState(encrypted: true, peers: [CallPeer(user: kumiko, device: 'phone', deafened: true)]));
+    connection.emit(
+      const CallRoomState(
+        encrypted: true,
+        peers: [CallPeer(user: kumiko, device: 'phone', deafened: true)],
+      ),
+    );
     await tester.pump();
     await tester.pump();
     expect(badges(), (0, 1));
     // Both: both shown.
     connection.emit(
-      const CallRoomState(encrypted: true, peers: [CallPeer(user: kumiko, device: 'phone', deafened: true, muted: true)]),
+      const CallRoomState(
+        encrypted: true,
+        peers: [CallPeer(user: kumiko, device: 'phone', deafened: true, muted: true)],
+      ),
     );
     await tester.pump();
     await tester.pump();
@@ -1211,7 +1318,12 @@ void main() {
     await tester.pump();
     expect(badges(), (0, 0));
     expect(find.text("Someone's audio can't be heard"), findsNothing);
-    connection.emit(const CallRoomState(encrypted: true, peers: [CallPeer(user: kumiko, device: 'phone')]));
+    connection.emit(
+      const CallRoomState(
+        encrypted: true,
+        peers: [CallPeer(user: kumiko, device: 'phone')],
+      ),
+    );
     await tester.pump();
     await tester.pump();
     expect(badges(), (0, 0));
@@ -1231,7 +1343,10 @@ void main() {
   testWidgets('phone: a call with video fills the screen; put away for the call bar, and back from it', (tester) async {
     await videoCallWithKumiko(tester, screen: false, size: const Size(400, 860), phone: true);
     expect(find.byKey(const Key('phone-call-view')), findsOneWidget);
-    expect((find.byKey(const Key('call-pill')).evaluate().length, find.byKey(const Key('call-stage')).evaluate().length), (0, 0));
+    expect(
+      (find.byKey(const Key('call-pill')).evaluate().length, find.byKey(const Key('call-stage')).evaluate().length),
+      (0, 0),
+    );
     expect(find.text('me (mirrored)'), findsOneWidget, reason: 'oneself, small in a corner');
     expect(find.byKey(const Key('stage-flip')), findsOneWidget);
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('../goldens/phone_call_video.png'));
@@ -1239,7 +1354,13 @@ void main() {
     // Put away: the call bar, in the call's chat too; and from it, back.
     await tester.tap(find.byKey(const Key('phone-call-minimize')));
     await tester.pumpAndSettle();
-    expect((find.byKey(const Key('phone-call-view')).evaluate().length, find.byKey(const Key('call-pill')).evaluate().length), (0, 1));
+    expect(
+      (
+        find.byKey(const Key('phone-call-view')).evaluate().length,
+        find.byKey(const Key('call-pill')).evaluate().length,
+      ),
+      (0, 1),
+    );
     expect(find.byKey(const Key('call-stage')), findsNothing, reason: 'the chat shows no video on phones');
     await tester.tap(find.byKey(const Key('call-pill-where')));
     await tester.pumpAndSettle();
@@ -1249,10 +1370,19 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     // (In the chat, its title bar's call button says "In the call".)
-    expect((find.byKey(const Key('phone-call-view')).evaluate().length, find.byKey(const Key('call-button')).evaluate().length), (0, 1));
+    expect(
+      (
+        find.byKey(const Key('phone-call-view')).evaluate().length,
+        find.byKey(const Key('call-button')).evaluate().length,
+      ),
+      (0, 1),
+    );
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect((find.byKey(const Key('call-button')).evaluate().length, find.byKey(const Key('call-pill')).evaluate().length), (0, 1));
+    expect(
+      (find.byKey(const Key('call-button')).evaluate().length, find.byKey(const Key('call-pill')).evaluate().length),
+      (0, 1),
+    );
 
     // Shared from the call bar too (Android asks first, then shares).
     connection.sources = [];
@@ -1277,7 +1407,13 @@ void main() {
         CallRoomState(
           encrypted: true,
           camera: connection.last.camera,
-          peers: [CallPeer(user: kumiko, device: 'phone', camera: FakeVideo('kumiko', size: const Size(1280, 720)))],
+          peers: [
+            CallPeer(
+              user: kumiko,
+              device: 'phone',
+              camera: FakeVideo('kumiko', size: const Size(1280, 720)),
+            ),
+          ],
         ),
       );
       await tester.pump();
@@ -1307,7 +1443,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('phone-call-full-screen')));
       await tester.pumpAndSettle();
-      expect(system, contains('setPreferredOrientations [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]'));
+      expect(
+        system,
+        contains('setPreferredOrientations [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]'),
+      );
       expect(controls().hidden, isTrue);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
@@ -1331,8 +1470,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      double zoom() =>
-          tester.widget<InteractiveViewer>(find.byType(InteractiveViewer)).transformationController!.value.getMaxScaleOnAxis();
+      double zoom() => tester
+          .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+          .transformationController!
+          .value
+          .getMaxScaleOnAxis();
       await tester.tapAt(const Offset(200, 300));
       await tester.pump(const Duration(milliseconds: 60));
       await tester.tapAt(const Offset(200, 300));
@@ -1387,10 +1529,18 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('over the lock screen, a call with video: as on phones, and no way into the app but unlocking', (tester) async {
+  testWidgets('over the lock screen, a call with video: as on phones, and no way into the app but unlocking', (
+    tester,
+  ) async {
     await lockedVideoCall(tester);
     expect(find.byKey(const Key('phone-call-view')), findsOneWidget);
-    expect((find.byKey(const Key('phone-call-minimize')).evaluate().length, find.byKey(const Key('phone-call-unlock')).evaluate().length), (0, 1));
+    expect(
+      (
+        find.byKey(const Key('phone-call-minimize')).evaluate().length,
+        find.byKey(const Key('phone-call-unlock')).evaluate().length,
+      ),
+      (0, 1),
+    );
     expect(find.text('Chats'), findsNothing, reason: 'nothing of the chats over the lock screen');
     expect(find.text('Kumiko'), findsWidgets);
     expect(find.byKey(const ValueKey('video-kumiko')), findsOneWidget);

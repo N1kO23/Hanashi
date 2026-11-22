@@ -224,7 +224,11 @@ class _ContactListState extends ConsumerState<ContactList> {
                     if (p.id != me && states[p.id] == ContactState.accepted) p,
                 ];
                 UserProfile personOf(String id) =>
-                    map[id] ?? UserProfile(id: id, displayName: UserId.fallbackName(id, me: me));
+                    map[id] ??
+                    UserProfile(
+                      id: id,
+                      displayName: UserId.fallbackName(id, me: me),
+                    );
                 List<UserProfile> withState(ContactState state) => [
                   for (final MapEntry(key: id, value: s) in states.entries)
                     if (s == state) personOf(id),
@@ -248,7 +252,10 @@ class _ContactListState extends ConsumerState<ContactList> {
                 };
                 final byName = [...contacts]
                   ..sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
-                final today = [for (final p in byName) if (until(p) == 0) p];
+                final today = [
+                  for (final p in byName)
+                    if (until(p) == 0) p,
+                ];
                 final upcoming = [
                   for (final p in byName)
                     if (until(p) case final days? when days > 0 && days <= upcomingBirthdayDays) p,
@@ -336,15 +343,10 @@ class _RequestTile extends StatelessWidget {
 /// and their status where the game shows the relationship rank. [birthdayIn]
 /// days until their birthday, if they told it.
 class ContactTile extends ConsumerWidget {
-  const ContactTile({
-    super.key,
-    required this.profile,
-    required this.onTap,
-    this.birthdayIn,
-    this.selected = false,
-  });
+  const ContactTile({super.key, required this.profile, required this.onTap, this.birthdayIn, this.selected = false});
 
   final UserProfile profile;
+
   /// Shows their profile, picture and all.
   final VoidCallback onTap;
   final int? birthdayIn;
@@ -386,7 +388,11 @@ class ContactTile extends ConsumerWidget {
                             p.displayName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: context.palette.textPrimary),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 17,
+                              color: context.palette.textPrimary,
+                            ),
                           ),
                         ),
                         if (verified) ...[const SizedBox(width: 6), const VerifiedBadge()],

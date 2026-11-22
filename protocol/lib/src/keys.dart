@@ -43,8 +43,6 @@ class UserKeys {
     userId: json['userId'] as String,
     identityKey: json['identityKey'] as String?,
     identityVersion: json['identityVersion'] as int?,
-    devices: [
-      for (final d in json['devices'] as List) DeviceKeyInfo.fromJson((d as Map).cast<String, Object?>()),
-    ],
+    devices: [for (final d in json['devices'] as List) DeviceKeyInfo.fromJson((d as Map).cast<String, Object?>())],
   );
 }

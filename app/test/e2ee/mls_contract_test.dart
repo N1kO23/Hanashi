@@ -124,7 +124,11 @@ void main() {
       groupId: Uint8List.fromList(gid),
       capabilities: _caps,
     );
-    final add = await alice.engine.addMembers(groupIdBytes: gid, signerBytes: alice.signer, keyPackagesBytes: [await bob.keyPackage()]);
+    final add = await alice.engine.addMembers(
+      groupIdBytes: gid,
+      signerBytes: alice.signer,
+      keyPackagesBytes: [await bob.keyPackage()],
+    );
     await bob.engine.joinGroupFromWelcome(config: config, welcomeBytes: add.welcome, signerBytes: bob.signer);
   });
 
@@ -163,7 +167,10 @@ void main() {
       credentialIdentity: utf8.encode(device.name),
       signerPublicKey: device.publicKey,
     );
-    final bare = (await join(alice2, await bob.engine.exportGroupInfo(groupIdBytes: gid, signerBytes: bob.signer))).groupInfo!;
+    final bare = (await join(
+      alice2,
+      await bob.engine.exportGroupInfo(groupIdBytes: gid, signerBytes: bob.signer),
+    )).groupInfo!;
     final bob2 = await _Device.create('bob/d2');
     await expectLater(join(bob2, bare), throwsA(predicate((e) => '$e'.contains('Failed to deserialize group info'))));
     // An MLS message: version mls10 (1), wire format mls_group_info (4).
@@ -264,15 +271,16 @@ void main() {
   group('what a commit can vouch for', () {
     final data = Uint8List.fromList(List.generate(33, (i) => 0xA0 + i));
 
-    FlexibleCommitOptions commit({List<Uint8List> add = const [], List<int> remove = const []}) => FlexibleCommitOptions(
-      addKeyPackages: add,
-      removeIndices: Uint32List.fromList(remove),
-      forceSelfUpdate: true,
-      consumePendingProposals: true,
-      aad: data,
-      createGroupInfo: false,
-      useRatchetTreeExtension: true,
-    );
+    FlexibleCommitOptions commit({List<Uint8List> add = const [], List<int> remove = const []}) =>
+        FlexibleCommitOptions(
+          addKeyPackages: add,
+          removeIndices: Uint32List.fromList(remove),
+          forceSelfUpdate: true,
+          consumePendingProposals: true,
+          aad: data,
+          createGroupInfo: false,
+          useRatchetTreeExtension: true,
+        );
 
     Future<Uint8List> secret(_Device device) =>
         device.engine.exportSecret(groupIdBytes: gid, label: 'test', context: gid, keyLength: 32);

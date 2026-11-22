@@ -93,11 +93,15 @@ class AccountData {
   /// is none); with another device changing it meanwhile, it runs again on
   /// what that one wrote. It returns what was written; if [change] returns
   /// null, nothing is. Throws an `ApiException` when offline.
-  Future<Map<String, Object?>?> update(String name, Map<String, Object?>? Function(Map<String, Object?>? current) change) async {
+  Future<Map<String, Object?>?> update(
+    String name,
+    Map<String, Object?>? Function(Map<String, Object?>? current) change,
+  ) async {
     for (var attempt = 0; ; attempt++) {
       final seen = await loadSequence(name);
       final current = await read(name);
-      final stored = current ?? AccountDataRead(null, version: (await api.accountData(name))?.version ?? 0, sequence: seen);
+      final stored =
+          current ?? AccountDataRead(null, version: (await api.accountData(name))?.version ?? 0, sequence: seen);
       final next = change(stored.value);
       if (next == null) return null;
       final sequence = (current?.sequence ?? seen) + 1;

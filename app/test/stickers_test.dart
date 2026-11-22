@@ -67,7 +67,9 @@ void main() {
     overrides: [chatRepositoryProvider.overrideWithValue(repo ?? testRepository())],
     child: MaterialApp(
       theme: buildHanashiTheme(),
-      home: Scaffold(body: MessageBubble(message: message, isMine: false, senderName: 'Kumiko')),
+      home: Scaffold(
+        body: MessageBubble(message: message, isMine: false, senderName: 'Kumiko'),
+      ),
     ),
   );
 
@@ -87,7 +89,10 @@ void main() {
     expect(tester.getSize(sent), const Size(160, 160));
     // Without a bubble around it.
     final bubble = find.byWidgetPredicate(
-      (w) => w is Container && w.decoration is BoxDecoration && (w.decoration! as BoxDecoration).color == HanashiPalette.light.outgoingBubble,
+      (w) =>
+          w is Container &&
+          w.decoration is BoxDecoration &&
+          (w.decoration! as BoxDecoration).color == HanashiPalette.light.outgoingBubble,
     );
     expect(find.ancestor(of: sent, matching: bubble), findsNothing);
 
@@ -100,16 +105,20 @@ void main() {
 
   testWidgets("a reply's quote sits above it", (tester) async {
     final reply = ReplyRef(id: newUlid(), from: 'sota@localhost', text: 'Ready?');
-    await tester.pumpWidget(host(ChatMessage(
-      envelope: Envelope.sticker(
-        conv: 'c',
-        from: 'kumiko@localhost',
-        sticker: const StickerRef.media(MediaRef(hash: _hash, size: 1, mime: 'image/png', key: 'a2V5')),
-        replyTo: reply,
-        now: testNow,
+    await tester.pumpWidget(
+      host(
+        ChatMessage(
+          envelope: Envelope.sticker(
+            conv: 'c',
+            from: 'kumiko@localhost',
+            sticker: const StickerRef.media(MediaRef(hash: _hash, size: 1, mime: 'image/png', key: 'a2V5')),
+            replyTo: reply,
+            now: testNow,
+          ),
+          replyTo: reply,
+        ),
       ),
-      replyTo: reply,
-    )));
+    );
     await tester.pumpAndSettle();
     final sticker = tester.getRect(find.byKey(const ValueKey('sticker-$_hash')));
     expect(tester.getRect(find.byKey(const Key('reply-quote'))).bottom, lessThanOrEqualTo(sticker.top));
@@ -118,28 +127,39 @@ void main() {
   testWidgets("one named from a pack the user lacks says so; one sent as its picture shows, whatever packs they have", (
     tester,
   ) async {
-    await tester.pumpWidget(host(ChatMessage(
-      envelope: Envelope.sticker(
-        conv: 'c',
-        from: 'kumiko@localhost',
-        sticker: const StickerRef.named(pack: 'a-pack-i-lack', id: '01'),
-        now: testNow,
+    await tester.pumpWidget(
+      host(
+        ChatMessage(
+          envelope: Envelope.sticker(
+            conv: 'c',
+            from: 'kumiko@localhost',
+            sticker: const StickerRef.named(pack: 'a-pack-i-lack', id: '01'),
+            now: testNow,
+          ),
+        ),
       ),
-    )));
+    );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('unknown-sticker')), findsOneWidget);
     expect(find.text('Sticker'), findsOneWidget);
     expect(find.byTooltip("From a sticker pack you don't have"), findsOneWidget);
 
     const own = MediaRef(hash: _hash, size: 30000, mime: 'image/png', width: 512, height: 512, key: 'a2V5');
-    await tester.pumpWidget(host(ChatMessage(
-      envelope: Envelope.sticker(
-        conv: 'c',
-        from: 'kumiko@localhost',
-        sticker: const StickerRef.media(own, source: StickerSource(pack: 'a-pack-i-lack', id: '01')),
-        now: testNow,
+    await tester.pumpWidget(
+      host(
+        ChatMessage(
+          envelope: Envelope.sticker(
+            conv: 'c',
+            from: 'kumiko@localhost',
+            sticker: const StickerRef.media(
+              own,
+              source: StickerSource(pack: 'a-pack-i-lack', id: '01'),
+            ),
+            now: testNow,
+          ),
+        ),
       ),
-    )));
+    );
     await tester.pumpAndSettle();
     expect(
       find.descendant(of: find.byKey(const ValueKey('sticker-a-pack-i-lack:01')), matching: find.byType(UploadedImage)),
@@ -159,20 +179,22 @@ void main() {
     final archive = MediaRef(hash: 'sha256:${'a' * 64}', size: 1000, mime: 'application/zip', key: 'a2V5');
     repo.packFiles[archive.hash] = pack.path;
     const picture = MediaRef(hash: _hash, size: 1000, mime: 'image/png', width: 128, height: 128, key: 'a2V5');
-    await tester.pumpWidget(host(
-      ChatMessage(
-        envelope: Envelope.sticker(
-          conv: 'c',
-          from: 'kumiko@localhost',
-          sticker: StickerRef.media(
-            picture,
-            source: StickerSource(pack: 'test-pack', id: '03', title: 'Test pack', archive: archive),
+    await tester.pumpWidget(
+      host(
+        ChatMessage(
+          envelope: Envelope.sticker(
+            conv: 'c',
+            from: 'kumiko@localhost',
+            sticker: StickerRef.media(
+              picture,
+              source: StickerSource(pack: 'test-pack', id: '03', title: 'Test pack', archive: archive),
+            ),
+            now: testNow,
           ),
-          now: testNow,
         ),
+        repo: repo,
       ),
-      repo: repo,
-    ));
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('sticker-test-pack:03')));
@@ -329,7 +351,10 @@ void main() {
     final repo = await openClubRoom(tester);
     await openStickers(tester);
     await tester.runAsync(() => repo.removeStickerPack('test-pack'));
-    await expectLater(repo.sendSticker('c', const StickerRef.named(pack: 'test-pack', id: '01')), throwsA(isA<StickerPackMissing>()));
+    await expectLater(
+      repo.sendSticker('c', const StickerRef.named(pack: 'test-pack', id: '01')),
+      throwsA(isA<StickerPackMissing>()),
+    );
   });
 
   testWidgets('phone: a sticker sent, and the sticker tab', (tester) async {

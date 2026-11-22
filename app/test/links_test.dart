@@ -500,34 +500,37 @@ void main() {
       expect(asked, hasLength(1));
     });
 
-    testWidgets("on phones, the system's bars stay while the video's bar shows, though another copy of it takes its place", (
-      tester,
-    ) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.android;
-      final system = <String>[];
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-        if (call.method.startsWith('SystemChrome.setEnabledSystemUI')) system.add(call.method);
-        return null;
-      });
-      addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
-      try {
-        await showLink(tester, long, load: true);
-        await tester.tap(find.byKey(const Key('link-picture')));
-        await tester.pumpAndSettle();
-        // The bar over the picture, then the one over the video loading.
-        await tester.tap(find.byKey(const Key('source-load')));
-        await settle(tester, () => find.textContaining('Could not load the video').evaluate().isNotEmpty);
-        expect(find.byType(BackButton), findsOneWidget);
-        expect(system, isEmpty);
+    testWidgets(
+      "on phones, the system's bars stay while the video's bar shows, though another copy of it takes its place",
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+        final system = <String>[];
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method.startsWith('SystemChrome.setEnabledSystemUI')) system.add(call.method);
+          return null;
+        });
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null),
+        );
+        try {
+          await showLink(tester, long, load: true);
+          await tester.tap(find.byKey(const Key('link-picture')));
+          await tester.pumpAndSettle();
+          // The bar over the picture, then the one over the video loading.
+          await tester.tap(find.byKey(const Key('source-load')));
+          await settle(tester, () => find.textContaining('Could not load the video').evaluate().isNotEmpty);
+          expect(find.byType(BackButton), findsOneWidget);
+          expect(system, isEmpty);
 
-        await tester.tap(find.byType(BackButton));
-        await tester.pumpAndSettle();
-        expect(find.byType(MediaViewerScreen), findsNothing);
-        expect(system, isEmpty);
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
-    });
+          await tester.tap(find.byType(BackButton));
+          await tester.pumpAndSettle();
+          expect(find.byType(MediaViewerScreen), findsNothing);
+          expect(system, isEmpty);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
   });
 
   testWidgets('loading from websites is off until turned on in Settings', (tester) async {
@@ -693,7 +696,14 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
       await tester.pump();
     }
-    expect([for (final s in repo.sent) [s.name, s.bytes]], [['cat.png', png]]);
+    expect(
+      [
+        for (final s in repo.sent) [s.name, s.bytes],
+      ],
+      [
+        ['cat.png', png],
+      ],
+    );
     // The rest of the text is left to send.
     expect(tester.widget<TextField>(find.byKey(const Key('composer-field'))).controller!.text, 'Look so cute');
     expect(find.byKey(const Key('composer-link')), findsNothing);

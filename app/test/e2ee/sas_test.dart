@@ -8,7 +8,10 @@ const bob = SasParty('sota@test.local', 'OLDDEVICE');
 const mallory = SasParty('mallory@test.local', 'EVIL');
 
 /// Delivers messages between sessions until nothing is left to send.
-Future<void> exchange(Map<SasParty, SasSession> sessions, List<(SasParty from, SasParty to, SasMessage m)> queue) async {
+Future<void> exchange(
+  Map<SasParty, SasSession> sessions,
+  List<(SasParty from, SasParty to, SasMessage m)> queue,
+) async {
   while (queue.isNotEmpty) {
     final (from, to, m) = queue.removeAt(0);
     final session = sessions[to]!;

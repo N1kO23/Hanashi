@@ -114,9 +114,7 @@ class MediaRef {
       width: _optional<int>(json, 'w'),
       height: _optional<int>(json, 'h'),
       durationMs: _optional<int>(json, 'durationMs'),
-      thumb: thumb == null
-          ? null
-          : MediaRef.fromJson(_asMap(thumb, 'media.thumb')),
+      thumb: thumb == null ? null : MediaRef.fromJson(_asMap(thumb, 'media.thumb')),
       key: _optional<String>(json, 'key'),
       // One that is no host is as good as none: the reader's own server.
       host: switch (json['host']) {
@@ -360,7 +358,10 @@ class StickerSource {
   static StickerSource? tryParse(Object? json) {
     if (json is! Map) return null;
     final (pack, id, title, archive) = (json['pack'], json['id'], json['title'], json['archive']);
-    if (pack is! String || id is! String || !StickerRef.idPattern.hasMatch(pack) || !StickerRef.idPattern.hasMatch(id)) {
+    if (pack is! String ||
+        id is! String ||
+        !StickerRef.idPattern.hasMatch(pack) ||
+        !StickerRef.idPattern.hasMatch(id)) {
       return null;
     }
     MediaRef? file;
@@ -387,13 +388,7 @@ class StickerSource {
   StickerSource withPack({required String title, required MediaRef archive}) =>
       StickerSource(pack: pack, id: id, title: title, archive: archive, extra: extra);
 
-  Map<String, Object?> toJson() => {
-    ...extra,
-    'pack': pack,
-    'id': id,
-    'title': ?title,
-    'archive': ?archive?.toJson(),
-  };
+  Map<String, Object?> toJson() => {...extra, 'pack': pack, 'id': id, 'title': ?title, 'archive': ?archive?.toJson()};
 }
 
 /// Custom emoji: pictures that text shows wherever it says `:name:`. A
@@ -907,12 +902,8 @@ class Envelope {
   }) => Envelope._new(conv, from, MessageType.sticker.name, {...sticker.toJson(), 'replyTo': ?replyTo?.toJson()}, now);
 
   /// The record of the voice call [call] the sender started.
-  factory Envelope.call({
-    required String conv,
-    required String from,
-    required String call,
-    DateTime? now,
-  }) => Envelope._new(conv, from, MessageType.call.name, {'call': call}, now);
+  factory Envelope.call({required String conv, required String from, required String call, DateTime? now}) =>
+      Envelope._new(conv, from, MessageType.call.name, {'call': call}, now);
 
   /// Adds [emoji] to the sender's reactions to [target], or with [remove]
   /// takes it back.
@@ -932,25 +923,14 @@ class Envelope {
     required String text,
     Map<String, MediaRef> emojis = const {},
     DateTime? now,
-  }) => Envelope._new(conv, from, editType, {
-    'target': target,
-    'text': text,
-    'emojis': ?CustomEmoji.toJson(emojis),
-  }, now);
+  }) =>
+      Envelope._new(conv, from, editType, {'target': target, 'text': text, 'emojis': ?CustomEmoji.toJson(emojis)}, now);
 
-  factory Envelope.delete({
-    required String conv,
-    required String from,
-    required String target,
-    DateTime? now,
-  }) => Envelope._new(conv, from, deleteType, {'target': target}, now);
+  factory Envelope.delete({required String conv, required String from, required String target, DateTime? now}) =>
+      Envelope._new(conv, from, deleteType, {'target': target}, now);
 
-  factory Envelope.profileKey({
-    required String conv,
-    required String from,
-    required String key,
-    DateTime? now,
-  }) => Envelope._new(conv, from, profileKeyType, {'key': key}, now);
+  factory Envelope.profileKey({required String conv, required String from, required String key, DateTime? now}) =>
+      Envelope._new(conv, from, profileKeyType, {'key': key}, now);
 
   /// The sender's own word on a change of members ([memberType]).
   factory Envelope.member({
@@ -1015,28 +995,12 @@ class Envelope {
     if (utf8.encode(jsonEncode(bodyMap)).length > maxBodyBytes) {
       throw const FormatException('body is too large');
     }
-    final envelope = Envelope(
-      v: v,
-      id: id,
-      conv: conv,
-      from: from,
-      ts: ts,
-      type: type,
-      body: bodyMap,
-    );
+    final envelope = Envelope(v: v, id: id, conv: conv, from: from, ts: ts, type: type, body: bodyMap);
     envelope._validateKnownBody();
     return envelope;
   }
 
-  Map<String, Object?> toJson() => {
-    'v': v,
-    'id': id,
-    'conv': conv,
-    'from': from,
-    'ts': ts,
-    'type': type,
-    'body': body,
-  };
+  Map<String, Object?> toJson() => {'v': v, 'id': id, 'conv': conv, 'from': from, 'ts': ts, 'type': type, 'body': body};
 
   MessageType? get messageType => MessageType.tryParse(type);
 
@@ -1050,9 +1014,7 @@ class Envelope {
 
   MediaRef? get media {
     final media = body['media'];
-    return media == null
-        ? null
-        : MediaRef.fromJson(_asMap(media, 'body.media'));
+    return media == null ? null : MediaRef.fromJson(_asMap(media, 'body.media'));
   }
 
   /// The GIF of a GIF message.

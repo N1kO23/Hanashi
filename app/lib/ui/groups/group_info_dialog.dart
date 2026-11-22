@@ -15,11 +15,10 @@ import '../widgets/presence.dart';
 import 'member_picker.dart';
 
 /// Members of a group, and renaming, describing, adding people and leaving.
-Future<void> showGroupInfo(BuildContext context, String conversationId) =>
-    showDialog<void>(
-      context: context,
-      builder: (_) => GroupInfoDialog(conversationId: conversationId),
-    );
+Future<void> showGroupInfo(BuildContext context, String conversationId) => showDialog<void>(
+  context: context,
+  builder: (_) => GroupInfoDialog(conversationId: conversationId),
+);
 
 class GroupInfoDialog extends ConsumerStatefulWidget {
   const GroupInfoDialog({super.key, required this.conversationId});
@@ -60,11 +59,7 @@ class _GroupInfoDialogState extends ConsumerState<GroupInfoDialog> {
     );
     final trimmed = title?.trim() ?? '';
     if (trimmed.isEmpty || trimmed == current) return;
-    await _run(
-      () => ref
-          .read(chatRepositoryProvider)
-          .renameGroup(widget.conversationId, trimmed),
-    );
+    await _run(() => ref.read(chatRepositoryProvider).renameGroup(widget.conversationId, trimmed));
   }
 
   Future<void> _describe(String? current) async {
@@ -73,11 +68,7 @@ class _GroupInfoDialogState extends ConsumerState<GroupInfoDialog> {
       builder: (_) => _DescriptionDialog(current: current ?? ''),
     );
     if (description == null || description.trim() == (current ?? '')) return;
-    await _run(
-      () => ref
-          .read(chatRepositoryProvider)
-          .setGroupDescription(widget.conversationId, description),
-    );
+    await _run(() => ref.read(chatRepositoryProvider).setGroupDescription(widget.conversationId, description));
   }
 
   Future<void> _addMembers(Set<String> current) async {
@@ -90,11 +81,7 @@ class _GroupInfoDialogState extends ConsumerState<GroupInfoDialog> {
       for (final user in picked.users) {
         await ref
             .read(chatRepositoryProvider)
-            .addMember(
-              widget.conversationId,
-              user,
-              shareHistory: picked.shareHistory,
-            );
+            .addMember(widget.conversationId, user, shareHistory: picked.shareHistory);
       }
     });
   }
@@ -104,14 +91,9 @@ class _GroupInfoDialogState extends ConsumerState<GroupInfoDialog> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Leave "$title"?'),
-        content: const Text(
-          'The group disappears from all your devices, and you will not see new messages.',
-        ),
+        content: const Text('The group disappears from all your devices, and you will not see new messages.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           FilledButton(
             key: const Key('leave-confirm'),
             style: FilledButton.styleFrom(backgroundColor: context.palette.failed),
@@ -144,9 +126,7 @@ class _GroupInfoDialogState extends ConsumerState<GroupInfoDialog> {
             ? -1
             : b == me
             ? 1
-            : (profiles[a]?.displayName ?? a).compareTo(
-                profiles[b]?.displayName ?? b,
-              ),
+            : (profiles[a]?.displayName ?? a).compareTo(profiles[b]?.displayName ?? b),
       );
 
     return Dialog(
@@ -168,18 +148,10 @@ class _GroupInfoDialogState extends ConsumerState<GroupInfoDialog> {
                     onSelected: (change) async {
                       final path = change ? await pickPicture() : null;
                       if (change && path == null) return;
-                      await _run(
-                        () => ref
-                            .read(chatRepositoryProvider)
-                            .setGroupPicture(widget.conversationId, path),
-                      );
+                      await _run(() => ref.read(chatRepositoryProvider).setGroupPicture(widget.conversationId, path));
                     },
                     itemBuilder: (_) => [
-                      const PopupMenuItem(
-                        key: Key('group-picture-change'),
-                        value: true,
-                        child: Text('Change picture'),
-                      ),
+                      const PopupMenuItem(key: Key('group-picture-change'), value: true, child: Text('Change picture')),
                       if (summary.picture != null)
                         const PopupMenuItem(
                           key: Key('group-picture-remove'),
@@ -187,29 +159,15 @@ class _GroupInfoDialogState extends ConsumerState<GroupInfoDialog> {
                           child: Text('Remove picture'),
                         ),
                     ],
-                    child: Avatar(
-                      id: summary.avatarId,
-                      label: title,
-                      picture: summary.picture,
-                      size: 48,
-                    ),
+                    child: Avatar(id: summary.avatarId, label: title, picture: summary.picture, size: 48),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          title,
-                          key: const Key('group-info-title'),
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        Text(
-                          '${members.length} members',
-                          style: TextStyle(
-                            color: context.palette.textSecondary,
-                          ),
-                        ),
+                        Text(title, key: const Key('group-info-title'), style: Theme.of(context).textTheme.titleLarge),
+                        Text('${members.length} members', style: TextStyle(color: context.palette.textSecondary)),
                       ],
                     ),
                   ),
@@ -234,10 +192,7 @@ class _GroupInfoDialogState extends ConsumerState<GroupInfoDialog> {
                       child: SingleChildScrollView(
                         child: EmojiText(
                           description,
-                          style: TextStyle(
-                            color: context.palette.textPrimary,
-                            height: 1.35,
-                          ),
+                          style: TextStyle(color: context.palette.textPrimary, height: 1.35),
                         ),
                       ),
                     ),
@@ -261,38 +216,19 @@ class _GroupInfoDialogState extends ConsumerState<GroupInfoDialog> {
                     for (final id in members)
                       ListTile(
                         key: ValueKey('group-member-$id'),
-                        leading: PresenceAvatar(
-                          id: id,
-                          label: profiles[id]?.displayName ?? id,
-                          size: 36,
-                        ),
+                        leading: PresenceAvatar(id: id, label: profiles[id]?.displayName ?? id, size: 36),
                         onTap: () => showProfileCard(context, id),
-                        title: Text(
-                          id == me
-                              ? 'You'
-                              : profiles[id]?.displayName ??
-                                    UserId.fallbackName(id, me: me),
-                        ),
-                        subtitle: Text(
-                          id,
-                          style: TextStyle(
-                            color: context.palette.textSecondary,
-                          ),
-                        ),
+                        title: Text(id == me ? 'You' : profiles[id]?.displayName ?? UserId.fallbackName(id, me: me)),
+                        subtitle: Text(id, style: TextStyle(color: context.palette.textSecondary)),
                         trailing: id == me
                             ? null
                             : verified.contains(id)
                             ? const VerifiedBadge(size: 20)
                             : IconButton(
                                 key: ValueKey('verify-$id'),
-                                tooltip:
-                                    'Verify ${profiles[id]?.displayName ?? id}',
-                                icon: const Icon(
-                                  Icons.shield_outlined,
-                                  size: 20,
-                                ),
-                                onPressed: () =>
-                                    verifyContact(context, ref, id),
+                                tooltip: 'Verify ${profiles[id]?.displayName ?? id}',
+                                icon: const Icon(Icons.shield_outlined, size: 20),
+                                onPressed: () => verifyContact(context, ref, id),
                               ),
                       ),
                   ],
@@ -315,9 +251,7 @@ class _GroupInfoDialogState extends ConsumerState<GroupInfoDialog> {
                 children: [
                   TextButton.icon(
                     key: const Key('group-leave'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: context.palette.failed,
-                    ),
+                    style: TextButton.styleFrom(foregroundColor: context.palette.failed),
                     icon: const Icon(Icons.logout),
                     label: const Text('Leave group'),
                     onPressed: _busy ? null : () => _leave(title),
@@ -326,9 +260,7 @@ class _GroupInfoDialogState extends ConsumerState<GroupInfoDialog> {
                     key: const Key('group-add-members'),
                     icon: const Icon(Icons.person_add_alt_1_outlined),
                     label: const Text('Add people'),
-                    onPressed: _busy
-                        ? null
-                        : () => _addMembers(members.toSet()),
+                    onPressed: _busy ? null : () => _addMembers(members.toSet()),
                   ),
                 ],
               ),
@@ -370,10 +302,7 @@ class _RenameDialogState extends State<_RenameDialog> {
         onSubmitted: (value) => Navigator.pop(context, value),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           key: const Key('rename-save'),
           onPressed: () => Navigator.pop(context, _controller.text),
@@ -430,10 +359,7 @@ class _DescriptionDialogState extends State<_DescriptionDialog> {
             onPressed: () => Navigator.pop(context, ''),
             child: const Text('Remove'),
           ),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           key: const Key('description-save'),
           onPressed: () => Navigator.pop(context, _controller.text),
@@ -493,19 +419,13 @@ class _AddMembersDialogState extends State<_AddMembersDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
-                  ),
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
                   const SizedBox(width: 8),
                   FilledButton(
                     key: const Key('add-members-confirm'),
                     onPressed: _picked.isEmpty
                         ? null
-                        : () => Navigator.pop(context, (
-                            users: _picked,
-                            shareHistory: _shareHistory,
-                          )),
+                        : () => Navigator.pop(context, (users: _picked, shareHistory: _shareHistory)),
                     child: const Text('Add'),
                   ),
                 ],

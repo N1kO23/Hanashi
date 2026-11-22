@@ -52,7 +52,12 @@ class NoCallAlerts implements CallAlerts {
   const NoCallAlerts();
 
   @override
-  Future<void> showOngoing({required String conv, required String title, bool video = false, bool sharing = false}) async {}
+  Future<void> showOngoing({
+    required String conv,
+    required String title,
+    bool video = false,
+    bool sharing = false,
+  }) async {}
 
   @override
   Future<void> hideOngoing() async {}

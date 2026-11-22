@@ -132,6 +132,5 @@ abstract final class PushService {
     }
   }
 
-  static String _base64UrlNoPadding(String key) =>
-      key.replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+  static String _base64UrlNoPadding(String key) => key.replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 }

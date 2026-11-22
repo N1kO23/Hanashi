@@ -175,10 +175,8 @@ class _Device {
   final unverified = Completer<void>();
 
   /// The same places the app (and its push engine) use.
-  late final storage = AppStorage(
-    mediaDir: Directory('${dir.path}/media'),
-    supportDir: dir,
-  );
+  late final storage = AppStorage(mediaDir: Directory('${dir.path}/media'), supportDir: dir);
+
   /// Its local cache.
   final AppDatabase db;
   late ServerChatRepository repo;
@@ -186,23 +184,22 @@ class _Device {
 
   String get me => account.userId;
 
-  ServerChatRepository _repository(void Function() onSignedOut) =>
-      ServerChatRepository(
-        db: db,
-        account: account,
-        identity: identity,
-        onSignedOut: onSignedOut,
-        mediaDir: storage.mediaDir,
-        packsDir: stickerPacksDir(storage.supportDir),
-        tempDir: Directory('${dir.path}/tmp'),
-        mlsDbPath: mlsDbPath(storage.supportDir, account.deviceId),
-        clock: clock,
-        api: client == null ? null : ApiClient(account.serverUrl, token: account.token, client: client),
-        onVerificationMessage: verification.handle,
-        onUnverified: () {
-          if (!unverified.isCompleted) unverified.complete();
-        },
-      );
+  ServerChatRepository _repository(void Function() onSignedOut) => ServerChatRepository(
+    db: db,
+    account: account,
+    identity: identity,
+    onSignedOut: onSignedOut,
+    mediaDir: storage.mediaDir,
+    packsDir: stickerPacksDir(storage.supportDir),
+    tempDir: Directory('${dir.path}/tmp'),
+    mlsDbPath: mlsDbPath(storage.supportDir, account.deviceId),
+    clock: clock,
+    api: client == null ? null : ApiClient(account.serverUrl, token: account.token, client: client),
+    onVerificationMessage: verification.handle,
+    onUnverified: () {
+      if (!unverified.isCompleted) unverified.complete();
+    },
+  );
 
   /// Signs in, sets up (first device) or verifies (later devices) encryption,
   /// and starts syncing. With [verify] false the device stays unverified and
@@ -218,18 +215,8 @@ class _Device {
   }) async {
     final anonymous = ApiClient(server.url);
     final auth = register
-        ? await anonymous.register(
-            name: name,
-            password: 'password123',
-            deviceName: 'test',
-            platform: 'test',
-          )
-        : await anonymous.login(
-            name: name,
-            password: 'password123',
-            deviceName: 'test',
-            platform: 'test',
-          );
+        ? await anonymous.register(name: name, password: 'password123', deviceName: 'test', platform: 'test')
+        : await anonymous.login(name: name, password: 'password123', deviceName: 'test', platform: 'test');
     anonymous.close();
     final account = Account(
       serverUrl: server.url,
@@ -241,11 +228,7 @@ class _Device {
     final api = ApiClient(server.url, token: auth.token);
     final store = MemorySecureStore();
     await account.write(store);
-    final identity = EncryptionIdentity(
-      api: api,
-      account: account,
-      store: store,
-    );
+    final identity = EncryptionIdentity(api: api, account: account, store: store);
     final device = _Device(account, api, store, identity, clock, client, db);
     addTearDown(device.close);
     device.repo = device._repository(() => device.signedOut.complete());
@@ -262,10 +245,7 @@ class _Device {
     return device;
   }
 
-  Future<void> online() => repo
-      .watchConnection()
-      .firstWhere((s) => s == ConnectionStatus.online)
-      .timeout(_timeout);
+  Future<void> online() => repo.watchConnection().firstWhere((s) => s == ConnectionStatus.online).timeout(_timeout);
 
   /// Restarts sync (as after an app restart), keeping all local state.
   Future<void> restart() async {
@@ -275,27 +255,18 @@ class _Device {
     await online();
   }
 
-  Future<List<ChatMessage>> waitForMessages(
-    String conv,
-    bool Function(List<ChatMessage>) test,
-  ) => repo.watchMessages(conv).firstWhere(test).timeout(_timeout);
+  Future<List<ChatMessage>> waitForMessages(String conv, bool Function(List<ChatMessage>) test) =>
+      repo.watchMessages(conv).firstWhere(test).timeout(_timeout);
 
-  Future<ConversationSummary> waitForConversation(
-    bool Function(ConversationSummary) test,
-  ) async =>
-      (await repo
-              .watchConversations()
-              .map((l) => l.where(test))
-              .firstWhere((l) => l.isNotEmpty)
-              .timeout(_timeout))
+  Future<ConversationSummary> waitForConversation(bool Function(ConversationSummary) test) async =>
+      (await repo.watchConversations().map((l) => l.where(test)).firstWhere((l) => l.isNotEmpty).timeout(_timeout))
           .first;
 
   /// The users/devices currently in the conversation's MLS group.
   Future<Set<String>> leavesOf(String conv) => leaves(conv);
 
   Future<Set<String>> leaves(String conv) async => {
-    for (final leaf in await repo.groups.mls.members(conv))
-      '${leaf.userId}/${leaf.deviceId}',
+    for (final leaf in await repo.groups.mls.members(conv)) '${leaf.userId}/${leaf.deviceId}',
   };
 
   var _closed = false;
@@ -337,12 +308,9 @@ List<ChatMessage> _chat(List<ChatMessage> messages) => [
     if (!m.envelope.isGroupLine) m,
 ];
 
-List<String?> _texts(List<ChatMessage> messages) => [
-  for (final m in messages) m.envelope.text,
-];
+List<String?> _texts(List<ChatMessage> messages) => [for (final m in messages) m.envelope.text];
 
-bool _allDecrypted(List<ChatMessage> messages) =>
-    messages.every((m) => m.envelope.type != Envelope.encryptedType);
+bool _allDecrypted(List<ChatMessage> messages) => messages.every((m) => m.envelope.type != Envelope.encryptedType);
 
 /// Polls until [condition] holds.
 /// Makes the two contacts as the app does: [asker] asks, [accepter] says yes,
@@ -366,10 +334,7 @@ Future<String> _newGroup(_Device creator, String title, List<_Device> members) a
   return creator.repo.createGroup(title, [for (final m in members) m.me]);
 }
 
-Future<void> _eventually(
-  FutureOr<bool> Function() condition, {
-  String reason = '',
-}) async {
+Future<void> _eventually(FutureOr<bool> Function() condition, {String reason = ''}) async {
   final deadline = DateTime.now().add(_timeout);
   while (!await condition()) {
     if (DateTime.now().isAfter(deadline)) fail('Timed out: $reason');
@@ -395,10 +360,7 @@ Future<UserProfile> _profileOf(_Device device, String user, bool Function(UserPr
     .then((p) => p!);
 
 /// Polls until [probe] returns a value.
-Future<T> _poll<T extends Object>(
-  Future<T?> Function() probe, {
-  String reason = '',
-}) async {
+Future<T> _poll<T extends Object>(Future<T?> Function() probe, {String reason = ''}) async {
   final deadline = DateTime.now().add(_timeout);
   while (true) {
     final value = await probe();
@@ -425,14 +387,9 @@ void main() {
     final conv = await _becomeContacts(phone, kumiko);
     await kumiko.repo.sendText(conv, 'Sota, are you free later?');
     for (final device in [phone, desktop]) {
-      final summary = await device.waitForConversation(
-        (c) => c.id == conv && c.unreadCount == 1,
-      );
+      final summary = await device.waitForConversation((c) => c.id == conv && c.unreadCount == 1);
       expect(summary.title, 'kumiko');
-      final messages = await device.waitForMessages(
-        conv,
-        (l) => l.length == 1 && _allDecrypted(l),
-      );
+      final messages = await device.waitForMessages(conv, (l) => l.length == 1 && _allDecrypted(l));
       expect(_texts(messages), ['Sota, are you free later?']);
     }
     expect(await phone.leaves(conv), {
@@ -450,15 +407,9 @@ void main() {
     for (final device in [phone, desktop, kumiko]) {
       final messages = await device.waitForMessages(
         conv,
-        (l) =>
-            l.length == 2 &&
-            l.every((m) => m.state == DeliveryState.sent) &&
-            _allDecrypted(l),
+        (l) => l.length == 2 && l.every((m) => m.state == DeliveryState.sent) && _allDecrypted(l),
       );
-      expect(_texts(messages), [
-        'Sota, are you free later?',
-        'Yes, after five.',
-      ]);
+      expect(_texts(messages), ['Sota, are you free later?', 'Yes, after five.']);
     }
 
     // The server only ever saw ciphertext.
@@ -480,47 +431,29 @@ void main() {
     await phone.repo.dispose();
     await kumiko.repo.sendText(conv, 'two');
     await kumiko.repo.sendText(conv, 'three');
-    await kumiko.waitForMessages(
-      conv,
-      (l) => l.length == 3 && l.every((m) => m.seq != null),
-    );
+    await kumiko.waitForMessages(conv, (l) => l.length == 3 && l.every((m) => m.seq != null));
     await phone.restart();
-    expect(
-      _texts(
-        await phone.waitForMessages(
-          conv,
-          (l) => l.length == 3 && _allDecrypted(l),
-        ),
-      ),
-      ['one', 'two', 'three'],
-    );
+    expect(_texts(await phone.waitForMessages(conv, (l) => l.length == 3 && _allDecrypted(l))), [
+      'one',
+      'two',
+      'three',
+    ]);
 
     // A brand-new device verifies with the recovery key and joins the group
     // itself. It reads what was said before it existed from the key backup
     // the phone keeps, and new messages through the group.
     final laptop = await _Device.signIn(server, 'sota');
     await _eventually(
-      () async =>
-          (await laptop.leaves(conv))
-              .contains('sota@test.local/${laptop.account.deviceId}'),
+      () async => (await laptop.leaves(conv)).contains('sota@test.local/${laptop.account.deviceId}'),
       reason: 'laptop joins the group',
     );
     await kumiko.repo.sendText(conv, 'four');
-    final seen = await laptop.waitForMessages(
-      conv,
-      (l) => l.length == 4 && _allDecrypted(l),
-    );
+    final seen = await laptop.waitForMessages(conv, (l) => l.length == 4 && _allDecrypted(l));
     expect(_texts(seen), ['one', 'two', 'three', 'four']);
     // Everyone else accepted the new device: it can also send.
     await laptop.repo.sendText(conv, 'hello from the laptop');
-    await kumiko.waitForMessages(
-      conv,
-      (l) => l.length == 5 && l.last.envelope.text == 'hello from the laptop',
-    );
-    await phone.waitForMessages(
-      conv,
-      (l) => l.length == 5 && l.last.envelope.text == 'hello from the laptop',
-    );
+    await kumiko.waitForMessages(conv, (l) => l.length == 5 && l.last.envelope.text == 'hello from the laptop');
+    await phone.waitForMessages(conv, (l) => l.length == 5 && l.last.envelope.text == 'hello from the laptop');
   });
 
   test('a new device is verified by comparing emoji with another one, and reads the history', () async {
@@ -906,61 +839,35 @@ void main() {
     expect(await laptop.identity.status(), EncryptionStatus.unverified);
   });
 
-  test(
-    'a device renews its keys after a week; the conversation goes on',
-    () async {
-      final server = await _startServer();
-      var now = DateTime.now();
-      final phone = await _Device.signIn(
-        server,
-        'sota',
-        register: true,
-        clock: () => now,
-      );
-      final kumiko = await _Device.signIn(server, 'kumiko', register: true);
-      final conv = await _becomeContacts(kumiko, phone);
-      await phone.repo.sendText(conv, 'before');
-      await kumiko.waitForMessages(
-        conv,
-        (l) => l.length == 1 && _allDecrypted(l),
-      );
-      final epoch = await kumiko.repo.groups.mls.epoch(conv);
+  test('a device renews its keys after a week; the conversation goes on', () async {
+    final server = await _startServer();
+    var now = DateTime.now();
+    final phone = await _Device.signIn(server, 'sota', register: true, clock: () => now);
+    final kumiko = await _Device.signIn(server, 'kumiko', register: true);
+    final conv = await _becomeContacts(kumiko, phone);
+    await phone.repo.sendText(conv, 'before');
+    await kumiko.waitForMessages(conv, (l) => l.length == 1 && _allDecrypted(l));
+    final epoch = await kumiko.repo.groups.mls.epoch(conv);
 
-      // A week later, the phone's next message is followed by a self-update
-      // commit that replaces its keys in the group.
-      now = now.add(const Duration(days: 8));
-      await phone.repo.sendText(conv, 'a week later');
-      await _eventually(
-        () async => await kumiko.repo.groups.mls.epoch(conv) > epoch,
-        reason: 'Kumiko merges the update',
-      );
-      final commits = (await kumiko.api.sync(0)).events.where(
-        (e) =>
-            e.type == EventType.mlsCommit &&
-            e.data['device'] == phone.account.deviceId,
-      );
-      expect(
-        commits,
-        hasLength(1),
-      ); // Creating the group needed none: everyone joined by Welcome.
+    // A week later, the phone's next message is followed by a self-update
+    // commit that replaces its keys in the group.
+    now = now.add(const Duration(days: 8));
+    await phone.repo.sendText(conv, 'a week later');
+    await _eventually(() async => await kumiko.repo.groups.mls.epoch(conv) > epoch, reason: 'Kumiko merges the update');
+    final commits = (await kumiko.api.sync(0)).events
+        .where((e) => e.type == EventType.mlsCommit && e.data['device'] == phone.account.deviceId);
+    expect(commits, hasLength(1)); // Creating the group needed none: everyone joined by Welcome.
 
-      await phone.repo.sendText(conv, 'with new keys');
-      await kumiko.waitForMessages(
-        conv,
-        (l) => l.length == 3 && _allDecrypted(l),
-      );
-      await kumiko.repo.sendText(conv, 'still reading you');
-      expect(
-        _texts(
-          await phone.waitForMessages(
-            conv,
-            (l) => l.length == 4 && _allDecrypted(l),
-          ),
-        ),
-        ['before', 'a week later', 'with new keys', 'still reading you'],
-      );
-    },
-  );
+    await phone.repo.sendText(conv, 'with new keys');
+    await kumiko.waitForMessages(conv, (l) => l.length == 3 && _allDecrypted(l));
+    await kumiko.repo.sendText(conv, 'still reading you');
+    expect(_texts(await phone.waitForMessages(conv, (l) => l.length == 4 && _allDecrypted(l))), [
+      'before',
+      'a week later',
+      'with new keys',
+      'still reading you',
+    ]);
+  });
 
   test('a push while the app is closed: synced, notified, and readable when it opens', () async {
     final server = await _startServer();
@@ -973,17 +880,9 @@ void main() {
     final pushes = await _PushService.start();
     await phone.api.putPushSubscription(endpoint: '${pushes.url}/phone');
     final display = FakeDisplay();
-    Future<void> handlePush() => syncForPush(
-      db: phone.db,
-      store: phone.store,
-      storage: phone.storage,
-      notifier: display,
-    );
-    final notifications = NotificationCenter(
-      db: phone.db,
-      me: phone.me,
-      notifier: display,
-    );
+    Future<void> handlePush() =>
+        syncForPush(db: phone.db, store: phone.store, storage: phone.storage, notifier: display);
+    final notifications = NotificationCenter(db: phone.db, me: phone.me, notifier: display);
     await notifications.update(); // Notifications start now.
 
     // Connected: the server does not push, and a push that arrives anyway
@@ -1003,10 +902,7 @@ void main() {
     await handlePush();
     final shown = display.shown.single;
     expect(shown.title, 'kumiko');
-    expect(shown.lines.map((l) => l.text), [
-      'still there?',
-      'Sota, are you asleep?',
-    ]);
+    expect(shown.lines.map((l) => l.text), ['still there?', 'Sota, are you asleep?']);
 
     // Opening the app shows the message, which was decrypted in the
     // background: MLS message keys work only once.
@@ -1034,8 +930,7 @@ void main() {
     final display = FakeDisplay();
     final notifications = NotificationCenter(db: sota.db, me: sota.me, notifier: display);
     await notifications.update(); // Notifications start now.
-    Future<void> handlePush() =>
-        syncForPush(db: sota.db, store: sota.store, storage: sota.storage, notifier: display);
+    Future<void> handlePush() => syncForPush(db: sota.db, store: sota.store, storage: sota.storage, notifier: display);
 
     // Sota asks Naoko, and closes the app.
     await sota.repo.requestContact(naoko.me);
@@ -1112,16 +1007,13 @@ void main() {
     final naoko = await _Device.signIn(server, 'naoko', register: true);
     final yoko = await _Device.signIn(server, 'yoko', register: true);
     Map<String, Object?> lineBody(ChatMessage m) => m.envelope.body;
-    bool hasLine(List<ChatMessage> l, String change) => l.any(
-      (m) => m.envelope.isGroupLine && lineBody(m)['change'] == change,
-    );
+    bool hasLine(List<ChatMessage> l, String change) =>
+        l.any((m) => m.envelope.isGroupLine && lineBody(m)['change'] == change);
 
     final club = await _newGroup(phone, 'Club', [kumiko, naoko]);
     await phone.repo.sendText(club, 'Meeting at five');
     for (final device in [kumiko, naoko]) {
-      final summary = await device.waitForConversation(
-        (c) => c.id == club && c.unreadCount == 1,
-      );
+      final summary = await device.waitForConversation((c) => c.id == club && c.unreadCount == 1);
       expect((summary.title, summary.conversation.isGroup), ('Club', true));
       final messages = await device.waitForMessages(
         club,
@@ -1136,18 +1028,13 @@ void main() {
     await _becomeContacts(yoko, kumiko);
     await kumiko.repo.addMember(club, yoko.me);
     await naoko.repo.sendText(club, 'Welcome, Yoko!');
-    await yoko.waitForMessages(
-      club,
-      (l) => l.any((m) => m.envelope.text == 'Welcome, Yoko!'),
-    );
+    await yoko.waitForMessages(club, (l) => l.any((m) => m.envelope.text == 'Welcome, Yoko!'));
     final added = await phone.waitForMessages(club, (l) => hasLine(l, 'added'));
     final line = added.firstWhere((m) => lineBody(m)['change'] == 'added');
     expect((line.senderId, lineBody(line)['user']), (kumiko.me, yoko.me));
 
     await naoko.repo.renameGroup(club, 'Club Room');
-    await phone.waitForConversation(
-      (c) => c.id == club && c.title == 'Club Room',
-    );
+    await phone.waitForConversation((c) => c.id == club && c.title == 'Club Room');
     await yoko.waitForMessages(club, (l) => hasLine(l, 'renamed'));
 
     // A description goes the same way, and renaming keeps it.
@@ -1163,35 +1050,25 @@ void main() {
     await phone.waitForConversation((c) => c.id == club && c.title == 'The Club Room' && c.description == null);
     await phone.waitForMessages(club, (l) => hasLine(l, 'descriptionRemoved'));
 
-    final typing = phone.repo
-        .watchTyping(club)
-        .firstWhere((users) => users.contains(kumiko.me));
+    final typing = phone.repo.watchTyping(club).firstWhere((users) => users.contains(kumiko.me));
     kumiko.repo.sendTyping(club);
     await typing.timeout(_timeout);
 
     // Naoko leaves: the group is gone from her devices, and the others take
     // her devices out of the group, so she cannot read what follows.
     await naoko.repo.leaveGroup(club);
-    await _eventually(
-      () async => await naoko.db.conversation(club) == null,
-      reason: 'gone for Naoko',
-    );
+    await _eventually(() async => await naoko.db.conversation(club) == null, reason: 'gone for Naoko');
     expect(await naoko.repo.groups.mls.hasGroup(club), isFalse);
     for (final device in [phone, kumiko, yoko]) {
       await _eventually(
-        () async =>
-            !(await device.leaves(club))
-                .any((leaf) => leaf.startsWith(naoko.me)),
+        () async => !(await device.leaves(club)).any((leaf) => leaf.startsWith(naoko.me)),
         reason: "Naoko's devices removed",
       );
     }
     await phone.waitForMessages(club, (l) => hasLine(l, 'left'));
     await phone.repo.sendText(club, 'after Naoko left');
     for (final device in [kumiko, yoko]) {
-      await device.waitForMessages(
-        club,
-        (l) => l.any((m) => m.envelope.text == 'after Naoko left'),
-      );
+      await device.waitForMessages(club, (l) => l.any((m) => m.envelope.text == 'after Naoko left'));
     }
   });
 
@@ -1203,30 +1080,15 @@ void main() {
     await kumiko.waitForConversation((c) => c.id == conv);
 
     await server.stop();
-    await phone.repo
-        .watchConnection()
-        .firstWhere((s) => s != ConnectionStatus.online)
-        .timeout(_timeout);
+    await phone.repo.watchConnection().firstWhere((s) => s != ConnectionStatus.online).timeout(_timeout);
     await phone.repo.sendText(conv, 'sent while the server was down');
-    expect(
-      (await phone.waitForMessages(conv, (l) => l.isNotEmpty)).single.state,
-      DeliveryState.pending,
-    );
+    expect((await phone.waitForMessages(conv, (l) => l.isNotEmpty)).single.state, DeliveryState.pending);
 
     await server.restart();
-    expect(
-      _texts(
-        await kumiko.waitForMessages(
-          conv,
-          (l) => l.isNotEmpty && _allDecrypted(l),
-        ),
-      ),
-      ['sent while the server was down'],
-    );
-    await phone.waitForMessages(
-      conv,
-      (l) => l.single.state == DeliveryState.sent,
-    );
+    expect(_texts(await kumiko.waitForMessages(conv, (l) => l.isNotEmpty && _allDecrypted(l))), [
+      'sent while the server was down',
+    ]);
+    await phone.waitForMessages(conv, (l) => l.single.state == DeliveryState.sent);
     await Future<void>.delayed(const Duration(milliseconds: 300));
     expect(await kumiko.repo.watchMessages(conv).first, hasLength(1));
   });
@@ -1266,7 +1128,9 @@ void main() {
       final request = await http.postUrl(Uri.parse('${server.url}/auth/register'));
       if (level != null) request.headers.set(clientLevelHeader, level);
       request.headers.contentType = ContentType.json;
-      request.write(jsonEncode({'name': 'old${level ?? ''}', 'password': 'password123', 'deviceName': 'old', 'platform': 'test'}));
+      request.write(
+        jsonEncode({'name': 'old${level ?? ''}', 'password': 'password123', 'deviceName': 'old', 'platform': 'test'}),
+      );
       final response = await request.close();
       final body = (jsonDecode(await response.transform(utf8.decoder).join()) as Map)['error'] as String? ?? '';
       return (response.statusCode, body);
@@ -1288,16 +1152,10 @@ void main() {
     await kumiko.waitForConversation((c) => c.id == conv);
 
     await server.restart(minClient: clientLevel + 1);
-    await phone.repo
-        .watchConnection()
-        .firstWhere((s) => s == ConnectionStatus.updateRequired)
-        .timeout(_timeout);
+    await phone.repo.watchConnection().firstWhere((s) => s == ConnectionStatus.updateRequired).timeout(_timeout);
     await phone.repo.sendText(conv, 'written before updating');
     await Future<void>.delayed(const Duration(milliseconds: 300));
-    expect(
-      (await phone.waitForMessages(conv, (l) => l.isNotEmpty)).single.state,
-      DeliveryState.pending,
-    );
+    expect((await phone.waitForMessages(conv, (l) => l.isNotEmpty)).single.state, DeliveryState.pending);
     expect(phone.signedOut.isCompleted, isFalse);
     expect(phone.unverified.isCompleted, isFalse);
     expect(await phone.repo.groups.mls.hasGroup(conv), isTrue);
@@ -1306,10 +1164,9 @@ void main() {
     await server.restart();
     await phone.restart();
     await kumiko.restart();
-    expect(
-      _texts(await kumiko.waitForMessages(conv, (l) => l.isNotEmpty && _allDecrypted(l))),
-      ['written before updating'],
-    );
+    expect(_texts(await kumiko.waitForMessages(conv, (l) => l.isNotEmpty && _allDecrypted(l))), [
+      'written before updating',
+    ]);
     await phone.waitForMessages(conv, (l) => l.single.state == DeliveryState.sent);
   });
 
@@ -1549,7 +1406,13 @@ void main() {
     final club = await sota.repo.createGroup('Club', [kumiko.me]);
     await kumiko.waitForConversation((c) => c.id == club && c.title == 'Club');
     await Future<void>.delayed(_settling);
-    expect([for (final c in await kumiko.repo.watchConversations().first) if (c.title == 'Club') c.id], [club]);
+    expect(
+      [
+        for (final c in await kumiko.repo.watchConversations().first)
+          if (c.title == 'Club') c.id,
+      ],
+      [club],
+    );
     expect(await kumiko.repo.groups.localEpoch(club), 1, reason: 'one Welcome, joined once');
     await sota.repo.sendText(club, 'from sota');
     await kumiko.waitForMessages(club, (l) => _texts(l).contains('from sota'));
@@ -1742,20 +1605,29 @@ void main() {
 
     // Waiting for keys, kept as it came, in a form this version does not read.
     final id = newUlid();
-    await sota.db.into(sota.db.messages).insert(
-      MessagesCompanion.insert(
-        id: id,
-        convId: club,
-        sender: kumiko.me,
-        ts: 1,
-        envelope: jsonEncode(
-          Envelope(id: id, conv: club, from: kumiko.me, ts: 1, type: Envelope.encryptedType, body: const {}).toJson(),
-        ),
-        state: DeliveryState.sent,
-        seq: const Value(1),
-        wire: Value(jsonEncode({'v': 1, 'id': id, 'conv': club})),
-      ),
-    );
+    await sota.db
+        .into(sota.db.messages)
+        .insert(
+          MessagesCompanion.insert(
+            id: id,
+            convId: club,
+            sender: kumiko.me,
+            ts: 1,
+            envelope: jsonEncode(
+              Envelope(
+                id: id,
+                conv: club,
+                from: kumiko.me,
+                ts: 1,
+                type: Envelope.encryptedType,
+                body: const {},
+              ).toJson(),
+            ),
+            state: DeliveryState.sent,
+            seq: const Value(1),
+            wire: Value(jsonEncode({'v': 1, 'id': id, 'conv': club})),
+          ),
+        );
     await sota.restart();
     await kumiko.repo.renameGroup(club, 'Club Room');
     await sota.waitForConversation((c) => c.id == club && c.title == 'Club Room');
@@ -1899,7 +1771,10 @@ void main() {
       await sota.repo.sendText(club, 'From a.test');
       await kumiko.repo.sendText(club, 'From b.test');
       for (final device in [sota, naoko, kumiko]) {
-        await device.waitForMessages(club, (l) => _texts(l).contains('From a.test') && _texts(l).contains('From b.test'));
+        await device.waitForMessages(
+          club,
+          (l) => _texts(l).contains('From a.test') && _texts(l).contains('From b.test'),
+        );
       }
 
       // Kumiko adds Yoko, of her server, through his.
@@ -1925,7 +1800,10 @@ void main() {
 
       await showing(sota, club, ['sota created', 'kumiko left (server)']);
       final line = (await sota.repo.watchMessages(club).first).lastWhere((m) => m.envelope.isGroupLine);
-      expect(describeGroupChange(line.envelope, me: sota.me, nameOf: (id) => id.split('@').first), 'kumiko left (according to the server)');
+      expect(
+        describeGroupChange(line.envelope, me: sota.me, nameOf: (id) => id.split('@').first),
+        'kumiko left (according to the server)',
+      );
     });
 
     test('nobody can send a line this device makes for itself', () async {
@@ -1958,10 +1836,7 @@ void main() {
     final sota = await _Device.signIn(server, 'sota', register: true, client: client);
     final kumiko = await _Device.signIn(server, 'kumiko', register: true);
     await kumiko.repo.requestContact(sota.me);
-    await sota.repo
-        .watchContacts()
-        .firstWhere((c) => c[kumiko.me] == ContactState.incoming)
-        .timeout(_timeout);
+    await sota.repo.watchContacts().firstWhere((c) => c[kumiko.me] == ContactState.incoming).timeout(_timeout);
 
     client
       ..trouble = _CommitTrouble.answerLost
@@ -1974,10 +1849,7 @@ void main() {
 
     expect(await sota.db.unsettledCommit(conv), isNull);
     await kumiko.waitForConversation((c) => c.id == conv);
-    await sota.repo
-        .watchContacts()
-        .firstWhere((c) => c[kumiko.me] == ContactState.accepted)
-        .timeout(_timeout);
+    await sota.repo.watchContacts().firstWhere((c) => c[kumiko.me] == ContactState.accepted).timeout(_timeout);
     await Future<void>.delayed(_settling);
     expect(await sota.repo.groups.localEpoch(conv), 1, reason: 'rejoining would be one more');
     await sota.repo.sendText(conv, 'from sota');
@@ -2044,49 +1916,31 @@ void main() {
     await sota.waitForMessages(club, (l) => _texts(l).contains('from kumiko'));
   });
 
-  test(
-    'a device signed out from another device is removed from its groups',
-    () async {
-      final server = await _startServer();
-      final phone = await _Device.signIn(server, 'sota', register: true);
-      final desktop = await _Device.signIn(server, 'sota');
-      final kumiko = await _Device.signIn(server, 'kumiko', register: true);
-      final conv = await _becomeContacts(phone, kumiko);
-      await kumiko.repo.sendText(conv, 'hi');
-      await phone.waitForMessages(
-        conv,
-        (l) => l.length == 1 && _allDecrypted(l),
-      );
-      await desktop.waitForMessages(
-        conv,
-        (l) => l.length == 1 && _allDecrypted(l),
-      );
+  test('a device signed out from another device is removed from its groups', () async {
+    final server = await _startServer();
+    final phone = await _Device.signIn(server, 'sota', register: true);
+    final desktop = await _Device.signIn(server, 'sota');
+    final kumiko = await _Device.signIn(server, 'kumiko', register: true);
+    final conv = await _becomeContacts(phone, kumiko);
+    await kumiko.repo.sendText(conv, 'hi');
+    await phone.waitForMessages(conv, (l) => l.length == 1 && _allDecrypted(l));
+    await desktop.waitForMessages(conv, (l) => l.length == 1 && _allDecrypted(l));
 
-      await desktop.repo.revokeDevice(phone.account.deviceId);
-      await phone.signedOut.future.timeout(_timeout);
-      final phoneLeaf = 'sota@test.local/${phone.account.deviceId}';
-      for (final device in [desktop, kumiko]) {
-        await _eventually(
-          () async => !(await device.leaves(conv)).contains(phoneLeaf),
-          reason: 'revoked leaf removed',
-        );
-      }
-      // The group still works for everyone left (no fork from both racing to remove it).
-      await kumiko.repo.sendText(conv, 'after the revoke');
-      expect(
-        (await desktop.waitForMessages(
-          conv,
-          (l) => l.length == 2 && _allDecrypted(l),
-        )).last.envelope.text,
-        'after the revoke',
-      );
-      await desktop.repo.sendText(conv, 'still here');
-      await kumiko.waitForMessages(
-        conv,
-        (l) => l.length == 3 && l.last.envelope.text == 'still here',
-      );
-    },
-  );
+    await desktop.repo.revokeDevice(phone.account.deviceId);
+    await phone.signedOut.future.timeout(_timeout);
+    final phoneLeaf = 'sota@test.local/${phone.account.deviceId}';
+    for (final device in [desktop, kumiko]) {
+      await _eventually(() async => !(await device.leaves(conv)).contains(phoneLeaf), reason: 'revoked leaf removed');
+    }
+    // The group still works for everyone left (no fork from both racing to remove it).
+    await kumiko.repo.sendText(conv, 'after the revoke');
+    expect(
+      (await desktop.waitForMessages(conv, (l) => l.length == 2 && _allDecrypted(l))).last.envelope.text,
+      'after the revoke',
+    );
+    await desktop.repo.sendText(conv, 'still here');
+    await kumiko.waitForMessages(conv, (l) => l.length == 3 && l.last.envelope.text == 'still here');
+  });
 
   test('a device the user never verified is caught and removed', () async {
     final server = await _startServer();
@@ -2133,24 +1987,13 @@ void main() {
 
     final rogueLeaf = 'kumiko@test.local/${rogue.account.deviceId}';
     for (final device in [phone, kumiko]) {
-      await _eventually(
-        () async => !(await device.leaves(conv)).contains(rogueLeaf),
-        reason: 'rogue device removed',
-      );
+      await _eventually(() async => !(await device.leaves(conv)).contains(rogueLeaf), reason: 'rogue device removed');
     }
     // Messages sent afterwards are not readable to it.
     await phone.repo.sendText(conv, 'not for the rogue device');
-    await kumiko.waitForMessages(
-      conv,
-      (l) =>
-          l.length == 2 && l.last.envelope.text == 'not for the rogue device',
-    );
-    final removal = (await rogue.api.sync(0)).events
-        .lastWhere((e) => e.type == EventType.mlsCommit);
-    final result = await mls.process(
-      conv,
-      base64.decode(removal.data['mls'] as String),
-    );
+    await kumiko.waitForMessages(conv, (l) => l.length == 2 && l.last.envelope.text == 'not for the rogue device');
+    final removal = (await rogue.api.sync(0)).events.lastWhere((e) => e.type == EventType.mlsCommit);
+    final result = await mls.process(conv, base64.decode(removal.data['mls'] as String));
     expect(result.stagedCommitInfo?.selfRemoved, isTrue);
   });
 
@@ -2182,22 +2025,13 @@ void main() {
     for (var i = 0; i < 40; i++) {
       await kumiko.repo.sendText(conv, 'm$i');
     }
-    await phone.waitForMessages(
-      conv,
-      (l) => l.length == 40 && _allDecrypted(l),
-    );
+    await phone.waitForMessages(conv, (l) => l.length == 40 && _allDecrypted(l));
 
     final laptop = await _Device.signIn(server, 'sota');
-    expect(
-      await laptop.waitForMessages(conv, (l) => l.isNotEmpty),
-      hasLength(30),
-    ); // Snapshot holds the latest 30.
+    expect(await laptop.waitForMessages(conv, (l) => l.isNotEmpty), hasLength(30)); // Snapshot holds the latest 30.
     await laptop.repo.loadOlderMessages(conv);
     // Sent before the laptop existed, and readable through the key backup.
-    final all = await laptop.waitForMessages(
-      conv,
-      (l) => l.length == 40 && _allDecrypted(l),
-    );
+    final all = await laptop.waitForMessages(conv, (l) => l.length == 40 && _allDecrypted(l));
     expect(_texts(all).first, 'm0');
   });
 
@@ -2214,46 +2048,24 @@ void main() {
     // Kumiko does not share the history.
     await kumiko.repo.addMember(club, phone.me, shareHistory: false);
     await kumiko.repo.sendText(club, 'welcome, Sota');
-    await phone.waitForMessages(
-      club,
-      (l) => l.any((m) => m.envelope.text == 'welcome, Sota'),
-    );
+    await phone.waitForMessages(club, (l) => l.any((m) => m.envelope.text == 'welcome, Sota'));
     await phone.repo.loadOlderMessages(club);
     // No device of Sota's could ever read the first message, nor Kumiko's
     // line saying she made the group.
-    final onPhone = _chat(
-      await phone.waitForMessages(club, (l) => _chat(l).length == 3),
-    );
-    expect(
-      [for (final m in onPhone) m.envelope.type],
-      [Envelope.encryptedType, Envelope.encryptedType, 'text'],
-    );
+    final onPhone = _chat(await phone.waitForMessages(club, (l) => _chat(l).length == 3));
+    expect([for (final m in onPhone) m.envelope.type], [Envelope.encryptedType, Envelope.encryptedType, 'text']);
 
     // The phone backs up what it read; the server gets only ciphertext.
     final welcome = onPhone.last.id;
-    final entry = await _poll(
-      () async => (await phone.api.queryKeyBackup([welcome]))[welcome],
-      reason: 'backed up',
-    );
-    expect(
-      utf8.decode(base64.decode(entry), allowMalformed: true),
-      isNot(contains('welcome')),
-    );
+    final entry = await _poll(() async => (await phone.api.queryKeyBackup([welcome]))[welcome], reason: 'backed up');
+    expect(utf8.decode(base64.decode(entry), allowMalformed: true), isNot(contains('welcome')));
 
     // A new device reads the same as the phone, and no more.
     final laptop = await _Device.signIn(server, 'sota');
-    await laptop.waitForMessages(
-      club,
-      (l) => l.any((m) => m.envelope.text == 'welcome, Sota'),
-    );
+    await laptop.waitForMessages(club, (l) => l.any((m) => m.envelope.text == 'welcome, Sota'));
     await laptop.repo.loadOlderMessages(club);
-    final onLaptop = _chat(
-      await laptop.waitForMessages(club, (l) => _chat(l).length == 3),
-    );
-    expect(
-      [for (final m in onLaptop) m.envelope.text],
-      [null, null, 'welcome, Sota'],
-    );
+    final onLaptop = _chat(await laptop.waitForMessages(club, (l) => _chat(l).length == 3));
+    expect([for (final m in onLaptop) m.envelope.text], [null, null, 'welcome, Sota']);
   });
 
   test('replies, reactions, edits and deletions reach every device, new ones included', () async {
@@ -2282,8 +2094,12 @@ void main() {
         (l) => l.length == 2 && l.first.edited && l.first.reactions.isNotEmpty && l.last.reactions.isNotEmpty,
       );
       expect(_texts(messages), ['See you at 6?', 'Yes!']);
-      expect(messages.first.reactions, {'❤️': [phone.me]});
-      expect(messages.last.reactions, {'👍': [kumiko.me]});
+      expect(messages.first.reactions, {
+        '❤️': [phone.me],
+      });
+      expect(messages.last.reactions, {
+        '👍': [kumiko.me],
+      });
       // The quote follows the edit.
       expect(messages.last.replyTo!.text, 'See you at 6?');
     }
@@ -2305,7 +2121,11 @@ void main() {
     final laptop = await _Device.signIn(server, 'sota');
     final restored = await laptop.waitForMessages(
       conv,
-      (l) => l.length == 1 && _allDecrypted(l) && l.single.reactions.isNotEmpty && l.single.replyTo!.text != 'See you at 5?',
+      (l) =>
+          l.length == 1 &&
+          _allDecrypted(l) &&
+          l.single.reactions.isNotEmpty &&
+          l.single.replyTo!.text != 'See you at 5?',
     );
     expect(_texts(restored), ['Yes!']);
     expect(restored.single.replyTo!.text, 'This message was deleted');
@@ -2403,10 +2223,8 @@ void main() {
     final phone = await _Device.signIn(server, 'sota', register: true);
     final kumiko = await _Device.signIn(server, 'kumiko', register: true);
     final naoko = await _Device.signIn(server, 'naoko', register: true);
-    Future<void> sees(_Device device, String user, Presence status) => device.repo
-        .watchPresence()
-        .firstWhere((p) => (p[user] ?? Presence.offline) == status)
-        .timeout(_timeout);
+    Future<void> sees(_Device device, String user, Presence status) =>
+        device.repo.watchPresence().firstWhere((p) => (p[user] ?? Presence.offline) == status).timeout(_timeout);
     Future<void> mode(_Device device, PresenceMode mode) =>
         device.repo.watchPresenceMode().firstWhere((m) => m == mode).timeout(_timeout);
 
@@ -2449,25 +2267,15 @@ void main() {
     final files = Directory.systemTemp.createTempSync('hanashi_files_');
     addTearDown(() => files.delete(recursive: true));
     final photo = File('${files.path}/cat.png')
-      ..writeAsBytesSync(
-        img.encodePng(
-          img.Image(width: 1200, height: 800)
-            ..clear(img.ColorRgb8(200, 120, 160)),
-        ),
-      );
-    final clip = File('${files.path}/clip.mp4')
-      ..writeAsBytesSync(List.filled(4096, 7));
-    final doc = File('${files.path}/notes.txt')
-      ..writeAsStringSync('Meeting at five.');
+      ..writeAsBytesSync(img.encodePng(img.Image(width: 1200, height: 800)..clear(img.ColorRgb8(200, 120, 160))));
+    final clip = File('${files.path}/clip.mp4')..writeAsBytesSync(List.filled(4096, 7));
+    final doc = File('${files.path}/notes.txt')..writeAsStringSync('Meeting at five.');
 
     await phone.repo.sendAttachment(conv, path: photo.path, name: 'cat.png');
     await phone.repo.sendAttachment(conv, path: clip.path, name: 'clip.mp4');
     await phone.repo.sendAttachment(conv, path: doc.path, name: 'notes.txt');
 
-    final received = await kumiko.waitForMessages(
-      conv,
-      (l) => l.length == 3 && _allDecrypted(l),
-    );
+    final received = await kumiko.waitForMessages(conv, (l) => l.length == 3 && _allDecrypted(l));
     final [image, video, file] = [for (final m in received) m.envelope];
     expect(image.messageType, MessageType.image);
     final imageRef = image.media!;
@@ -2477,31 +2285,16 @@ void main() {
     expect(file.media!.name, 'notes.txt');
 
     // What the server stores is ciphertext.
-    final stored = await (await kumiko.api.openMedia(file.media!.hash)).stream
-        .toBytes();
-    expect(
-      utf8.decode(stored, allowMalformed: true),
-      isNot(contains('Meeting at five')),
-    );
+    final stored = await (await kumiko.api.openMedia(file.media!.hash)).stream.toBytes();
+    expect(utf8.decode(stored, allowMalformed: true), isNot(contains('Meeting at five')));
 
-    await desktop.waitForMessages(
-      conv,
-      (l) => l.length == 3 && _allDecrypted(l),
-    );
+    await desktop.waitForMessages(conv, (l) => l.length == 3 && _allDecrypted(l));
     for (final device in [kumiko, desktop]) {
-      expect(
-        (await device.repo.mediaBytes(imageRef))!,
-        photo.readAsBytesSync(),
-      );
-      final thumb = img.decodeJpg(
-        (await device.repo.mediaBytes(imageRef.thumb!))!,
-      )!;
+      expect((await device.repo.mediaBytes(imageRef))!, photo.readAsBytesSync());
+      final thumb = img.decodeJpg((await device.repo.mediaBytes(imageRef.thumb!))!)!;
       // Small enough to stay as large as it is.
       expect((thumb.width, thumb.height), (1200, 800));
-      expect(
-        utf8.decode((await device.repo.mediaBytes(file.media!))!),
-        'Meeting at five.',
-      );
+      expect(utf8.decode((await device.repo.mediaBytes(file.media!))!), 'Meeting at five.');
     }
     // Nothing decrypted is kept: not by those who got them, nor by the
     // sender, whose cache has them too, nor the thumbnail it made.
@@ -2647,15 +2440,20 @@ void main() {
     }
     await naoko.waitForMessages(club, (l) => _chat(l).length == 34 && _allDecrypted(l));
     await naoko.repo.sendText(club, 'from Naoko');
-    final fromNaoko = (await naoko.waitForMessages(club, (l) => l.any((m) => m.seq != null && m.envelope.text == 'from Naoko')))
-        .last;
+    final fromNaoko = (await naoko.waitForMessages(
+      club,
+      (l) => l.any((m) => m.seq != null && m.envelope.text == 'from Naoko'),
+    )).last;
     await naoko.repo.editMessage(fromNaoko.id, 'from Naoko, edited');
     await kumiko.waitForMessages(club, (l) => l.any((m) => m.envelope.text == 'from Naoko, edited'));
 
     // Kumiko adds Sota from a new laptop, which holds only the latest 30
     // messages: the keys to the rest come from her key backup.
     final laptop = await _Device.signIn(server, 'kumiko');
-    await laptop.waitForMessages(club, (l) => l.any((m) => m.envelope.text == 'from Naoko, edited') && _allDecrypted(l));
+    await laptop.waitForMessages(
+      club,
+      (l) => l.any((m) => m.envelope.text == 'from Naoko, edited') && _allDecrypted(l),
+    );
     expect(_texts(_chat(await laptop.repo.watchMessages(club).first)), isNot(contains('m0')));
     await laptop.repo.addMember(club, phone.me);
     bool shared(ChatMessage m) =>
@@ -2722,7 +2520,10 @@ void main() {
 
     // Imported on one device, on its own server; the user's other devices get it.
     final added = await phone.repo.importStickerPack(syntheticStickerPack(files).path);
-    expect((added.id, added.stickers.length, added.archive!.host), ('test-pack', 8, UserId.parse(phone.account.userId).host));
+    expect(
+      (added.id, added.stickers.length, added.archive!.host),
+      ('test-pack', 8, UserId.parse(phone.account.userId).host),
+    );
     final onLaptop = await laptop.repo.watchStickerPacks().firstWhere(ready).timeout(_timeout);
     expect((onLaptop.single.archive!.hash, onLaptop.single.stickers.length), (added.archive!.hash, 8));
     // The server holds only ciphertext: of the pack, and of the list.
@@ -2863,99 +2664,112 @@ void main() {
     expect(utf8.decode(base64.decode(stored!.data), allowMalformed: true), isNot(contains('sha256')));
   });
 
-  test('calls: both devices hear of a call; its keys come from the group, the same on both, and move on with it', () async {
-    const liveKitKey = 'APItest', liveKitSecret = 'an integration test secret, long enough for HMAC';
-    final server = await GoServer.start(environment: {
-      // Nothing is spoken: LiveKit is only told of, by the webhooks below.
-      'HANASHI_LIVEKIT_URL': 'ws://127.0.0.1:9',
-      'HANASHI_LIVEKIT_API_URL': 'http://127.0.0.1:9',
-      'HANASHI_LIVEKIT_API_KEY': liveKitKey,
-      'HANASHI_LIVEKIT_API_SECRET': liveKitSecret,
-    });
-    addTearDown(server.dispose);
-    String b64(List<int> bytes) => base64Url.encode(bytes).replaceAll('=', '');
-    // What LiveKit would tell the server, signed as LiveKit signs it.
-    Future<void> webhook(String event, String room, _Device device, String sid) async {
-      final body = utf8.encode(jsonEncode({
-        'event': event,
-        'room': {'name': room},
-        'participant': {'sid': sid, 'identity': '${device.me}/${device.account.deviceId}'},
-      }));
-      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      final claims = {'iss': liveKitKey, 'nbf': now, 'exp': now + 300, 'sha256': base64.encode(await sha256(body))};
-      final signed = '${b64(utf8.encode('{"alg":"HS256","typ":"JWT"}'))}.${b64(utf8.encode(jsonEncode(claims)))}';
-      final mac = await Hmac.sha256().calculateMac(utf8.encode(signed), secretKey: SecretKey(utf8.encode(liveKitSecret)));
-      final response = await http.post(
-        Uri.parse('${server.url}/livekit/webhook'),
-        headers: {'Authorization': '$signed.${b64(mac.bytes)}'},
-        body: body,
+  test(
+    'calls: both devices hear of a call; its keys come from the group, the same on both, and move on with it',
+    () async {
+      const liveKitKey = 'APItest', liveKitSecret = 'an integration test secret, long enough for HMAC';
+      final server = await GoServer.start(
+        environment: {
+          // Nothing is spoken: LiveKit is only told of, by the webhooks below.
+          'HANASHI_LIVEKIT_URL': 'ws://127.0.0.1:9',
+          'HANASHI_LIVEKIT_API_URL': 'http://127.0.0.1:9',
+          'HANASHI_LIVEKIT_API_KEY': liveKitKey,
+          'HANASHI_LIVEKIT_API_SECRET': liveKitSecret,
+        },
       );
-      expect(response.statusCode, 200, reason: event);
-    }
-
-    final sota = await _Device.signIn(server, 'sota', register: true);
-    final kumiko = await _Device.signIn(server, 'kumiko', register: true);
-    final conv = await _becomeContacts(kumiko, sota);
-    expect(await kumiko.repo.callsAvailable(), isTrue);
-    Future<Call> call(_Device device, String id, bool Function(Call) test) => device.repo
-        .watchCalls()
-        .map((calls) => calls[id])
-        .firstWhere((call) => call != null && test(call))
-        .timeout(_timeout)
-        .then((call) => call!);
-
-    final join = await sota.repo.joinCall(conv);
-    final id = join.call.id;
-    expect((join.call.direct, join.call.unanswered, join.url, join.token.split('.').length), (true, true, 'ws://127.0.0.1:9', 3));
-    expect((await call(kumiko, id, (c) => c.unanswered)).startedBy, sota.me);
-    // Its place in the chat, from whoever started it.
-    final record = await kumiko.waitForMessages(conv, (l) => l.any((m) => m.envelope.callId == id));
-    expect(record.singleWhere((m) => m.envelope.callId == id).senderId, sota.me);
-
-    // The same key on both, from the group; another call's is another.
-    final sotaKeys = <CallKey?>[], kumikoKeys = <CallKey?>[];
-    final watching = [
-      sota.repo.watchCallKeys(conv, id).listen(sotaKeys.add),
-      kumiko.repo.watchCallKeys(conv, id).listen(kumikoKeys.add),
-    ];
-    addTearDown(() async {
-      for (final w in watching) {
-        await w.cancel();
+      addTearDown(server.dispose);
+      String b64(List<int> bytes) => base64Url.encode(bytes).replaceAll('=', '');
+      // What LiveKit would tell the server, signed as LiveKit signs it.
+      Future<void> webhook(String event, String room, _Device device, String sid) async {
+        final body = utf8.encode(
+          jsonEncode({
+            'event': event,
+            'room': {'name': room},
+            'participant': {'sid': sid, 'identity': '${device.me}/${device.account.deviceId}'},
+          }),
+        );
+        final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        final claims = {'iss': liveKitKey, 'nbf': now, 'exp': now + 300, 'sha256': base64.encode(await sha256(body))};
+        final signed = '${b64(utf8.encode('{"alg":"HS256","typ":"JWT"}'))}.${b64(utf8.encode(jsonEncode(claims)))}';
+        final mac = await Hmac.sha256().calculateMac(
+          utf8.encode(signed),
+          secretKey: SecretKey(utf8.encode(liveKitSecret)),
+        );
+        final response = await http.post(
+          Uri.parse('${server.url}/livekit/webhook'),
+          headers: {'Authorization': '$signed.${b64(mac.bytes)}'},
+          body: body,
+        );
+        expect(response.statusCode, 200, reason: event);
       }
-    });
-    await _eventually(() => sotaKeys.lastOrNull != null && kumikoKeys.lastOrNull != null, reason: 'keys');
-    final first = sotaKeys.last!;
-    expect(kumikoKeys.last!.epoch, first.epoch);
-    expect(kumikoKeys.last!.key, first.key);
-    expect(first.key, hasLength(32));
-    final other = await sota.repo.watchCallKeys(conv, newUlid()).firstWhere((k) => k != null).timeout(_timeout);
-    expect(other!.key, isNot(first.key));
-    // A commit (Kumiko's laptop joins the chat's group): new keys, the same on both.
-    await _Device.signIn(server, 'kumiko');
-    await _eventually(
-      () => sotaKeys.last!.epoch > first.epoch && kumikoKeys.last?.epoch == sotaKeys.last!.epoch,
-      reason: 'keys of the next epoch',
-    );
-    expect(kumikoKeys.last!.key, sotaKeys.last!.key);
-    expect(sotaKeys.last!.key, isNot(first.key));
 
-    // LiveKit says who got in: Kumiko answered. Either hanging up ends it.
-    await webhook('participant_joined', id, sota, 'PA_s');
-    await webhook('participant_joined', id, kumiko, 'PA_k');
-    expect((await call(sota, id, (c) => c.answeredAt != null)).users, {sota.me, kumiko.me});
-    await kumiko.repo.leaveCall(id);
-    expect((await call(sota, id, (c) => !c.active)).reason, CallEnd.ended);
+      final sota = await _Device.signIn(server, 'sota', register: true);
+      final kumiko = await _Device.signIn(server, 'kumiko', register: true);
+      final conv = await _becomeContacts(kumiko, sota);
+      expect(await kumiko.repo.callsAvailable(), isTrue);
+      Future<Call> call(_Device device, String id, bool Function(Call) test) => device.repo
+          .watchCalls()
+          .map((calls) => calls[id])
+          .firstWhere((call) => call != null && test(call))
+          .timeout(_timeout)
+          .then((call) => call!);
 
-    // Called back, and declined.
-    final back = await kumiko.repo.joinCall(conv);
-    await call(sota, back.call.id, (c) => c.unanswered);
-    await sota.repo.declineCall(back.call.id);
-    expect((await call(kumiko, back.call.id, (c) => !c.active)).reason, CallEnd.declined);
-    // A device that connects later hears of both from the server.
-    final tablet = await _Device.signIn(server, 'sota');
-    final known = await tablet.repo.watchCalls().firstWhere((calls) => calls.length == 2).timeout(_timeout);
-    expect({for (final c in known.values) c.reason}, {CallEnd.ended, CallEnd.declined});
-  });
+      final join = await sota.repo.joinCall(conv);
+      final id = join.call.id;
+      expect(
+        (join.call.direct, join.call.unanswered, join.url, join.token.split('.').length),
+        (true, true, 'ws://127.0.0.1:9', 3),
+      );
+      expect((await call(kumiko, id, (c) => c.unanswered)).startedBy, sota.me);
+      // Its place in the chat, from whoever started it.
+      final record = await kumiko.waitForMessages(conv, (l) => l.any((m) => m.envelope.callId == id));
+      expect(record.singleWhere((m) => m.envelope.callId == id).senderId, sota.me);
+
+      // The same key on both, from the group; another call's is another.
+      final sotaKeys = <CallKey?>[], kumikoKeys = <CallKey?>[];
+      final watching = [
+        sota.repo.watchCallKeys(conv, id).listen(sotaKeys.add),
+        kumiko.repo.watchCallKeys(conv, id).listen(kumikoKeys.add),
+      ];
+      addTearDown(() async {
+        for (final w in watching) {
+          await w.cancel();
+        }
+      });
+      await _eventually(() => sotaKeys.lastOrNull != null && kumikoKeys.lastOrNull != null, reason: 'keys');
+      final first = sotaKeys.last!;
+      expect(kumikoKeys.last!.epoch, first.epoch);
+      expect(kumikoKeys.last!.key, first.key);
+      expect(first.key, hasLength(32));
+      final other = await sota.repo.watchCallKeys(conv, newUlid()).firstWhere((k) => k != null).timeout(_timeout);
+      expect(other!.key, isNot(first.key));
+      // A commit (Kumiko's laptop joins the chat's group): new keys, the same on both.
+      await _Device.signIn(server, 'kumiko');
+      await _eventually(
+        () => sotaKeys.last!.epoch > first.epoch && kumikoKeys.last?.epoch == sotaKeys.last!.epoch,
+        reason: 'keys of the next epoch',
+      );
+      expect(kumikoKeys.last!.key, sotaKeys.last!.key);
+      expect(sotaKeys.last!.key, isNot(first.key));
+
+      // LiveKit says who got in: Kumiko answered. Either hanging up ends it.
+      await webhook('participant_joined', id, sota, 'PA_s');
+      await webhook('participant_joined', id, kumiko, 'PA_k');
+      expect((await call(sota, id, (c) => c.answeredAt != null)).users, {sota.me, kumiko.me});
+      await kumiko.repo.leaveCall(id);
+      expect((await call(sota, id, (c) => !c.active)).reason, CallEnd.ended);
+
+      // Called back, and declined.
+      final back = await kumiko.repo.joinCall(conv);
+      await call(sota, back.call.id, (c) => c.unanswered);
+      await sota.repo.declineCall(back.call.id);
+      expect((await call(kumiko, back.call.id, (c) => !c.active)).reason, CallEnd.declined);
+      // A device that connects later hears of both from the server.
+      final tablet = await _Device.signIn(server, 'sota');
+      final known = await tablet.repo.watchCalls().firstWhere((calls) => calls.length == 2).timeout(_timeout);
+      expect({for (final c in known.values) c.reason}, {CallEnd.ended, CallEnd.declined});
+    },
+  );
 
   test("custom emojis follow the user, a group's are its members'; messages carry their pictures", () async {
     final server = await _startServer();
@@ -3075,7 +2889,10 @@ void main() {
     final [_, own, klipy] = [for (final m in received) m.envelope];
     expect((own.messageType, own.gif!.media!.hash), (MessageType.gif, photo.media!.hash));
     expect((await phone.repo.mediaBytes(own.gif!.media!))!, file.readAsBytesSync());
-    expect((klipy.messageType, klipy.gif!.remote!.url, klipy.gif!.remote!.title), (MessageType.gif, dance.url, 'Dance'));
+    expect(
+      (klipy.messageType, klipy.gif!.remote!.url, klipy.gif!.remote!.title),
+      (MessageType.gif, dance.url, 'Dance'),
+    );
 
     // Saved GIFs reach the user's other devices.
     await phone.repo.setGifSaved(const GifRef.remote(dance), true);
@@ -3295,7 +3112,10 @@ void main() {
         ..writeAsBytesSync(img.encodePng(img.Image(width: 320, height: 200)..clear(img.ColorRgb8(120, 200, 160))));
       await hiroko.repo.sendAttachment(club, path: photo.path, name: 'club.png');
       for (final device in [sota, kumiko]) {
-        final received = await device.waitForMessages(club, (l) => l.any((m) => m.envelope.media != null) && _allDecrypted(l));
+        final received = await device.waitForMessages(
+          club,
+          (l) => l.any((m) => m.envelope.media != null) && _allDecrypted(l),
+        );
         final ref = received.firstWhere((m) => m.envelope.media != null).envelope.media!;
         expect(ref.host, 'c.test');
         expect((await device.repo.mediaBytes(ref))!, photo.readAsBytesSync());
@@ -3385,8 +3205,12 @@ void main() {
       await sota.repo.setGroupPicture(club, file.path);
       await kumiko.waitForConversation((c) => c.id == club && c.picture != null);
       // Kumiko's own key reaches the roster before anyone new comes.
-      await _eventually(() async => (await sota.repo.groups.heldState(club))!.roster.containsKey(kumiko.me) ||
-          (await sota.db.profileRow(kumiko.me))!.profileKey != null, reason: "Sota has Kumiko's key");
+      await _eventually(
+        () async =>
+            (await sota.repo.groups.heldState(club))!.roster.containsKey(kumiko.me) ||
+            (await sota.db.profileRow(kumiko.me))!.profileKey != null,
+        reason: "Sota has Kumiko's key",
+      );
 
       await _becomeContacts(naoko, sota);
       await sota.repo.addMember(club, naoko.me, shareHistory: false);
@@ -3444,7 +3268,9 @@ void main() {
       for (final device in [sota, kumiko]) {
         final lines = await device.waitForMessages(
           club,
-          (l) => l.any((m) => m.envelope.body['change'] == 'renamed') && l.any((m) => m.envelope.body['change'] == 'picture'),
+          (l) =>
+              l.any((m) => m.envelope.body['change'] == 'renamed') &&
+              l.any((m) => m.envelope.body['change'] == 'picture'),
         );
         expect(lines.firstWhere((m) => m.envelope.body['change'] == 'renamed').senderId, kumiko.me);
         expect(lines.firstWhere((m) => m.envelope.body['change'] == 'picture').senderId, sota.me);
@@ -3470,7 +3296,11 @@ void main() {
       await sota.api.putGroupState(
         club,
         epoch: epoch,
-        sealed: await forged.seal(await watcher.mls.exporterSecret(club, GroupState.secretLabel), conv: club, epoch: epoch),
+        sealed: await forged.seal(
+          await watcher.mls.exporterSecret(club, GroupState.secretLabel),
+          conv: club,
+          epoch: epoch,
+        ),
       );
       // Those who applied the commits keep what those pin.
       await Future<void>.delayed(const Duration(milliseconds: 500));
@@ -3612,7 +3442,10 @@ void main() {
       final club = await _newGroup(sota, 'Club', [kumiko]);
       await _chatOf(kumiko, club);
       await _becomeContacts(naoko, sota);
-      await _eventually(() async => (await sota.db.profileRow(kumiko.me))!.profileKey != null, reason: "Sota has Kumiko's key");
+      await _eventually(
+        () async => (await sota.db.profileRow(kumiko.me))!.profileKey != null,
+        reason: "Sota has Kumiko's key",
+      );
 
       // Sota's device says something else opens Kumiko's profile.
       await sota.db.setGroupState(club, roster: {kumiko.me: base64.encode(randomBytes(32))});
@@ -3726,9 +3559,7 @@ class _PushService {
   Completer<void>? _next;
 
   static Future<_PushService> start() async {
-    final service = _PushService._(
-      await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
-    );
+    final service = _PushService._(await HttpServer.bind(InternetAddress.loopbackIPv4, 0));
     addTearDown(() => service._server.close(force: true));
     return service;
   }

@@ -483,9 +483,10 @@ final serverInfoProvider = FutureProvider<ServerInfo?>((ref) async {
 /// The server's push key (null if it has none).
 final vapidKeyProvider = FutureProvider<String?>((ref) async => (await ref.watch(serverInfoProvider.future))?.vapidKey);
 
-final notificationPreferencesProvider = AsyncNotifierProvider<NotificationPreferencesController, NotificationPreferences>(
-  NotificationPreferencesController.new,
-);
+final notificationPreferencesProvider =
+    AsyncNotifierProvider<NotificationPreferencesController, NotificationPreferences>(
+      NotificationPreferencesController.new,
+    );
 
 class NotificationPreferencesController extends AsyncNotifier<NotificationPreferences> {
   @override
@@ -567,10 +568,7 @@ final contactsProvider = StreamProvider<Map<String, ContactState>>(
 );
 
 final profilesProvider = StreamProvider<Map<String, UserProfile>>(
-  (ref) => ref
-      .watch(chatRepositoryProvider)
-      .watchProfiles()
-      .map((profiles) => {for (final p in profiles) p.id: p}),
+  (ref) => ref.watch(chatRepositoryProvider).watchProfiles().map((profiles) => {for (final p in profiles) p.id: p}),
 );
 
 /// Unread messages, but not those of muted chats.
@@ -618,9 +616,7 @@ final remoteMediaLoaderProvider = Provider<RemoteMediaLoader>((ref) {
   return loader;
 });
 
-final savedGifsProvider = StreamProvider<List<GifRef>>(
-  (ref) => ref.watch(chatRepositoryProvider).watchSavedGifs(),
-);
+final savedGifsProvider = StreamProvider<List<GifRef>>((ref) => ref.watch(chatRepositoryProvider).watchSavedGifs());
 
 /// The user's stickers (see `ChatRepository.watchSavedStickers`).
 final savedStickersProvider = StreamProvider<List<StickerRef>>(
@@ -864,7 +860,8 @@ class LogLevelController extends Notifier<LogLevel> {
 
 /// Opens a link in the browser (or the app for it); false if nothing could.
 final openLinkProvider = Provider<Future<bool> Function(Uri url)>(
-  (ref) => (url) => launchUrl(url, mode: LaunchMode.externalApplication),
+  (ref) =>
+      (url) => launchUrl(url, mode: LaunchMode.externalApplication),
 );
 
 /// The emoji the user reacted with lately, most recent first, as this device

@@ -22,8 +22,9 @@ run the tests. For a large change, open an issue first, to agree on the way.
   (cd app && dart analyze --fatal-infos && flutter test)
   ```
 
-- Format Go with `gofmt` and the Dart you write with `dart format` (120
-  columns, set in each package's `analysis_options.yaml`).
+- Format Go with `gofmt` and Dart with `dart format` (120 columns, set in
+  each package's `analysis_options.yaml`); CI checks both. Generated code
+  (`*.g.dart`) is left as its generator writes it.
 - Screenshot tests compare against images in `app/test/goldens/`. If your
   change is meant to change how something looks, update them with
   `flutter test --update-goldens` and look at the new images.

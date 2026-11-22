@@ -17,8 +17,12 @@ class _Recording extends MockChatRepository {
   final sent = <({String conv, String name, Uint8List bytes})>[];
 
   @override
-  Future<void> sendAttachment(String conversationId, {required String path, required String name, String? replyTo}) async =>
-      sent.add((conv: conversationId, name: name, bytes: File(path).readAsBytesSync()));
+  Future<void> sendAttachment(
+    String conversationId, {
+    required String path,
+    required String name,
+    String? replyTo,
+  }) async => sent.add((conv: conversationId, name: name, bytes: File(path).readAsBytesSync()));
 }
 
 final _desktop = TargetPlatformVariant.only(TargetPlatform.linux);
@@ -49,16 +53,22 @@ void main() {
   void clipboardHolds(WidgetTester tester, {List<String> files = const [], Uint8List? image, String? text}) {
     final messenger = tester.binding.defaultBinaryMessenger;
     const pasteboard = MethodChannel('pasteboard');
-    messenger.setMockMethodCallHandler(pasteboard, (call) async => switch (call.method) {
-      'files' => files,
-      'image' => image,
-      _ => null,
-    });
-    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async => switch (call.method) {
-      'Clipboard.hasStrings' => {'value': text != null},
-      'Clipboard.getData' => text == null ? null : {'text': text},
-      _ => null,
-    });
+    messenger.setMockMethodCallHandler(
+      pasteboard,
+      (call) async => switch (call.method) {
+        'files' => files,
+        'image' => image,
+        _ => null,
+      },
+    );
+    messenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async => switch (call.method) {
+        'Clipboard.hasStrings' => {'value': text != null},
+        'Clipboard.getData' => text == null ? null : {'text': text},
+        _ => null,
+      },
+    );
     addTearDown(() {
       messenger.setMockMethodCallHandler(pasteboard, null);
       messenger.setMockMethodCallHandler(SystemChannels.platform, null);
@@ -109,7 +119,10 @@ void main() {
     expect([for (final s in repository.sent) (s.conv, s.name)], [('club', 'cat.png'), ('club', 'notes.txt')]);
 
     // Changed their mind: nothing goes out.
-    await fromPlatform(tester, 'desktop_drop', 'performOperation_linux', ['${notes.uri}', [at.dx, at.dy]]);
+    await fromPlatform(tester, 'desktop_drop', 'performOperation_linux', [
+      '${notes.uri}',
+      [at.dx, at.dy],
+    ]);
     await tester.pumpAndSettle();
     expect(find.text('Send to Club Room?'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
@@ -149,7 +162,10 @@ void main() {
     expect(find.text('notes.txt'), findsOneWidget);
     await tester.tap(find.byKey(const Key('send-files-confirm')));
     await tester.pumpAndSettle();
-    expect([for (final s in repository.sent) (s.name, String.fromCharCodes(s.bytes))], [('notes.txt', 'Meeting at five.')]);
+    expect(
+      [for (final s in repository.sent) (s.name, String.fromCharCodes(s.bytes))],
+      [('notes.txt', 'Meeting at five.')],
+    );
     expect(tester.widget<TextField>(find.byKey(const Key('composer-field'))).controller!.text, isEmpty);
   }, variant: _desktop);
 }

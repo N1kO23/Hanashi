@@ -27,30 +27,14 @@ void main() {
     foreground = false;
     seq = 0;
     now = DateTime(2026, 10, 28, 12);
-    center = NotificationCenter(
-      db: db,
-      me: me,
-      notifier: display,
-      appInForeground: () => foreground,
-      clock: () => now,
-    );
+    center = NotificationCenter(db: db, me: me, notifier: display, appInForeground: () => foreground, clock: () => now);
     MemberInfo member(String id) => MemberInfo(id: id);
     await db.noteProfile(me, const ProfileDocument(displayName: 'Sota'), version: 1);
     await db.noteProfile(kumiko, const ProfileDocument(displayName: 'KUMIKO'), version: 1);
     await db.noteProfile(naoko, const ProfileDocument(displayName: 'NAOKO'), version: 1);
+    await db.applyConversation(ConversationInfo(id: 'dm', isDirect: true, members: [member(me), member(kumiko)]));
     await db.applyConversation(
-      ConversationInfo(
-        id: 'dm',
-        isDirect: true,
-        members: [member(me), member(kumiko)],
-      ),
-    );
-    await db.applyConversation(
-      ConversationInfo(
-        id: 'club',
-        isDirect: false,
-        members: [member(me), member(kumiko), member(naoko)],
-      ),
+      ConversationInfo(id: 'club', isDirect: false, members: [member(me), member(kumiko), member(naoko)]),
     );
     await db.setGroupState(
       'club',
@@ -61,29 +45,11 @@ void main() {
   tearDown(() => db.close());
 
   /// Stores a received message, as sync would.
-  Future<int> receive(
-    String conv,
-    String from,
-    String text, {
-    bool undecryptable = false,
-  }) async {
+  Future<int> receive(String conv, String from, String text, {bool undecryptable = false}) async {
     final envelope = undecryptable
-        ? Envelope(
-            id: newUlid(),
-            conv: conv,
-            from: from,
-            ts: 1,
-            type: Envelope.encryptedType,
-            body: const {},
-          )
+        ? Envelope(id: newUlid(), conv: conv, from: from, ts: 1, type: Envelope.encryptedType, body: const {})
         : Envelope.text(conv: conv, from: from, text: text);
-    final event = SyncEvent(
-      seq: ++seq,
-      type: EventType.message,
-      conv: conv,
-      ts: 1,
-      data: envelope.toJson(),
-    );
+    final event = SyncEvent(seq: ++seq, type: EventType.message, conv: conv, ts: 1, data: envelope.toJson());
     await db.applyEvents(
       [event],
       me: me,
@@ -95,7 +61,11 @@ void main() {
   /// Stores any message, as sync would.
   Future<Envelope> deliver(Envelope envelope) async {
     final event = SyncEvent(seq: ++seq, type: EventType.message, conv: envelope.conv, ts: 1, data: const {});
-    await db.applyEvents([event], me: me, received: {event.seq: ReceivedMessage(envelope: envelope)});
+    await db.applyEvents(
+      [event],
+      me: me,
+      received: {event.seq: ReceivedMessage(envelope: envelope)},
+    );
     return envelope;
   }
 
@@ -124,10 +94,7 @@ void main() {
     await receive('dm', me, 'My own reply does not count');
     await center.update();
     expect(display.shown, hasLength(2));
-    expect(display.shown.last.lines.map((l) => l.text), [
-      'Sota!',
-      'Are you free?',
-    ]);
+    expect(display.shown.last.lines.map((l) => l.text), ['Sota!', 'Are you free?']);
 
     // Read here or on another device (the read marker arrives by sync).
     await db.advanceReadMarker('dm', upTo);
@@ -142,27 +109,21 @@ void main() {
     await center.update();
     final n = display.shown.single;
     expect((n.title, n.isGroup), ('Club Room', true));
-    expect(
-      [for (final l in n.lines) '${l.sender}: ${l.text}'],
-      ['NAOKO: New message', 'KUMIKO: Got it'],
-    );
+    expect([for (final l in n.lines) '${l.sender}: ${l.text}'], ['NAOKO: New message', 'KUMIKO: Got it']);
   });
 
-  test(
-    'nothing pops up while the app is in the foreground, not even later',
-    () async {
-      await center.update();
-      foreground = true;
-      await receive('dm', kumiko, 'seen live');
-      await center.update();
-      foreground = false;
-      await center.update();
-      expect(display.shown, isEmpty);
-      await receive('dm', kumiko, 'arrived in the background');
-      await center.update();
-      expect(display.shown.single.lines.last.text, 'arrived in the background');
-    },
-  );
+  test('nothing pops up while the app is in the foreground, not even later', () async {
+    await center.update();
+    foreground = true;
+    await receive('dm', kumiko, 'seen live');
+    await center.update();
+    foreground = false;
+    await center.update();
+    expect(display.shown, isEmpty);
+    await receive('dm', kumiko, 'arrived in the background');
+    await center.update();
+    expect(display.shown.single.lines.last.text, 'arrived in the background');
+  });
 
   test("a call of two rings instead of notifying; a group's call notifies like a message", () async {
     await center.update();
@@ -263,7 +224,9 @@ void main() {
     await center.update();
     expect(display.active.keys, ['dm']);
 
-    await db.setChatSettings({'dm': ChatSettings(mutedUntil: now.add(const Duration(hours: 1)).millisecondsSinceEpoch)});
+    await db.setChatSettings({
+      'dm': ChatSettings(mutedUntil: now.add(const Duration(hours: 1)).millisecondsSinceEpoch),
+    });
     await center.update();
     expect(display.active, isEmpty);
     await receive('dm', kumiko, 'while muted');
@@ -299,7 +262,12 @@ void main() {
     // A reply to the user in the group is a kind of its own, with a sound.
     final question = await deliver(Envelope.text(conv: 'club', from: me, text: 'Who has the key?'));
     await deliver(
-      Envelope.text(conv: 'club', from: kumiko, text: 'I do', replyTo: ReplyRef(id: question.id, from: me)),
+      Envelope.text(
+        conv: 'club',
+        from: kumiko,
+        text: 'I do',
+        replyTo: ReplyRef(id: question.id, from: me),
+      ),
     );
     await center.update();
     expect(display.shown.last.audible, isTrue);
@@ -368,11 +336,14 @@ void main() {
     await receive('club', naoko, 'Report done');
     await receive('club', 'aiko@test.local', 'No picture yet');
     await withPictures.update();
-    expect([for (final l in display.shown.single.lines) l.picture], [
-      picture.hash.codeUnits,
-      null, // Not to be had now: the notification shows anyway.
-      null,
-    ]);
+    expect(
+      [for (final l in display.shown.single.lines) l.picture],
+      [
+        picture.hash.codeUnits,
+        null, // Not to be had now: the notification shows anyway.
+        null,
+      ],
+    );
   });
 
   group('contacts', () {
@@ -389,10 +360,13 @@ void main() {
       await db.setContactState(remote, ContactState.incoming);
       await center.update();
       await center.update(); // Nothing new: no second alert.
-      expect([for (final n in display.contacts) (n.notice, n.title, n.body, n.audible)], [
-        (ContactNotice.request, 'Contact request', '$hiroko wants to be your contact', true),
-        (ContactNotice.request, 'Contact request', '$remote wants to be your contact', true),
-      ]);
+      expect(
+        [for (final n in display.contacts) (n.notice, n.title, n.body, n.audible)],
+        [
+          (ContactNotice.request, 'Contact request', '$hiroko wants to be your contact', true),
+          (ContactNotice.request, 'Contact request', '$remote wants to be your contact', true),
+        ],
+      );
 
       // Accepted on another device, declined here.
       await db.setContactState(hiroko, ContactState.accepted);
@@ -419,12 +393,10 @@ void main() {
       await center.update();
       await center.update();
       final told = display.contacts.single;
-      expect((told.notice, told.userId, told.title, told.body), (
-        ContactNotice.accepted,
-        kumiko,
-        'KUMIKO',
-        'Accepted your contact request',
-      ));
+      expect(
+        (told.notice, told.userId, told.title, told.body),
+        (ContactNotice.accepted, kumiko, 'KUMIKO', 'Accepted your contact request'),
+      );
 
       // The server's word alone makes nobody a contact: not on the user's own
       // list, nothing to tell.
@@ -467,10 +439,10 @@ void main() {
 
       await db.setPresenceMode(PresenceMode.auto);
       await center.update();
-      expect([for (final n in display.contacts) (n.notice, n.audible)], [
-        (ContactNotice.request, false),
-        (ContactNotice.accepted, false),
-      ]);
+      expect(
+        [for (final n in display.contacts) (n.notice, n.audible)],
+        [(ContactNotice.request, false), (ContactNotice.accepted, false)],
+      );
 
       // A request that comes while the user looks at the app shows only there.
       foreground = true;

@@ -107,7 +107,9 @@ class _GifPickerState extends ConsumerState<GifPicker> {
     final generation = _generation;
     setState(() => _loading = true);
     try {
-      final page = _shown.isEmpty ? await search.trending(page: _page + 1) : await search.search(_shown, page: _page + 1);
+      final page = _shown.isEmpty
+          ? await search.trending(page: _page + 1)
+          : await search.search(_shown, page: _page + 1);
       if (!mounted || generation != _generation) return;
       setState(() {
         _results.addAll(page.items);
@@ -195,14 +197,16 @@ class _GifPickerState extends ConsumerState<GifPicker> {
                           : 'GIF search is not set up on this server.',
                     ),
                   ],
-                  AsyncError() => [
-                    _Note('Cannot reach the server.', onRetry: () => ref.invalidate(gifSearchProvider)),
-                  ],
+                  AsyncError() => [_Note('Cannot reach the server.', onRetry: () => ref.invalidate(gifSearchProvider))],
                   AsyncData() => [
                     if (_shown.isEmpty) const _Header('Trending on KLIPY'),
                     _Grid([
                       for (final result in _results)
-                        tile(GifRef.remote(result.full), preview: result.preview, key: ValueKey('gif-${result.full.id}')),
+                        tile(
+                          GifRef.remote(result.full),
+                          preview: result.preview,
+                          key: ValueKey('gif-${result.full.id}'),
+                        ),
                     ]),
                     if (_loading) const _Spinner(),
                     if (_error != null)

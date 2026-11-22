@@ -404,12 +404,13 @@ class _ComposerState extends State<Composer> {
       TextFieldTapRegion(
         child: IconButton(
           key: const Key('composer-emoji'),
-          tooltip: _panelOpen
-              ? (_touch ? 'Keyboard' : 'Close')
-              : _panelKinds,
+          tooltip: _panelOpen ? (_touch ? 'Keyboard' : 'Close') : _panelKinds,
           isSelected: _panelOpen,
           icon: Icon(Icons.emoji_emotions_outlined, color: context.palette.replyAccent),
-          selectedIcon: Icon(_touch ? Icons.keyboard_outlined : Icons.emoji_emotions, color: context.palette.replyAccent),
+          selectedIcon: Icon(
+            _touch ? Icons.keyboard_outlined : Icons.emoji_emotions,
+            color: context.palette.replyAccent,
+          ),
           onPressed: _togglePanel,
         ),
       ),
@@ -425,9 +426,9 @@ class _ComposerState extends State<Composer> {
             // An edit changes only the text.
             if (widget.onPaste != null && !_touch && mode?.isEdit != true)
               defaultTargetPlatform == TargetPlatform.macOS
-                      ? const SingleActivator(LogicalKeyboardKey.keyV, meta: true)
-                      : const SingleActivator(LogicalKeyboardKey.keyV, control: true):
-                  () => unawaited(_paste()),
+                  ? const SingleActivator(LogicalKeyboardKey.keyV, meta: true)
+                  : const SingleActivator(LogicalKeyboardKey.keyV, control: true): () =>
+                  unawaited(_paste()),
             if (mode != null || _panelOpen || _suggestions.isNotEmpty)
               const SingleActivator(LogicalKeyboardKey.escape): _escape,
           },
@@ -578,10 +579,7 @@ class _LinkBar extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: context.palette.replyAccent),
                 ),
                 if (link == null)
-                  Text(
-                    'Making a preview...',
-                    style: TextStyle(fontSize: 13, color: context.palette.textMuted),
-                  )
+                  Text('Making a preview...', style: TextStyle(fontSize: 13, color: context.palette.textMuted))
                 else
                   EmojiText(
                     link.title ?? link.description ?? address,

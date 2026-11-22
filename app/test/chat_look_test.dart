@@ -25,9 +25,8 @@ void main() {
       tester.widget<EmojiText>(find.ancestor(of: find.text(text), matching: find.byType(EmojiText)).first).style!;
 
   /// The padding of the bubble showing [text].
-  EdgeInsetsGeometry? paddingOf(WidgetTester tester, String text) => tester
-      .widget<Container>(find.ancestor(of: find.text(text), matching: find.byType(Container)).first)
-      .padding;
+  EdgeInsetsGeometry? paddingOf(WidgetTester tester, String text) =>
+      tester.widget<Container>(find.ancestor(of: find.text(text), matching: find.byType(Container)).first).padding;
 
   test('values are kept to what can be chosen, in its steps', () {
     expect(BubbleLook.fit(17.4, BubbleLook.textSizes), 17);
@@ -62,7 +61,9 @@ void main() {
   });
 
   testWidgets('bubbles take their text and padding from the look around them', (tester) async {
-    final message = ChatMessage(envelope: Envelope.text(conv: 'c', from: 'kumiko@localhost', text: 'Sota!', now: testNow));
+    final message = ChatMessage(
+      envelope: Envelope.text(conv: 'c', from: 'kumiko@localhost', text: 'Sota!', now: testNow),
+    );
     await tester.pumpWidget(
       ProviderScope(
         overrides: [chatRepositoryProvider.overrideWithValue(testRepository())],
@@ -85,10 +86,7 @@ void main() {
   testWidgets('Settings: the sample follows the sliders, which keep their choice; Reset goes back', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          databaseProvider.overrideWithValue(db),
-          chatRepositoryProvider.overrideWithValue(testRepository()),
-        ],
+        overrides: [databaseProvider.overrideWithValue(db), chatRepositoryProvider.overrideWithValue(testRepository())],
         child: MaterialApp(
           theme: buildHanashiTheme(),
           home: const Scaffold(body: SingleChildScrollView(child: ChatLookSettings())),

@@ -98,8 +98,7 @@ class UnsettledCommits extends Table {
   TextColumn get roster => text().nullable()();
 
   /// It changes the document, which the user's own timeline should say.
-  BoolColumn get changesDocument =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get changesDocument => boolean().withDefault(const Constant(false))();
 
   /// JSON list of the users it brings in.
   TextColumn get users => text().withDefault(const Constant('[]'))();
@@ -282,12 +281,7 @@ class SharedKeys extends Table {
 /// A received message as stored locally: decrypted, or a placeholder of type
 /// [Envelope.encryptedType] until it can be.
 class ReceivedMessage {
-  const ReceivedMessage({
-    required this.envelope,
-    this.wire,
-    this.contentKey,
-    this.own = false,
-  });
+  const ReceivedMessage({required this.envelope, this.wire, this.contentKey, this.own = false});
 
   final Envelope envelope;
 
@@ -320,11 +314,7 @@ class ReactionNotice {
 
 /// A message waiting in the outbox.
 class PendingMessage {
-  const PendingMessage(
-    this.envelope, {
-    this.attachmentPath,
-    this.thumbnailPath,
-  });
+  const PendingMessage(this.envelope, {this.attachmentPath, this.thumbnailPath});
 
   final Envelope envelope;
   final String? attachmentPath;
@@ -370,16 +360,14 @@ class AppDatabase extends _$AppDatabase {
 
   // Key-value settings
 
-  Future<String?> getValue(String key) async => (await (select(
-    keyValues,
-  )..where((t) => t.key.equals(key))).getSingleOrNull())?.value;
+  Future<String?> getValue(String key) async =>
+      (await (select(keyValues)..where((t) => t.key.equals(key))).getSingleOrNull())?.value;
 
   Future<void> setValue(String key, String? value) async {
     if (value == null) {
       await (delete(keyValues)..where((t) => t.key.equals(key))).go();
     } else {
-      await into(keyValues)
-          .insertOnConflictUpdate(KeyValue(key: key, value: value));
+      await into(keyValues).insertOnConflictUpdate(KeyValue(key: key, value: value));
     }
   }
 
@@ -389,40 +377,33 @@ class AppDatabase extends _$AppDatabase {
       parseChatSettings(_decode(await getValue(_chatSettingsKey)));
 
   Stream<Map<String, ChatSettings>> watchChatSettings() =>
-      (select(keyValues)..where((t) => t.key.equals(_chatSettingsKey)))
-          .watchSingleOrNull()
-          .map((row) => parseChatSettings(_decode(row?.value)));
+      (select(keyValues)..where((t) => t.key.equals(_chatSettingsKey))).watchSingleOrNull().map(
+        (row) => parseChatSettings(_decode(row?.value)),
+      );
 
   Future<void> setChatSettings(Map<String, ChatSettings> settings) => setValue(
     _chatSettingsKey,
-    jsonEncode({
-      for (final MapEntry(:key, :value) in settings.entries)
-        key: value.toJson(),
-    }),
+    jsonEncode({for (final MapEntry(:key, :value) in settings.entries) key: value.toJson()}),
   );
 
   static const _chatSettingsKey = 'chats.settings';
 
-  static Object? _decode(String? json) =>
-      json == null ? null : jsonDecode(json);
+  static Object? _decode(String? json) => json == null ? null : jsonDecode(json);
 
   /// `{convId: ChatSettings}`, leaving out what is malformed or empty.
   static Map<String, ChatSettings> parseChatSettings(Object? json) => {
     if (json is Map)
       for (final MapEntry(:key, :value) in json.entries)
         if (key is String && value is Map)
-          if (ChatSettings.fromJson(value.cast<String, Object?>())
-              case final settings when !settings.isEmpty)
+          if (ChatSettings.fromJson(value.cast<String, Object?>()) case final settings when !settings.isEmpty)
             key: settings,
   };
 
   /// How the user chose to appear, as last heard: notifications wait while
   /// in Focus, also in the push engine, which hears nothing live.
-  Future<PresenceMode> presenceMode() async =>
-      PresenceMode.parse(await getValue('presence.mode'));
+  Future<PresenceMode> presenceMode() async => PresenceMode.parse(await getValue('presence.mode'));
 
-  Future<void> setPresenceMode(PresenceMode mode) =>
-      setValue('presence.mode', mode.name);
+  Future<void> setPresenceMode(PresenceMode mode) => setValue('presence.mode', mode.name);
 
   /// Settings whose key starts with [prefix].
   Future<Map<String, String>> valuesWithPrefix(String prefix) async => {
@@ -430,8 +411,7 @@ class AppDatabase extends _$AppDatabase {
       if (row.key.startsWith(prefix)) row.key: row.value,
   };
 
-  Future<int> cursor() async =>
-      int.tryParse(await getValue('cursor') ?? '') ?? 0;
+  Future<int> cursor() async => int.tryParse(await getValue('cursor') ?? '') ?? 0;
   Future<bool> hasSynced() async => await getValue('cursor') != null;
 
   /// Removes all chat data, e.g. when signing out.
@@ -445,21 +425,16 @@ class AppDatabase extends _$AppDatabase {
 
   /// Replaces local state with [snapshot]; [received] holds the local form
   /// of each snapshot message, by seq.
-  Future<void> applySnapshot(
-    SyncSnapshot snapshot,
-    Map<int, ReceivedMessage> received,
-  ) => transaction(() async {
+  Future<void> applySnapshot(SyncSnapshot snapshot, Map<int, ReceivedMessage> received) => transaction(() async {
     await delete(conversations).go();
     await delete(members).go();
     // Pending messages survive; everything else is replaced.
-    await (delete(
-      messages,
-    )..where((m) => m.state.equalsValue(DeliveryState.pending).not())).go();
+    await (delete(messages)..where((m) => m.state.equalsValue(DeliveryState.pending).not())).go();
     for (final c in snapshot.conversations) {
       await _upsertConversation(c.conversation, moreHistory: c.moreHistory);
-      await (update(conversations)
-            ..where((t) => t.id.equals(c.conversation.id)))
-          .write(ConversationsCompanion(readUpTo: Value(c.readUpTo)));
+      await (update(
+        conversations,
+      )..where((t) => t.id.equals(c.conversation.id))).write(ConversationsCompanion(readUpTo: Value(c.readUpTo)));
       for (final event in c.messages) {
         final message = received[event.seq];
         if (message != null) await _upsertMessage(event.seq, message);
@@ -485,11 +460,7 @@ class AppDatabase extends _$AppDatabase {
     }
   });
 
-  Future<void> _applyEvent(
-    SyncEvent event,
-    String me,
-    ReceivedMessage? received,
-  ) async {
+  Future<void> _applyEvent(SyncEvent event, String me, ReceivedMessage? received) async {
     switch (event.type) {
       case EventType.message:
         if (received != null) await _upsertMessage(event.seq, received);
@@ -497,37 +468,18 @@ class AppDatabase extends _$AppDatabase {
         final info = event.conversation!;
         await _upsertConversation(info);
         if (!info.isDirect) {
-          await _addGroupLine(
-            event,
-            by: event.data['by'],
-            change: 'created',
-            server: true,
-          );
+          await _addGroupLine(event, by: event.data['by'], change: 'created', server: true);
         }
       case EventType.memberAdded:
         // Joining an existing group: older history may exist on the server.
-        await _upsertConversation(
-          event.conversation!,
-          moreHistory: event.data['user'] == me ? true : null,
-        );
-        await _addGroupLine(
-          event,
-          by: event.data['by'],
-          change: 'added',
-          user: event.data['user'],
-          server: true,
-        );
+        await _upsertConversation(event.conversation!, moreHistory: event.data['user'] == me ? true : null);
+        await _addGroupLine(event, by: event.data['by'], change: 'added', user: event.data['user'], server: true);
       case EventType.memberRemoved:
         if (event.data['user'] == me) {
           await deleteConversation(event.conv);
         } else {
           await _upsertConversation(event.conversation!);
-          await _addGroupLine(
-            event,
-            by: event.data['user'],
-            change: 'left',
-            server: true,
-          );
+          await _addGroupLine(event, by: event.data['user'], change: 'left', server: true);
         }
       case EventType.readMarker:
         if (event.data['user'] == me) {
@@ -538,16 +490,10 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
-  Future<void> applyConversation(ConversationInfo info) =>
-      transaction(() => _upsertConversation(info));
+  Future<void> applyConversation(ConversationInfo info) => transaction(() => _upsertConversation(info));
 
-  Future<void> _upsertConversation(
-    ConversationInfo info, {
-    bool? moreHistory,
-  }) async {
-    final existing = await (select(
-      conversations,
-    )..where((t) => t.id.equals(info.id))).getSingleOrNull();
+  Future<void> _upsertConversation(ConversationInfo info, {bool? moreHistory}) async {
+    final existing = await (select(conversations)..where((t) => t.id.equals(info.id))).getSingleOrNull();
     await into(conversations).insertOnConflictUpdate(
       ConversationsCompanion.insert(
         id: info.id,
@@ -559,8 +505,7 @@ class AppDatabase extends _$AppDatabase {
     );
     await (delete(members)..where((m) => m.convId.equals(info.id))).go();
     for (final m in info.members) {
-      await into(members)
-          .insert(MembersCompanion.insert(convId: info.id, userId: m.id));
+      await into(members).insert(MembersCompanion.insert(convId: info.id, userId: m.id));
       await _ensureProfile(m.id);
     }
     // Its state may have come first (see [GroupStates]).
@@ -595,13 +540,7 @@ class AppDatabase extends _$AppDatabase {
       from: by,
       ts: event.ts,
       type: Envelope.membershipType,
-      body: {
-        ...details,
-        'change': change,
-        'user': ?user,
-        'title': ?title,
-        if (server) 'server': true,
-      },
+      body: {...details, 'change': change, 'user': ?user, 'title': ?title, if (server) 'server': true},
     );
     await into(messages).insertOnConflictUpdate(
       MessagesCompanion.insert(
@@ -626,33 +565,23 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _pairGroupLines(String convId) async {
     final rows =
         await (select(messages)
-              ..where(
-                (m) =>
-                    m.convId.equals(convId) &
-                    m.isSystem.equals(true) &
-                    m.seq.isNotNull(),
-              )
+              ..where((m) => m.convId.equals(convId) & m.isSystem.equals(true) & m.seq.isNotNull())
               ..orderBy([(m) => OrderingTerm.asc(m.seq)]))
             .get();
     final lines = [
       for (final row in rows)
-        if (_envelope(row) case final envelope
-            when _memberSubject(envelope) != null)
+        if (_envelope(row) case final envelope when _memberSubject(envelope) != null)
           (seq: row.seq!, id: row.id, envelope: envelope),
     ];
     final taken = <String>{};
-    for (final said in lines.where(
-      (l) => l.envelope.type == Envelope.memberType,
-    )) {
+    for (final said in lines.where((l) => l.envelope.type == Envelope.memberType)) {
       final change = said.envelope.body['change'];
       final subject = _memberSubject(said.envelope);
       String? best;
       var bestDistance = 0;
       for (final line in lines) {
         final envelope = line.envelope;
-        if (envelope.type != Envelope.membershipType ||
-            envelope.body['server'] != true ||
-            taken.contains(line.id)) {
+        if (envelope.type != Envelope.membershipType || envelope.body['server'] != true || taken.contains(line.id)) {
           continue;
         }
         if (envelope.body['change'] != change ||
@@ -660,9 +589,7 @@ class AppDatabase extends _$AppDatabase {
             envelope.from != said.envelope.from) {
           continue;
         }
-        final (low, high) = line.seq < said.seq
-            ? (line.seq, said.seq)
-            : (said.seq, line.seq);
+        final (low, high) = line.seq < said.seq ? (line.seq, said.seq) : (said.seq, line.seq);
         final apart = lines.any(
           (other) =>
               other.seq > low &&
@@ -724,8 +651,7 @@ class AppDatabase extends _$AppDatabase {
     await _applyEffects(envelope);
   }
 
-  static String? _kind(Envelope envelope) =>
-      envelope.isHidden ? envelope.type : null;
+  static String? _kind(Envelope envelope) => envelope.isHidden ? envelope.type : null;
 
   /// What a stored message does besides being there: share the history, or
   /// delete a message. And a message (or edit) that was deleted before it got here keeps no
@@ -746,21 +672,16 @@ class AppDatabase extends _$AppDatabase {
       if (row == null) return;
       if (await _isDeleted(target ?? envelope.id, envelope.from)) {
         await _tombstone(row);
-      } else if (envelope.replyTo case final quoted?
-          when await _isDeleted(quoted.id, quoted.from)) {
+      } else if (envelope.replyTo case final quoted? when await _isDeleted(quoted.id, quoted.from)) {
         await _forgetQuote(row);
       }
     }
   }
 
   Future<bool> _isDeleted(String id, String author) async =>
-      (await (select(messages)..where(
-                (m) =>
-                    m.target.equals(id) &
-                    m.kind.equals(Envelope.deleteType) &
-                    m.sender.equals(author),
-              ))
-              .get())
+      (await (select(
+            messages,
+          )..where((m) => m.target.equals(id) & m.kind.equals(Envelope.deleteType) & m.sender.equals(author))).get())
           .isNotEmpty;
 
   /// Deletes [target]'s content, that of its edits and the quotes of it in
@@ -768,23 +689,14 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _removeContent(String target, String author, String conv) async {
     final row = await messageRow(target);
     if (row != null && row.sender == author) await _tombstone(row);
-    final edits =
-        await (select(messages)..where(
-              (m) =>
-                  m.target.equals(target) &
-                  m.kind.equals(Envelope.editType) &
-                  m.sender.equals(author),
-            ))
-            .get();
+    final edits = await (select(
+      messages,
+    )..where((m) => m.target.equals(target) & m.kind.equals(Envelope.editType) & m.sender.equals(author))).get();
     for (final edit in edits) {
       await _tombstone(edit);
     }
     // ULIDs hold no LIKE wildcards; the match is checked on the parsed reply.
-    final mentions =
-        await (select(messages)..where(
-              (m) => m.convId.equals(conv) & m.envelope.like('%$target%'),
-            ))
-            .get();
+    final mentions = await (select(messages)..where((m) => m.convId.equals(conv) & m.envelope.like('%$target%'))).get();
     for (final reply in mentions) {
       final quoted = _envelope(reply).replyTo;
       if (quoted != null && quoted.id == target && quoted.from == author) {
@@ -795,14 +707,9 @@ class AppDatabase extends _$AppDatabase {
 
   /// IDs of [author]'s edits of [target].
   Future<List<String>> editsOf(String target, String author) async => [
-    for (final row
-        in await (select(messages)..where(
-              (m) =>
-                  m.target.equals(target) &
-                  m.kind.equals(Envelope.editType) &
-                  m.sender.equals(author),
-            ))
-            .get())
+    for (final row in await (select(
+      messages,
+    )..where((m) => m.target.equals(target) & m.kind.equals(Envelope.editType) & m.sender.equals(author))).get())
       row.id,
   ];
 
@@ -810,22 +717,11 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _forgetQuote(Message row) async {
     final envelope = _envelope(row);
     final quoted = envelope.replyTo!;
-    final gone = ReplyRef(
-      id: quoted.id,
-      from: quoted.from,
-      text: _tombstoneOf(envelope).preview,
-    );
+    final gone = ReplyRef(id: quoted.id, from: quoted.from, text: _tombstoneOf(envelope).preview);
     if (quoted.text == gone.text) return;
     await (update(messages)..where((m) => m.id.equals(row.id))).write(
       MessagesCompanion(
-        envelope: Value(
-          jsonEncode(
-            envelope.withBody({
-              ...envelope.body,
-              'replyTo': gone.toJson(),
-            }).toJson(),
-          ),
-        ),
+        envelope: Value(jsonEncode(envelope.withBody({...envelope.body, 'replyTo': gone.toJson()}).toJson())),
       ),
     );
   }
@@ -845,12 +741,7 @@ class AppDatabase extends _$AppDatabase {
     final envelope = _envelope(row);
     if (envelope.type == Envelope.deletedType) return;
     final media = envelope.messageType?.isMedia == true ? envelope.media : null;
-    for (final file in [
-      ?media,
-      ?media?.thumb,
-      ?envelope.link?.thumb,
-      ?envelope.link?.media,
-    ]) {
+    for (final file in [?media, ?media?.thumb, ?envelope.link?.thumb, ?envelope.link?.media]) {
       onMediaDeleted?.call(file.hash);
     }
     await (update(messages)..where((m) => m.id.equals(row.id))).write(
@@ -865,13 +756,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<int> markSentCount(String id, int seq) async {
-    final updated = await (update(messages)..where((m) => m.id.equals(id)))
-        .write(
-          MessagesCompanion(
-            seq: Value(seq),
-            state: const Value(DeliveryState.sent),
-          ),
-        );
+    final updated = await (update(
+      messages,
+    )..where((m) => m.id.equals(id))).write(MessagesCompanion(seq: Value(seq), state: const Value(DeliveryState.sent)));
     final row = updated > 0 ? await messageRow(id) : null;
     if (row != null && row.kind == Envelope.historyType) {
       await _addHistoryLine(_envelope(row), seq);
@@ -892,16 +779,11 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> advanceReadMarker(String convId, int upTo) =>
-      (update(conversations)..where(
-            (c) => c.id.equals(convId) & c.readUpTo.isSmallerThanValue(upTo),
-          ))
-          .write(ConversationsCompanion(readUpTo: Value(upTo)));
+      (update(conversations)..where((c) => c.id.equals(convId) & c.readUpTo.isSmallerThanValue(upTo))).write(
+        ConversationsCompanion(readUpTo: Value(upTo)),
+      );
 
-  Future<void> addHistory(
-    String convId,
-    HistoryPage page,
-    Map<int, ReceivedMessage> received,
-  ) => transaction(() async {
+  Future<void> addHistory(String convId, HistoryPage page, Map<int, ReceivedMessage> received) => transaction(() async {
     for (final event in page.messages) {
       final message = received[event.seq];
       // Never overwrite a message this device already holds in plaintext.
@@ -909,9 +791,9 @@ class AppDatabase extends _$AppDatabase {
         await _upsertMessage(event.seq, message);
       }
     }
-    await (update(conversations)..where((c) => c.id.equals(convId))).write(
-      ConversationsCompanion(moreHistory: Value(page.more)),
-    );
+    await (update(
+      conversations,
+    )..where((c) => c.id.equals(convId))).write(ConversationsCompanion(moreHistory: Value(page.more)));
   });
 
   // Outbox
@@ -939,20 +821,14 @@ class AppDatabase extends _$AppDatabase {
 
   /// New text for a message that has not been sent yet, with the custom
   /// [emojis] it uses.
-  Future<void> setPendingText(
-    String id,
-    String text, {
-    Map<String, MediaRef> emojis = const {},
-  }) async {
+  Future<void> setPendingText(String id, String text, {Map<String, MediaRef> emojis = const {}}) async {
     final row = await messageRow(id);
     if (row == null || row.seq != null) return;
     final envelope = _envelope(row);
     final body = {...envelope.body, 'text': text}..remove('emojis');
     if (CustomEmoji.toJson(emojis) case final json?) body['emojis'] = json;
     await (update(messages)..where((m) => m.id.equals(id))).write(
-      MessagesCompanion(
-        envelope: Value(jsonEncode(envelope.withBody(body).toJson())),
-      ),
+      MessagesCompanion(envelope: Value(jsonEncode(envelope.withBody(body).toJson()))),
     );
   }
 
@@ -965,116 +841,79 @@ class AppDatabase extends _$AppDatabase {
             .get();
     return [
       for (final r in rows)
-        PendingMessage(
-          _envelope(r),
-          attachmentPath: r.attachmentPath,
-          thumbnailPath: r.thumbnailPath,
-        ),
+        PendingMessage(_envelope(r), attachmentPath: r.attachmentPath, thumbnailPath: r.thumbnailPath),
     ];
   }
 
   /// Confirms a message. If the sync stream already delivered it, this is a no-op.
-  Future<void> markSent(String id, int seq) =>
-      transaction(() => markSentCount(id, seq));
+  Future<void> markSent(String id, int seq) => transaction(() => markSentCount(id, seq));
 
   /// A pending message as it goes out, with what was prepared for it, so
   /// that sending it again sends the same.
   Future<void> setPendingEnvelope(Envelope envelope) =>
-      (update(
-        messages,
-      )..where((m) => m.id.equals(envelope.id) & m.seq.isNull())).write(
+      (update(messages)..where((m) => m.id.equals(envelope.id) & m.seq.isNull())).write(
         MessagesCompanion(envelope: Value(jsonEncode(envelope.toJson()))),
       );
 
   Future<void> setState(String id, DeliveryState state) =>
-      (update(messages)..where(
-            (m) =>
-                m.id.equals(id) & m.state.equalsValue(DeliveryState.sent).not(),
-          ))
-          .write(MessagesCompanion(state: Value(state)));
+      (update(messages)..where((m) => m.id.equals(id) & m.state.equalsValue(DeliveryState.sent).not())).write(
+        MessagesCompanion(state: Value(state)),
+      );
 
-  Future<void> deleteMessage(String id) =>
-      (delete(messages)..where((m) => m.id.equals(id))).go();
+  Future<void> deleteMessage(String id) => (delete(messages)..where((m) => m.id.equals(id))).go();
 
   // End-to-end encryption state
 
-  Future<Message?> messageRow(String id) =>
-      (select(messages)..where((m) => m.id.equals(id))).getSingleOrNull();
+  Future<Message?> messageRow(String id) => (select(messages)..where((m) => m.id.equals(id))).getSingleOrNull();
 
   /// Remembers the content key of a message this device sent.
   Future<void> setContentKey(String id, String contentKey) =>
-      (update(messages)..where((m) => m.id.equals(id))).write(
-        MessagesCompanion(contentKey: Value(contentKey)),
-      );
+      (update(messages)..where((m) => m.id.equals(id))).write(MessagesCompanion(contentKey: Value(contentKey)));
 
   /// Replaces a placeholder once the message could be decrypted. With
   /// [backedUp], its key came from the key backup.
-  Future<void> setDecrypted(
-    String id,
-    Envelope envelope,
-    String contentKey, {
-    bool backedUp = false,
-  }) => transaction(() async {
-    await (update(messages)..where((m) => m.id.equals(id))).write(
-      MessagesCompanion(
-        envelope: Value(jsonEncode(envelope.toJson())),
-        contentKey: Value(contentKey),
-        wire: const Value(null),
-        keyBackedUp: Value(backedUp),
-        kind: Value(_kind(envelope)),
-        target: Value(envelope.target),
-        isSystem: Value(envelope.type == Envelope.memberType),
-      ),
-    );
-    await _applyEffects(envelope);
-  });
+  Future<void> setDecrypted(String id, Envelope envelope, String contentKey, {bool backedUp = false}) =>
+      transaction(() async {
+        await (update(messages)..where((m) => m.id.equals(id))).write(
+          MessagesCompanion(
+            envelope: Value(jsonEncode(envelope.toJson())),
+            contentKey: Value(contentKey),
+            wire: const Value(null),
+            keyBackedUp: Value(backedUp),
+            kind: Value(_kind(envelope)),
+            target: Value(envelope.target),
+            isSystem: Value(envelope.type == Envelope.memberType),
+          ),
+        );
+        await _applyEffects(envelope);
+      });
 
   /// Messages of [convId] (or of every conversation) still waiting to be
   /// decrypted, oldest first.
   Future<List<Message>> undecrypted([String? convId]) =>
       (select(messages)
-            ..where(
-              (m) =>
-                  m.wire.isNotNull() &
-                  (convId == null
-                      ? const Constant(true)
-                      : m.convId.equals(convId)),
-            )
+            ..where((m) => m.wire.isNotNull() & (convId == null ? const Constant(true) : m.convId.equals(convId)))
             ..orderBy([(m) => OrderingTerm.asc(m.seq)]))
           .get();
 
   /// Confirmed messages whose content key is not in the key backup yet.
   Future<List<Message>> keysToBackUp({int limit = 200}) =>
       (select(messages)
-            ..where(
-              (m) =>
-                  m.contentKey.isNotNull() &
-                  m.seq.isNotNull() &
-                  m.keyBackedUp.equals(false),
-            )
+            ..where((m) => m.contentKey.isNotNull() & m.seq.isNotNull() & m.keyBackedUp.equals(false))
             ..orderBy([(m) => OrderingTerm.asc(m.seq)])
             ..limit(limit))
           .get();
 
   Future<void> markKeysBackedUp(Iterable<String> ids) =>
-      (update(messages)..where((m) => m.id.isIn(ids))).write(
-        const MessagesCompanion(keyBackedUp: Value(true)),
-      );
+      (update(messages)..where((m) => m.id.isIn(ids))).write(const MessagesCompanion(keyBackedUp: Value(true)));
 
   // Shared history (see [SharedKeys])
 
   /// The content keys this device holds for [convId]'s messages, oldest first.
-  Future<List<({String id, int seq, String contentKey})>> contentKeysOf(
-    String convId,
-  ) async => [
+  Future<List<({String id, int seq, String contentKey})>> contentKeysOf(String convId) async => [
     for (final row
         in await (select(messages)
-              ..where(
-                (m) =>
-                    m.convId.equals(convId) &
-                    m.contentKey.isNotNull() &
-                    m.seq.isNotNull(),
-              )
+              ..where((m) => m.convId.equals(convId) & m.contentKey.isNotNull() & m.seq.isNotNull())
               ..orderBy([(m) => OrderingTerm.asc(m.seq)]))
             .get())
       (id: row.id, seq: row.seq!, contentKey: row.contentKey!),
@@ -1088,12 +927,8 @@ class AppDatabase extends _$AppDatabase {
               (m) =>
                   m.kind.equals(Envelope.historyType) &
                   m.seq.isNotNull() &
-                  (convId == null
-                      ? const Constant(true)
-                      : m.convId.equals(convId)) &
-                  notExistsQuery(
-                    select(sharedKeys)..where((k) => k.shareId.equalsExp(m.id)),
-                  ),
+                  (convId == null ? const Constant(true) : m.convId.equals(convId)) &
+                  notExistsQuery(select(sharedKeys)..where((k) => k.shareId.equalsExp(m.id))),
             ))
             .get();
     return [
@@ -1106,12 +941,7 @@ class AppDatabase extends _$AppDatabase {
   Future<void> addSharedKeys(Envelope share, Map<String, String> keys) => batch(
     (b) => b.insertAll(sharedKeys, [
       for (final MapEntry(key: id, value: key) in keys.entries)
-        SharedKeysCompanion.insert(
-          shareId: share.id,
-          convId: share.conv,
-          messageId: id,
-          contentKey: key,
-        ),
+        SharedKeysCompanion.insert(shareId: share.id, convId: share.conv, messageId: id, contentKey: key),
     ], mode: InsertMode.insertOrIgnore),
   );
 
@@ -1120,18 +950,14 @@ class AppDatabase extends _$AppDatabase {
   Future<Map<String, List<String>>> sharedKeysFor(List<Message> waiting) async {
     final byId = {for (final row in waiting) row.id: row};
     final share = alias(messages, 'share');
-    final query = select(sharedKeys).join([
-      innerJoin(share, share.id.equalsExp(sharedKeys.shareId)),
-    ])..where(sharedKeys.messageId.isIn(byId.keys));
+    final query = select(sharedKeys).join([innerJoin(share, share.id.equalsExp(sharedKeys.shareId))])
+      ..where(sharedKeys.messageId.isIn(byId.keys));
     final out = <String, List<String>>{};
     for (final result in await query.get()) {
       final key = result.readTable(sharedKeys);
       final row = byId[key.messageId]!;
       final (rowSeq, shareSeq) = (row.seq, result.readTable(share).seq);
-      if (key.convId != row.convId ||
-          rowSeq == null ||
-          shareSeq == null ||
-          rowSeq >= shareSeq) {
+      if (key.convId != row.convId || rowSeq == null || shareSeq == null || rowSeq >= shareSeq) {
         continue;
       }
       (out[key.messageId] ??= []).add(key.contentKey);
@@ -1139,94 +965,62 @@ class AppDatabase extends _$AppDatabase {
     return out;
   }
 
-  Future<List<String>> conversationIds() async => [
-    for (final c in await select(conversations).get()) c.id,
-  ];
+  Future<List<String>> conversationIds() async => [for (final c in await select(conversations).get()) c.id];
 
   Future<List<String>> memberIds(String convId) async => [
-    for (final m in await (select(
-      members,
-    )..where((m) => m.convId.equals(convId))).get())
-      m.userId,
+    for (final m in await (select(members)..where((m) => m.convId.equals(convId))).get()) m.userId,
   ];
 
   Future<List<String>> conversationsWith(String userId) async => [
-    for (final m in await (select(
-      members,
-    )..where((m) => m.userId.equals(userId))).get())
-      m.convId,
+    for (final m in await (select(members)..where((m) => m.userId.equals(userId))).get()) m.convId,
   ];
 
-  Future<void> setSecurityIssue(String convId, String? issue) =>
-      (update(conversations)..where((c) => c.id.equals(convId))).write(
-        ConversationsCompanion(securityIssue: Value(issue)),
-      );
+  Future<void> setSecurityIssue(String convId, String? issue) => (update(
+    conversations,
+  )..where((c) => c.id.equals(convId))).write(ConversationsCompanion(securityIssue: Value(issue)));
 
-  Future<PinnedIdentity?> pinnedIdentity(String userId) => (select(
-    pinnedIdentities,
-  )..where((p) => p.userId.equals(userId))).getSingleOrNull();
+  Future<PinnedIdentity?> pinnedIdentity(String userId) =>
+      (select(pinnedIdentities)..where((p) => p.userId.equals(userId))).getSingleOrNull();
 
   /// Trusts [identityKey] for [userId]: on first sight, or a change the user
   /// accepted. Clears a pending change and any verification, which was for
   /// another key. (Explicit nulls: a data class would leave them as they are.)
-  Future<void> pinIdentity(String userId, String identityKey) =>
-      into(pinnedIdentities).insertOnConflictUpdate(
-        PinnedIdentitiesCompanion.insert(
-          userId: userId,
-          identityKey: identityKey,
-          changedTo: const Value(null),
-          verifiedKey: const Value(null),
-        ),
-      );
+  Future<void> pinIdentity(String userId, String identityKey) => into(pinnedIdentities).insertOnConflictUpdate(
+    PinnedIdentitiesCompanion.insert(
+      userId: userId,
+      identityKey: identityKey,
+      changedTo: const Value(null),
+      verifiedKey: const Value(null),
+    ),
+  );
 
   /// Notes that the server shows [newKey] for [userId] instead of the
   /// pinned key. A no-op if that key is pinned by now (a lookup that started
   /// before an accept or a verification must not undo it).
   Future<void> markIdentityChanged(String userId, String newKey) =>
-      (update(pinnedIdentities)..where(
-            (p) => p.userId.equals(userId) & p.identityKey.equals(newKey).not(),
-          ))
-          .write(PinnedIdentitiesCompanion(changedTo: Value(newKey)));
+      (update(pinnedIdentities)..where((p) => p.userId.equals(userId) & p.identityKey.equals(newKey).not())).write(
+        PinnedIdentitiesCompanion(changedTo: Value(newKey)),
+      );
 
   /// Records (or clears, with null) the key the user verified for [userId],
   /// as stated [at].
-  Future<void> setVerifiedKey(
-    String userId,
-    String? key, {
-    required int at,
-  }) async {
-    final updated =
-        await (update(
-          pinnedIdentities,
-        )..where((p) => p.userId.equals(userId))).write(
-          PinnedIdentitiesCompanion(
-            verifiedKey: Value(key),
-            verifiedAt: Value(at),
-          ),
-        );
+  Future<void> setVerifiedKey(String userId, String? key, {required int at}) async {
+    final updated = await (update(pinnedIdentities)..where((p) => p.userId.equals(userId))).write(
+      PinnedIdentitiesCompanion(verifiedKey: Value(key), verifiedAt: Value(at)),
+    );
     if (updated == 0 && key != null) {
-      await into(pinnedIdentities).insert(
-        PinnedIdentity(
-          userId: userId,
-          identityKey: key,
-          verifiedKey: key,
-          verifiedAt: at,
-        ),
-      );
+      await into(pinnedIdentities)
+          .insert(PinnedIdentity(userId: userId, identityKey: key, verifiedKey: key, verifiedAt: at));
     }
   }
 
   /// Users the user verified, while their key is still the verified one.
-  Stream<Set<String>> watchVerifiedUsers() =>
-      select(pinnedIdentities).watch().map(
-        (pins) => {
-          for (final p in pins)
-            if (p.verifiedKey != null &&
-                p.verifiedKey == p.identityKey &&
-                p.changedTo == null)
-              p.userId,
-        },
-      );
+  Stream<Set<String>> watchVerifiedUsers() => select(pinnedIdentities).watch().map(
+    (pins) => {
+      for (final p in pins)
+        if (p.verifiedKey != null && p.verifiedKey == p.identityKey && p.changedTo == null) p.userId,
+    },
+  );
 
   /// A line in every chat with [userId] saying their security key changed.
   Future<void> addKeyChangeNotice(String userId) async {
@@ -1260,52 +1054,31 @@ class AppDatabase extends _$AppDatabase {
       (select(pinnedIdentities)..where((p) => p.changedTo.isNotNull())).watch();
 
   Future<Set<String>> groupUsersOf(String convId) async => {
-    for (final g in await (select(
-      groupUsers,
-    )..where((g) => g.convId.equals(convId))).get())
-      g.userId,
+    for (final g in await (select(groupUsers)..where((g) => g.convId.equals(convId))).get()) g.userId,
   };
 
   Future<void> addGroupUsers(String convId, Iterable<String> userIds) async {
     for (final userId in userIds) {
-      await into(groupUsers)
-          .insertOnConflictUpdate(GroupUser(convId: convId, userId: userId));
+      await into(groupUsers).insertOnConflictUpdate(GroupUser(convId: convId, userId: userId));
     }
   }
 
   Future<Set<String>> suspiciousLeavesOf(String convId) async => {
-    for (final l in await (select(
-      suspiciousLeaves,
-    )..where((l) => l.convId.equals(convId))).get())
-      l.signatureKey,
+    for (final l in await (select(suspiciousLeaves)..where((l) => l.convId.equals(convId))).get()) l.signatureKey,
   };
 
   Future<void> addSuspiciousLeaf(String convId, String signatureKey) =>
-      into(suspiciousLeaves).insertOnConflictUpdate(
-        SuspiciousLeave(convId: convId, signatureKey: signatureKey),
-      );
+      into(suspiciousLeaves).insertOnConflictUpdate(SuspiciousLeave(convId: convId, signatureKey: signatureKey));
 
-  Future<void> clearSuspiciousLeaves(
-    String convId,
-    Iterable<String> keepKeys,
-  ) =>
-      (delete(suspiciousLeaves)..where(
-            (l) => l.convId.equals(convId) & l.signatureKey.isNotIn(keepKeys),
-          ))
-          .go();
+  Future<void> clearSuspiciousLeaves(String convId, Iterable<String> keepKeys) =>
+      (delete(suspiciousLeaves)..where((l) => l.convId.equals(convId) & l.signatureKey.isNotIn(keepKeys))).go();
 
-  Future<KeyRotation?> keyRotation(String convId) => (select(
-    keyRotations,
-  )..where((r) => r.convId.equals(convId))).getSingleOrNull();
+  Future<KeyRotation?> keyRotation(String convId) =>
+      (select(keyRotations)..where((r) => r.convId.equals(convId))).getSingleOrNull();
 
-  Future<void> noteKeyRotation(String convId, DateTime at) => into(keyRotations)
-      .insertOnConflictUpdate(
-        KeyRotation(
-          convId: convId,
-          rotatedAt: at.millisecondsSinceEpoch,
-          sentSince: 0,
-        ),
-      );
+  Future<void> noteKeyRotation(String convId, DateTime at) =>
+      into(keyRotations)
+          .insertOnConflictUpdate(KeyRotation(convId: convId, rotatedAt: at.millisecondsSinceEpoch, sentSince: 0));
 
   /// Counts a message sent with the current keys.
   Future<void> noteSentWithKeys(String convId, DateTime now) => customStatement(
@@ -1316,9 +1089,8 @@ class AppDatabase extends _$AppDatabase {
 
   // Queries for the UI
 
-  static Envelope _envelope(Message row) => Envelope.fromJson(
-    (jsonDecode(row.envelope) as Map).cast<String, Object?>(),
-  );
+  static Envelope _envelope(Message row) =>
+      Envelope.fromJson((jsonDecode(row.envelope) as Map).cast<String, Object?>());
 
   /// Confirmed messages in server order, then pending ones in send order.
   static final _inOrder = <OrderClauseGenerator<$MessagesTable>>[
@@ -1330,16 +1102,13 @@ class AppDatabase extends _$AppDatabase {
   /// The reactions in [hidden] (in order) that stand: per message, each
   /// emoji and who reacted with it, in the order they came. [addedBy] names
   /// the message that added each one (`'<target>|<user>|<emoji>'`).
-  static ({
-    Map<String, Map<String, Set<String>>> byTarget,
-    Map<String, String> addedBy,
-  })
-  _reactions(Iterable<Message> hidden) {
+  static ({Map<String, Map<String, Set<String>>> byTarget, Map<String, String> addedBy}) _reactions(
+    Iterable<Message> hidden,
+  ) {
     final byTarget = <String, Map<String, Set<String>>>{};
     final addedBy = <String, String>{};
     for (final row in hidden) {
-      if (row.kind != Envelope.reactionType ||
-          row.state == DeliveryState.failed) {
+      if (row.kind != Envelope.reactionType || row.state == DeliveryState.failed) {
         continue;
       }
       final e = _envelope(row);
@@ -1362,10 +1131,7 @@ class AppDatabase extends _$AppDatabase {
   /// [rows] (timeline messages) as they read now: with the latest edit by
   /// their sender and the reactions from [hidden] (in order), and with
   /// quotes of messages among [rows] showing their current text.
-  static List<ChatMessage> _resolve(
-    List<Message> rows,
-    Iterable<Message> hidden,
-  ) {
+  static List<ChatMessage> _resolve(List<Message> rows, Iterable<Message> hidden) {
     final edits = <String, Envelope>{}; // '<target>|<editor>' -> latest edit
     for (final row in hidden) {
       if (row.kind != Envelope.editType || row.state == DeliveryState.failed) {
@@ -1378,12 +1144,8 @@ class AppDatabase extends _$AppDatabase {
     final current = <String, (Envelope, bool)>{};
     for (final row in rows) {
       final envelope = _envelope(row);
-      final edit = envelope.messageType == null
-          ? null
-          : edits['${row.id}|${row.sender}'];
-      current[row.id] = edit == null
-          ? (envelope, false)
-          : (envelope.withBody(editedBody(envelope.body, edit)), true);
+      final edit = envelope.messageType == null ? null : edits['${row.id}|${row.sender}'];
+      current[row.id] = edit == null ? (envelope, false) : (envelope.withBody(editedBody(envelope.body, edit)), true);
     }
     final out = <ChatMessage>[];
     for (final row in rows) {
@@ -1393,9 +1155,7 @@ class AppDatabase extends _$AppDatabase {
       final emoji = envelope.type == Envelope.deletedType
           ? const <String, List<String>>{}
           : {
-              for (final MapEntry(:key, :value)
-                  in (reactions[row.id] ?? const {}).entries)
-                key: [...value],
+              for (final MapEntry(:key, :value) in (reactions[row.id] ?? const {}).entries) key: [...value],
             };
       out.add(
         ChatMessage(
@@ -1406,11 +1166,7 @@ class AppDatabase extends _$AppDatabase {
           reactions: emoji,
           replyTo: original == null
               ? quoted
-              : ReplyRef(
-                  id: original.id,
-                  from: original.from,
-                  text: quotePreview(original),
-                ),
+              : ReplyRef(id: original.id, from: original.from, text: quotePreview(original)),
         ),
       );
     }
@@ -1420,9 +1176,7 @@ class AppDatabase extends _$AppDatabase {
   /// How a reply quotes [original]: its preview, shortened.
   static String quotePreview(Envelope original) {
     final text = original.preview.replaceAll('\n', ' ');
-    return text.length <= ReplyRef.maxText
-        ? text
-        : '${text.substring(0, ReplyRef.maxText - 3)}...';
+    return text.length <= ReplyRef.maxText ? text : '${text.substring(0, ReplyRef.maxText - 3)}...';
   }
 
   Stream<List<ChatMessage>> watchMessages(String convId) =>
@@ -1458,119 +1212,75 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// [userId]'s profile as this device last took it, if any.
-  Future<Profile?> profileRow(String userId) =>
-      (select(profiles)..where((p) => p.id.equals(userId))).getSingleOrNull();
+  Future<Profile?> profileRow(String userId) => (select(profiles)..where((p) => p.id.equals(userId))).getSingleOrNull();
 
-  static MediaRef? _avatar(Profile row) => row.avatar == null
-      ? null
-      : MediaRef.fromJson(
-          (jsonDecode(row.avatar!) as Map).cast<String, Object?>(),
-        );
+  static MediaRef? _avatar(Profile row) =>
+      row.avatar == null ? null : MediaRef.fromJson((jsonDecode(row.avatar!) as Map).cast<String, Object?>());
 
   /// Takes [document], from the record [version] of [userId] that [profileKey]
   /// opened, unless a newer one was taken; whether it did.
-  Future<bool> noteProfile(
-    String userId,
-    ProfileDocument document, {
-    required int version,
-    String? profileKey,
-  }) => transaction(() async {
-    await _ensureProfile(userId);
-    final row = await profileRow(userId);
-    if (row!.version > version) return false;
-    await (update(profiles)..where((p) => p.id.equals(userId))).write(
-      ProfilesCompanion(
-        displayName: Value(
-          document.displayName ?? UserId.fallbackName(userId, me: me),
-        ),
-        avatar: Value(
-          document.avatar == null
-              ? null
-              : jsonEncode(document.avatar!.toJson()),
-        ),
-        version: Value(version),
-        profileKey: profileKey == null
-            ? const Value.absent()
-            : Value(profileKey),
-        card: Value(
-          document.card == null ? null : jsonEncode(document.card!.toJson()),
-        ),
-        // A new card shows once fetched; until then the last one does.
-        cardJson: document.card == null
-            ? const Value(null)
-            : const Value.absent(),
-        cardFetched: document.card == null
-            ? const Value(null)
-            : const Value.absent(),
-      ),
-    );
-    return true;
-  });
+  Future<bool> noteProfile(String userId, ProfileDocument document, {required int version, String? profileKey}) =>
+      transaction(() async {
+        await _ensureProfile(userId);
+        final row = await profileRow(userId);
+        if (row!.version > version) return false;
+        await (update(profiles)..where((p) => p.id.equals(userId))).write(
+          ProfilesCompanion(
+            displayName: Value(document.displayName ?? UserId.fallbackName(userId, me: me)),
+            avatar: Value(document.avatar == null ? null : jsonEncode(document.avatar!.toJson())),
+            version: Value(version),
+            profileKey: profileKey == null ? const Value.absent() : Value(profileKey),
+            card: Value(document.card == null ? null : jsonEncode(document.card!.toJson())),
+            // A new card shows once fetched; until then the last one does.
+            cardJson: document.card == null ? const Value(null) : const Value.absent(),
+            cardFetched: document.card == null ? const Value(null) : const Value.absent(),
+          ),
+        );
+        return true;
+      });
 
   /// A key said to open [userId]'s record, while they have none to try it on.
-  Future<void> noteProfileKey(String userId, String profileKey) =>
-      transaction(() async {
-        await _ensureProfile(userId);
-        await (update(profiles)..where((p) => p.id.equals(userId))).write(
-          ProfilesCompanion(profileKey: Value(profileKey)),
-        );
-      });
+  Future<void> noteProfileKey(String userId, String profileKey) => transaction(() async {
+    await _ensureProfile(userId);
+    await (update(profiles)..where((p) => p.id.equals(userId))).write(ProfilesCompanion(profileKey: Value(profileKey)));
+  });
 
   /// [userId] announced [version] of their profile.
-  Future<void> noteWantedProfile(String userId, int version) =>
-      transaction(() async {
-        await _ensureProfile(userId);
-        await (update(profiles)..where(
-              (p) =>
-                  p.id.equals(userId) &
-                  p.wantedVersion.isSmallerThanValue(version),
-            ))
-            .write(ProfilesCompanion(wantedVersion: Value(version)));
-      });
+  Future<void> noteWantedProfile(String userId, int version) => transaction(() async {
+    await _ensureProfile(userId);
+    await (update(profiles)..where((p) => p.id.equals(userId) & p.wantedVersion.isSmallerThanValue(version))).write(
+      ProfilesCompanion(wantedVersion: Value(version)),
+    );
+  });
 
   /// Those whose announced profile has yet to be fetched.
   Future<List<String>> wantedProfiles() async => [
-    for (final p in await (select(
-      profiles,
-    )..where((p) => p.wantedVersion.isBiggerThan(p.version))).get())
-      p.id,
+    for (final p in await (select(profiles)..where((p) => p.wantedVersion.isBiggerThan(p.version))).get()) p.id,
   ];
 
   /// Profile cards announced but not fetched yet, by user.
   Future<List<({String userId, MediaRef card})>> cardsToFetch() async => [
-    for (final row in await (select(
-      profiles,
-    )..where((p) => p.card.isNotNull())).get())
-      if (_mediaRef(row.card) case final card?
-          when card.hash != row.cardFetched)
-        (userId: row.id, card: card),
+    for (final row in await (select(profiles)..where((p) => p.card.isNotNull())).get())
+      if (_mediaRef(row.card) case final card? when card.hash != row.cardFetched) (userId: row.id, card: card),
   ];
 
   /// [userId]'s card from the file [hash] ([cardJson] null: unreadable),
   /// unless a newer one was announced meanwhile.
-  Future<void> setFetchedCard(String userId, String hash, String? cardJson) =>
-      transaction(() async {
-        final row = await (select(
-          profiles,
-        )..where((p) => p.id.equals(userId))).getSingleOrNull();
-        if (row == null || _mediaRef(row.card)?.hash != hash) return;
-        await (update(profiles)..where((p) => p.id.equals(userId))).write(
-          ProfilesCompanion(
-            cardJson: Value(cardJson),
-            cardFetched: Value(hash),
-          ),
-        );
-      });
+  Future<void> setFetchedCard(String userId, String hash, String? cardJson) => transaction(() async {
+    final row = await (select(profiles)..where((p) => p.id.equals(userId))).getSingleOrNull();
+    if (row == null || _mediaRef(row.card)?.hash != hash) return;
+    await (update(
+      profiles,
+    )..where((p) => p.id.equals(userId))).write(ProfilesCompanion(cardJson: Value(cardJson), cardFetched: Value(hash)));
+  });
 
   // Group state
 
-  Future<GroupStateRow?> groupStateRow(String convId) => (select(
-    groupStates,
-  )..where((g) => g.convId.equals(convId))).getSingleOrNull();
+  Future<GroupStateRow?> groupStateRow(String convId) =>
+      (select(groupStates)..where((g) => g.convId.equals(convId))).getSingleOrNull();
 
   /// A group's document as this device holds it; null before it is here.
-  Future<GroupDocument?> groupDocument(String convId) async =>
-      _parseDocument((await groupStateRow(convId))?.document);
+  Future<GroupDocument?> groupDocument(String convId) async => _parseDocument((await groupStateRow(convId))?.document);
 
   /// [groupDocument], and again whenever it changes.
   Stream<GroupDocument?> watchGroupDocument(String convId) =>
@@ -1585,9 +1295,7 @@ class AppDatabase extends _$AppDatabase {
     if (encoded == null) return null;
     try {
       final json = jsonDecode(utf8.decode(base64.decode(encoded)));
-      return json is Map
-          ? GroupDocument.fromJson(json.cast<String, Object?>())
-          : null;
+      return json is Map ? GroupDocument.fromJson(json.cast<String, Object?>()) : null;
     } on FormatException {
       return null;
     }
@@ -1601,17 +1309,12 @@ class AppDatabase extends _$AppDatabase {
     Map<String, String>? roster,
     bool? verified,
   }) => transaction(() async {
-    await into(groupStates).insert(
-      GroupStatesCompanion.insert(convId: convId),
-      mode: InsertMode.insertOrIgnore,
-    );
+    await into(groupStates).insert(GroupStatesCompanion.insert(convId: convId), mode: InsertMode.insertOrIgnore);
     await (update(groupStates)..where((g) => g.convId.equals(convId))).write(
       GroupStatesCompanion(
         hash: hash == null ? const Value.absent() : Value(hash),
         document: document == null ? const Value.absent() : Value(document),
-        roster: roster == null
-            ? const Value.absent()
-            : Value(jsonEncode(roster)),
+        roster: roster == null ? const Value.absent() : Value(jsonEncode(roster)),
         verified: verified == null ? const Value.absent() : Value(verified),
       ),
     );
@@ -1640,27 +1343,23 @@ class AppDatabase extends _$AppDatabase {
     ),
   );
 
-  Future<UnsettledCommitRow?> unsettledCommit(String convId) => (select(
-    unsettledCommits,
-  )..where((c) => c.convId.equals(convId))).getSingleOrNull();
+  Future<UnsettledCommitRow?> unsettledCommit(String convId) =>
+      (select(unsettledCommits)..where((c) => c.convId.equals(convId))).getSingleOrNull();
 
-  Future<List<String>> unsettledConversations() =>
-      (selectOnly(unsettledCommits)..addColumns([unsettledCommits.convId]))
-          .map((row) => row.read(unsettledCommits.convId)!)
-          .get();
+  Future<List<String>> unsettledConversations() => (selectOnly(
+    unsettledCommits,
+  )..addColumns([unsettledCommits.convId])).map((row) => row.read(unsettledCommits.convId)!).get();
 
   Future<void> forgetUnsettledCommit(String convId) =>
       (delete(unsettledCommits)..where((c) => c.convId.equals(convId))).go();
 
   /// This device can no longer tell if what it holds of a group's state is
   /// current. It stays on show, and whatever comes next is taken over it.
-  Future<void> unpinGroupState(String convId) =>
-      (update(groupStates)..where((g) => g.convId.equals(convId))).write(
-        const GroupStatesCompanion(hash: Value(null), verified: Value(false)),
-      );
+  Future<void> unpinGroupState(String convId) => (update(groupStates)..where((g) => g.convId.equals(convId))).write(
+    const GroupStatesCompanion(hash: Value(null), verified: Value(false)),
+  );
 
-  Future<void> clearGroupState(String convId) =>
-      (delete(groupStates)..where((g) => g.convId.equals(convId))).go();
+  Future<void> clearGroupState(String convId) => (delete(groupStates)..where((g) => g.convId.equals(convId))).go();
 
   Future<void> _copyStateToConversation(String convId) async {
     final document = await groupDocument(convId);
@@ -1669,11 +1368,7 @@ class AppDatabase extends _$AppDatabase {
       ConversationsCompanion(
         title: Value(document.title),
         description: Value(document.description),
-        picture: Value(
-          document.picture == null
-              ? null
-              : jsonEncode(document.picture!.toJson()),
-        ),
+        picture: Value(document.picture == null ? null : jsonEncode(document.picture!.toJson())),
       ),
     );
   }
@@ -1688,18 +1383,8 @@ class AppDatabase extends _$AppDatabase {
     required GroupDocument? before,
     required GroupDocument after,
   }) async {
-    Future<void> line(
-      String change, {
-      String? title,
-      Map<String, Object?> details = const {},
-    }) => _addGroupLine(
-      SyncEvent(
-        seq: seq,
-        type: EventType.mlsCommit,
-        conv: convId,
-        ts: ts,
-        data: const {},
-      ),
+    Future<void> line(String change, {String? title, Map<String, Object?> details = const {}}) => _addGroupLine(
+      SyncEvent(seq: seq, type: EventType.mlsCommit, conv: convId, ts: ts, data: const {}),
       by: by,
       change: change,
       title: title,
@@ -1720,9 +1405,7 @@ class AppDatabase extends _$AppDatabase {
     final (was, now) = (before.picture?.hash, after.picture?.hash);
     if (was != now) await line(now == null ? 'pictureRemoved' : 'picture');
     if (before.description != after.description) {
-      await line(
-        after.description == null ? 'descriptionRemoved' : 'description',
-      );
+      await line(after.description == null ? 'descriptionRemoved' : 'description');
     }
     if (emojiChangeLine(before.emojis, after.emojis) case final details?) {
       await line(details['change']! as String, details: details);
@@ -1732,99 +1415,64 @@ class AppDatabase extends _$AppDatabase {
   // Contacts
 
   Stream<Map<String, ContactRow>> watchContacts() =>
-      select(contacts)
-          .watch()
-          .map((rows) => {for (final c in rows) c.userId: c});
+      select(contacts).watch().map((rows) => {for (final c in rows) c.userId: c});
 
   Future<List<ContactRow>> allContacts() => select(contacts).get();
 
-  Future<ContactRow?> contact(String userId) => (select(
-    contacts,
-  )..where((c) => c.userId.equals(userId))).getSingleOrNull();
+  Future<ContactRow?> contact(String userId) =>
+      (select(contacts)..where((c) => c.userId.equals(userId))).getSingleOrNull();
 
   /// Takes the server's list; who is trusted stays as it is.
-  Future<void> setContactStates(Iterable<ContactInfo> list) =>
-      transaction(() async {
-        final listed = {for (final c in list) c.user};
-        await (update(contacts)..where((c) => c.userId.isNotIn(listed))).write(
-          const ContactsCompanion(
-            state: Value(ContactState.none),
-            since: Value(0),
-          ),
-        );
-        for (final c in list) {
-          await _setContactState(c.user, c.state, since: c.since);
-        }
-      });
+  Future<void> setContactStates(Iterable<ContactInfo> list) => transaction(() async {
+    final listed = {for (final c in list) c.user};
+    await (update(contacts)..where((c) => c.userId.isNotIn(listed))).write(
+      const ContactsCompanion(state: Value(ContactState.none), since: Value(0)),
+    );
+    for (final c in list) {
+      await _setContactState(c.user, c.state, since: c.since);
+    }
+  });
 
-  Future<void> setContactState(
-    String userId,
-    ContactState state, {
-    int since = 0,
-  }) => transaction(() => _setContactState(userId, state, since: since));
+  Future<void> setContactState(String userId, ContactState state, {int since = 0}) =>
+      transaction(() => _setContactState(userId, state, since: since));
 
-  Future<void> _setContactState(
-    String userId,
-    ContactState state, {
-    required int since,
-  }) async {
+  Future<void> _setContactState(String userId, ContactState state, {required int since}) async {
     await _ensureProfile(userId);
     await into(contacts).insert(
-      ContactsCompanion.insert(
-        userId: userId,
-        state: state,
-        since: Value(since),
-      ),
-      onConflict: DoUpdate(
-        (_) => ContactsCompanion(state: Value(state), since: Value(since)),
-      ),
+      ContactsCompanion.insert(userId: userId, state: state, since: Value(since)),
+      onConflict: DoUpdate((_) => ContactsCompanion(state: Value(state), since: Value(since))),
     );
   }
 
   /// Takes who is on the user's own encrypted contact list.
   Future<void> setTrustedContacts(Set<String> trusted) => transaction(() async {
-    await (update(contacts)..where((c) => c.userId.isNotIn(trusted))).write(
-      const ContactsCompanion(trusted: Value(false)),
-    );
+    await (update(
+      contacts,
+    )..where((c) => c.userId.isNotIn(trusted))).write(const ContactsCompanion(trusted: Value(false)));
     for (final userId in trusted) {
       await _ensureProfile(userId);
       await into(contacts).insert(
-        ContactsCompanion.insert(
-          userId: userId,
-          state: ContactState.none,
-          trusted: const Value(true),
-        ),
-        onConflict: DoUpdate(
-          (_) => const ContactsCompanion(trusted: Value(true)),
-        ),
+        ContactsCompanion.insert(userId: userId, state: ContactState.none, trusted: const Value(true)),
+        onConflict: DoUpdate((_) => const ContactsCompanion(trusted: Value(true))),
       );
     }
   });
 
   Future<Set<String>> trustedContacts() async => {
-    for (final c in await (select(
-      contacts,
-    )..where((c) => c.trusted.equals(true))).get())
-      c.userId,
+    for (final c in await (select(contacts)..where((c) => c.trusted.equals(true))).get()) c.userId,
   };
 
   // Conversations this device stayed out of
 
   Future<void> refuseConversation(String convId) =>
-      into(refusedConversations).insert(
-        RefusedConversationsCompanion.insert(convId: convId),
-        mode: InsertMode.insertOrIgnore,
-      );
+      into(refusedConversations)
+          .insert(RefusedConversationsCompanion.insert(convId: convId), mode: InsertMode.insertOrIgnore);
 
   Future<bool> isRefused(String convId) async =>
-      await (select(
-        refusedConversations,
-      )..where((r) => r.convId.equals(convId))).getSingleOrNull() !=
-      null;
+      await (select(refusedConversations)..where((r) => r.convId.equals(convId))).getSingleOrNull() != null;
 
-  Future<void> unrefuseConversation(String convId) => (delete(
-    refusedConversations,
-  )..where((r) => r.convId.equals(convId))).go();
+  Future<void> unrefuseConversation(String convId) =>
+      (delete(refusedConversations)..where((r) => r.convId.equals(convId))).go();
 
   /// They are looked at again, and refused again if nothing changed for them.
   Future<void> clearRefusedConversations() => delete(refusedConversations).go();
@@ -1854,9 +1502,8 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  static MediaRef? _mediaRef(String? json) => json == null
-      ? null
-      : MediaRef.fromJson((jsonDecode(json) as Map).cast<String, Object?>());
+  static MediaRef? _mediaRef(String? json) =>
+      json == null ? null : MediaRef.fromJson((jsonDecode(json) as Map).cast<String, Object?>());
 
   /// A [MediaRef] from its JSON in a column.
   static MediaRef? mediaRefOf(String? json) => _mediaRef(json);
@@ -1886,31 +1533,19 @@ class AppDatabase extends _$AppDatabase {
 
   /// Messages from others that are newer than the read marker and than
   /// [after], grouped by conversation, oldest first.
-  Future<Map<String, List<ChatMessage>>> unreadIncoming(
-    String me, {
-    int after = 0,
-  }) async {
-    final query =
-        select(messages).join([
-            innerJoin(
-              conversations,
-              conversations.id.equalsExp(messages.convId),
-            ),
-          ])
-          ..where(
-            messages.sender.equals(me).not() &
-                messages.isSystem.equals(false) &
-                messages.kind.isNull() &
-                messages.seq.isBiggerThan(conversations.readUpTo) &
-                messages.seq.isBiggerThanValue(after),
-          )
-          ..orderBy([OrderingTerm.asc(messages.seq)]);
+  Future<Map<String, List<ChatMessage>>> unreadIncoming(String me, {int after = 0}) async {
+    final query = select(messages).join([innerJoin(conversations, conversations.id.equalsExp(messages.convId))])
+      ..where(
+        messages.sender.equals(me).not() &
+            messages.isSystem.equals(false) &
+            messages.kind.isNull() &
+            messages.seq.isBiggerThan(conversations.readUpTo) &
+            messages.seq.isBiggerThanValue(after),
+      )
+      ..orderBy([OrderingTerm.asc(messages.seq)]);
     final rows = [for (final row in await query.get()) row.readTable(messages)];
     final out = <String, List<ChatMessage>>{};
-    for (final message in _resolve(
-      rows,
-      await _hiddenAbout([for (final r in rows) r.id]),
-    )) {
+    for (final message in _resolve(rows, await _hiddenAbout([for (final r in rows) r.id]))) {
       // Deleted before it was read: nothing to notify about.
       if (!message.isDeleted) {
         out.putIfAbsent(message.envelope.conv, () => []).add(message);
@@ -1922,17 +1557,11 @@ class AppDatabase extends _$AppDatabase {
   /// Reactions from others to [me]'s messages that are newer than the read
   /// marker and than [after] and still stand (not taken back since, the
   /// message not deleted), by conversation, oldest first.
-  Future<Map<String, List<ReactionNotice>>> unreadReactions(
-    String me, {
-    int after = 0,
-  }) async {
+  Future<Map<String, List<ReactionNotice>>> unreadReactions(String me, {int after = 0}) async {
     final target = alias(messages, 'reacted_to');
     final query =
         select(messages).join([
-            innerJoin(
-              conversations,
-              conversations.id.equalsExp(messages.convId),
-            ),
+            innerJoin(conversations, conversations.id.equalsExp(messages.convId)),
             innerJoin(target, target.id.equalsExp(messages.target)),
           ])
           ..where(
@@ -1945,17 +1574,11 @@ class AppDatabase extends _$AppDatabase {
           ..orderBy([OrderingTerm.asc(messages.seq)]);
     final rows = await query.get();
     if (rows.isEmpty) return const {};
-    final hidden = await _hiddenAbout({
-      for (final r in rows) r.readTable(messages).target!,
-    });
+    final hidden = await _hiddenAbout({for (final r in rows) r.readTable(messages).target!});
     final standing = _reactions(hidden).addedBy;
     // As the messages read now (edited, or deleted).
     final reactedTo = {
-      for (final m in _resolve(
-        {for (final r in rows) r.readTable(target)}.toList(),
-        hidden,
-      ))
-        m.id: m.envelope,
+      for (final m in _resolve({for (final r in rows) r.readTable(target)}.toList(), hidden)) m.id: m.envelope,
     };
     final out = <String, List<ReactionNotice>>{};
     for (final row in rows) {
@@ -1963,9 +1586,7 @@ class AppDatabase extends _$AppDatabase {
       final reacted = reactedTo[reaction.target]!;
       final emoji = _envelope(reaction).emoji;
       // Taken back since.
-      if (emoji == null ||
-          standing['${reaction.target}|${reaction.sender}|$emoji'] !=
-              reaction.id) {
+      if (emoji == null || standing['${reaction.target}|${reaction.sender}|$emoji'] != reaction.id) {
         continue;
       }
       if (reacted.type == Envelope.deletedType) continue;
@@ -1992,31 +1613,19 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<UserProfile>> watchProfiles() => select(profiles).watch().map(
     (rows) => [
-      for (final p in rows)
-        UserProfile(
-          id: p.id,
-          displayName: p.displayName,
-          avatar: _avatar(p),
-          card: _card(p),
-        ),
+      for (final p in rows) UserProfile(id: p.id, displayName: p.displayName, avatar: _avatar(p), card: _card(p)),
     ],
   );
 
   static ProfileCard _card(Profile row) {
     final json = row.cardJson == null ? null : jsonDecode(row.cardJson!);
-    return json is Map
-        ? ProfileCard.fromJson(json.cast<String, Object?>())
-        : ProfileCard.empty;
+    return json is Map ? ProfileCard.fromJson(json.cast<String, Object?>()) : ProfileCard.empty;
   }
 
   /// The direct conversation with [userId], if there is one locally.
   Future<String?> directConversationWith(String userId) async {
-    final query =
-        select(conversations).join([
-          innerJoin(members, members.convId.equalsExp(conversations.id)),
-        ])..where(
-          conversations.isDirect.equals(true) & members.userId.equals(userId),
-        );
+    final query = select(conversations).join([innerJoin(members, members.convId.equalsExp(conversations.id))])
+      ..where(conversations.isDirect.equals(true) & members.userId.equals(userId));
     return (await query.get()).firstOrNull?.readTable(conversations).id;
   }
 
@@ -2033,29 +1642,14 @@ class AppDatabase extends _$AppDatabase {
       WHERE c.id NOT IN (SELECT conv_id FROM refused_conversations)
       ''',
       variables: [Variable.withString(me)],
-      readsFrom: {
-        conversations,
-        messages,
-        members,
-        profiles,
-        refusedConversations,
-      },
+      readsFrom: {conversations, messages, members, profiles, refusedConversations},
     );
     return query.watch().asyncMap((rows) async {
       final memberRows = await select(members).get();
-      final names = {
-        for (final p in await select(profiles).get()) p.id: p.displayName,
-      };
-      final lastIds = [
-        for (final r in rows) ?r.readNullable<String>('last_id'),
-      ];
-      final lastRows = await (select(
-        messages,
-      )..where((m) => m.id.isIn(lastIds))).get();
-      final lastMessages = {
-        for (final m in _resolve(lastRows, await _hiddenAbout(lastIds)))
-          m.id: m,
-      };
+      final names = {for (final p in await select(profiles).get()) p.id: p.displayName};
+      final lastIds = [for (final r in rows) ?r.readNullable<String>('last_id')];
+      final lastRows = await (select(messages)..where((m) => m.id.isIn(lastIds))).get();
+      final lastMessages = {for (final m in _resolve(lastRows, await _hiddenAbout(lastIds))) m.id: m};
 
       final summaries = <(int, ConversationSummary)>[];
       for (final r in rows) {
@@ -2074,15 +1668,11 @@ class AppDatabase extends _$AppDatabase {
         final last = lastMessages[r.readNullable<String>('last_id')];
         summaries.add((
           // Pending messages are the newest activity of all.
-          last == null
-              ? r.read<int>('added_at')
-              : (last.seq == null ? 1 << 62 : last.envelope.ts),
+          last == null ? r.read<int>('added_at') : (last.seq == null ? 1 << 62 : last.envelope.ts),
           ConversationSummary(
             conversation: conversation,
             // A group whose state has yet to reach this device has no name yet.
-            title:
-                conversation.title ??
-                (conversation.isDirect ? names[other] ?? other : 'Group chat'),
+            title: conversation.title ?? (conversation.isDirect ? names[other] ?? other : 'Group chat'),
             avatarId: conversation.isDirect ? other : id,
             picture: _mediaRef(r.readNullable<String>('picture')),
             description: r.readNullable<String>('description'),

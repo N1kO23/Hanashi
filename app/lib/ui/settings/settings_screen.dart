@@ -47,7 +47,11 @@ class SettingsPane extends ConsumerWidget {
         children: [
           const ListHeader(title: 'Account'),
           if (me.isNotEmpty)
-            _ProfileTile(userId: me, fallbackName: account?.displayName ?? me.split('@').first, server: account?.serverUrl),
+            _ProfileTile(
+              userId: me,
+              fallbackName: account?.displayName ?? me.split('@').first,
+              server: account?.serverUrl,
+            ),
           if (me.isNotEmpty) _StatusTile(userId: me),
           ListTile(
             leading: Icon(
@@ -102,7 +106,12 @@ class SettingsPane extends ConsumerWidget {
             ),
           ),
           ...devices.when(
-            loading: () => const [Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))],
+            loading: () => const [
+              Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ],
             error: (e, _) => [ListTile(title: Text('Could not load devices: $e'))],
             data: (list) => [for (final d in list) _DeviceTile(device: d)],
           ),
@@ -978,9 +987,7 @@ class _DeviceTile extends ConsumerWidget {
         _ => Icons.devices_other,
       }, color: context.palette.textSecondary),
       title: Text(device.name),
-      subtitle: Text(
-        device.current ? 'This device' : 'Last active ${formatDay(lastSeen)} ${formatClock(lastSeen)}',
-      ),
+      subtitle: Text(device.current ? 'This device' : 'Last active ${formatDay(lastSeen)} ${formatClock(lastSeen)}'),
       trailing: device.current
           ? null
           : IconButton(

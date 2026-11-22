@@ -6,8 +6,7 @@ import 'package:test/test.dart';
 
 const _hash = 'sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
-Envelope _roundTrip(Envelope e) =>
-    Envelope.fromJson(jsonDecode(jsonEncode(e.toJson())) as Map<String, Object?>);
+Envelope _roundTrip(Envelope e) => Envelope.fromJson(jsonDecode(jsonEncode(e.toJson())) as Map<String, Object?>);
 
 void main() {
   group('ulid', () {
@@ -213,17 +212,21 @@ void main() {
       expect((remote.media, remote.preview), (null, '[GIF]'));
 
       const file = MediaRef(hash: _hash, size: 5000, mime: 'image/gif', width: 100, height: 80, key: 'a2V5');
-      final uploaded = _roundTrip(Envelope.gif(
-        conv: 'c',
-        from: 'a@b',
-        gif: const GifRef.media(file),
-        replyTo: ReplyRef(id: newUlid(), from: 'x@y'),
-      ));
+      final uploaded = _roundTrip(
+        Envelope.gif(
+          conv: 'c',
+          from: 'a@b',
+          gif: const GifRef.media(file),
+          replyTo: ReplyRef(id: newUlid(), from: 'x@y'),
+        ),
+      );
       expect((uploaded.gif!.media!.hash, uploaded.gif!.key, uploaded.media!.key), (_hash, _hash, 'a2V5'));
       expect(uploaded.replyTo, isNotNull);
 
       Map<String, Object?> gif(Map<String, Object?> body) => remote.toJson()..['body'] = body;
-      Map<String, Object?> klipyWith(String key, Object? value) => {'remote': {...klipy.toJson(), key: value}};
+      Map<String, Object?> klipyWith(String key, Object? value) => {
+        'remote': {...klipy.toJson(), key: value},
+      };
       for (final body in [
         <String, Object?>{},
         {...const GifRef.media(file).toJson(), ...const GifRef.remote(klipy).toJson()},
@@ -241,12 +244,14 @@ void main() {
 
     test('stickers: sent as their picture, neither a bubble nor a card; named only on the own devices', () {
       const file = MediaRef(hash: _hash, size: 30000, mime: 'image/png', width: 512, height: 512, key: 'a2V5');
-      final own = _roundTrip(Envelope.sticker(
-        conv: 'c',
-        from: 'a@b',
-        sticker: const StickerRef.media(file),
-        replyTo: ReplyRef(id: newUlid(), from: 'x@y'),
-      ));
+      final own = _roundTrip(
+        Envelope.sticker(
+          conv: 'c',
+          from: 'a@b',
+          sticker: const StickerRef.media(file),
+          replyTo: ReplyRef(id: newUlid(), from: 'x@y'),
+        ),
+      );
       expect(own.messageType, MessageType.sticker);
       expect((own.sticker!.isNamed, own.sticker!.key, own.sticker!.media!.key), (false, _hash, 'a2V5'));
       expect((own.sticker!.source, own.sticker!.packSticker), (null, null));
@@ -267,7 +272,12 @@ void main() {
         {'pack': 'p', 'id': '../../secrets'},
         // Never both.
         {'pack': 'p', 'id': '01', ...const StickerRef.media(file).toJson()},
-        {'pack': 'p', 'id': '01', 'media': file.toJson(), 'from': {'pack': 'p', 'id': '01'}},
+        {
+          'pack': 'p',
+          'id': '01',
+          'media': file.toJson(),
+          'from': {'pack': 'p', 'id': '01'},
+        },
       ]) {
         expect(() => Envelope.fromJson(sticker(body)), throwsFormatException, reason: '$body');
       }
@@ -290,18 +300,22 @@ void main() {
         host: 'a.example',
       );
       const source = StickerSource(pack: 'test-pack', id: '07', title: 'Test pack', archive: archive);
-      final sent = _roundTrip(Envelope.sticker(
-        conv: 'c',
-        from: 'a@b',
-        sticker: const StickerRef.media(picture, source: source),
-        replyTo: ReplyRef(id: newUlid(), from: 'x@y'),
-      ));
+      final sent = _roundTrip(
+        Envelope.sticker(
+          conv: 'c',
+          from: 'a@b',
+          sticker: const StickerRef.media(picture, source: source),
+          replyTo: ReplyRef(id: newUlid(), from: 'x@y'),
+        ),
+      );
       expect(sent.body.keys.toSet(), {'media', 'from', 'replyTo'});
       final sticker = sent.sticker!;
       expect((sticker.media!.hash, sticker.isNamed), (_hash, false));
       final from = sticker.source!;
-      expect((from.pack, from.id, from.title, from.archive!.hash, from.archive!.host),
-          ('test-pack', '07', 'Test pack', archive.hash, 'a.example'));
+      expect(
+        (from.pack, from.id, from.title, from.archive!.hash, from.archive!.host),
+        ('test-pack', '07', 'Test pack', archive.hash, 'a.example'),
+      );
       // The same sticker as named, whoever uploaded its picture.
       expect((sticker.key, sticker.packSticker), ('test-pack:07', (pack: 'test-pack', id: '07')));
       expect(sticker, const StickerRef.named(pack: 'test-pack', id: '07'));
@@ -325,8 +339,12 @@ void main() {
       // What later versions add to it stays, as saved stickers keep it.
       final later = withFrom(<String, Object?>{'pack': 'test-pack', 'id': '07', 'emoji': '👋', 'title': 'Test pack'});
       expect(later.toJson()['from'], {'emoji': '👋', 'pack': 'test-pack', 'id': '07', 'title': 'Test pack'});
-      expect(source.withPack(title: 'Renamed', archive: picture).toJson(),
-          {'pack': 'test-pack', 'id': '07', 'title': 'Renamed', 'archive': picture.toJson()});
+      expect(source.withPack(title: 'Renamed', archive: picture).toJson(), {
+        'pack': 'test-pack',
+        'id': '07',
+        'title': 'Renamed',
+        'archive': picture.toJson(),
+      });
     });
 
     test('custom emojis: text, captions and edits carry the pictures their :names: show', () {
@@ -452,7 +470,10 @@ void main() {
         color: '#6363ff',
       );
       final gif = _roundTrip(Envelope.text(conv: 'c', from: 'a@b', text: tweet.url, link: tweet)).link!;
-      expect((gif.kind, gif.media!.mime, gif.media!.durationMs, gif.color), (LinkKind.gif, 'video/mp4', 9000, '#6363ff'));
+      expect(
+        (gif.kind, gif.media!.mime, gif.media!.durationMs, gif.color),
+        (LinkKind.gif, 'video/mp4', 9000, '#6363ff'),
+      );
 
       Map<String, Object?> withLink(String text, Object? link) => e.toJson()..['body'] = {'text': text, 'link': link};
       // Nothing to play, or no colour: left out.
@@ -533,27 +554,43 @@ void main() {
 
     test('replies carry a quote and survive a round trip', () {
       final original = Envelope.text(conv: 'c', from: 'yuriko@localhost', text: 'Hi');
-      final reply = _roundTrip(Envelope.text(
-        conv: 'c',
-        from: 'noa@localhost',
-        text: 'Hello',
-        replyTo: ReplyRef(id: original.id, from: original.from, text: original.preview),
-      ));
+      final reply = _roundTrip(
+        Envelope.text(
+          conv: 'c',
+          from: 'noa@localhost',
+          text: 'Hello',
+          replyTo: ReplyRef(id: original.id, from: original.from, text: original.preview),
+        ),
+      );
       expect((reply.replyTo!.id, reply.replyTo!.from, reply.replyTo!.text), (original.id, 'yuriko@localhost', 'Hi'));
       expect(reply.isHidden, isFalse);
-      expect(() => Envelope.fromJson(reply.toJson()..['body'] = {'text': 'x', 'replyTo': {'id': 'nope', 'from': 'a@b'}}),
-          throwsFormatException);
+      expect(
+        () => Envelope.fromJson(
+          reply.toJson()
+            ..['body'] = {
+              'text': 'x',
+              'replyTo': {'id': 'nope', 'from': 'a@b'},
+            },
+        ),
+        throwsFormatException,
+      );
     });
 
     test('reactions, edits and deletions are hidden and point at their target', () {
       final target = newUlid();
       final reaction = _roundTrip(Envelope.reaction(conv: 'c', from: 'a@b', target: target, emoji: '👍'));
-      expect((reaction.isHidden, reaction.target, reaction.emoji, reaction.preview), (true, target, '👍', 'Reacted 👍'));
+      expect(
+        (reaction.isHidden, reaction.target, reaction.emoji, reaction.preview),
+        (true, target, '👍', 'Reacted 👍'),
+      );
       final removed = _roundTrip(Envelope.reaction(conv: 'c', from: 'a@b', target: target, emoji: '👍', remove: true));
       expect((removed.emoji, removed.removesReaction, removed.preview), ('👍', true, 'Removed a reaction'));
       expect(reaction.removesReaction, isFalse);
       // A reaction always says which.
-      expect(() => Envelope.fromJson(reaction.toJson()..['body'] = {'target': target, 'emoji': null}), throwsFormatException);
+      expect(
+        () => Envelope.fromJson(reaction.toJson()..['body'] = {'target': target, 'emoji': null}),
+        throwsFormatException,
+      );
       expect(() => Envelope.fromJson(reaction.toJson()..['body'] = {'target': target}), throwsFormatException);
       final edit = _roundTrip(Envelope.edit(conv: 'c', from: 'a@b', target: target, text: 'fixed'));
       expect((edit.target, edit.text), (target, 'fixed'));
@@ -584,22 +621,31 @@ void main() {
         (Envelope.profileKeyType, {'key': ''}),
         (Envelope.historyType, <String, Object?>{}),
         (Envelope.historyType, {'user': 'nope'}),
-        (Envelope.historyType, {'user': 'n@b', 'keys': {'hash': 'nope'}}),
+        (
+          Envelope.historyType,
+          {
+            'user': 'n@b',
+            'keys': {'hash': 'nope'},
+          },
+        ),
       ]) {
         expect(() => Envelope.fromJson(of(type, body)), throwsFormatException, reason: '$type $body');
       }
     });
 
     test('rejects malformed envelopes', () {
-      Map<String, Object?> valid() =>
-          Envelope.text(conv: 'c', from: 'a@b', text: 'x').toJson();
+      Map<String, Object?> valid() => Envelope.text(conv: 'c', from: 'a@b', text: 'x').toJson();
       expect(() => Envelope.fromJson(valid()..['id'] = 'nope'), throwsFormatException);
       expect(() => Envelope.fromJson(valid()..['from'] = 'nope'), throwsFormatException);
       expect(() => Envelope.fromJson(valid()..['body'] = {'text': 5}), throwsFormatException);
       expect(
-        () => Envelope.fromJson(valid()
-          ..['type'] = 'image'
-          ..['body'] = {'media': {'hash': 'md5:x', 'size': 1, 'mime': 'a/b'}}),
+        () => Envelope.fromJson(
+          valid()
+            ..['type'] = 'image'
+            ..['body'] = {
+              'media': {'hash': 'md5:x', 'size': 1, 'mime': 'a/b'},
+            },
+        ),
         throwsFormatException,
       );
       expect(
@@ -615,15 +661,19 @@ void main() {
     test('a profile keeps what later versions add', () {
       final json = <String, Object?>{'displayName': 'Kumiko', 'avatar': avatar.toJson(), 'pronouns': 'she/her'};
       final document = ProfileDocument.fromJson(json);
-      expect((document.displayName, document.avatar!.key, document.card, document.extra['pronouns']),
-          ('Kumiko', 'a2V5', null, 'she/her'));
+      expect(
+        (document.displayName, document.avatar!.key, document.card, document.extra['pronouns']),
+        ('Kumiko', 'a2V5', null, 'she/her'),
+      );
       expect(document.toJson(), json);
       expect(const ProfileDocument().toJson(), isEmpty);
       for (final bad in [
         {'displayName': ''},
         {'displayName': 5},
         {'displayName': 'x' * 65},
-        {'avatar': {'hash': 'nope'}},
+        {
+          'avatar': {'hash': 'nope'},
+        },
       ]) {
         expect(() => ProfileDocument.fromJson(bad), throwsFormatException, reason: '$bad');
       }
@@ -632,21 +682,33 @@ void main() {
     test('a group keeps what later versions add, and always has its salt', () {
       final json = <String, Object?>{'salt': 'c2FsdA==', 'title': 'Club', 'picture': avatar.toJson(), 'rules': 'none'};
       final document = GroupDocument.fromJson(json);
-      expect((document.salt, document.title, document.picture!.key, document.extra['rules']),
-          ('c2FsdA==', 'Club', 'a2V5', 'none'));
+      expect(
+        (document.salt, document.title, document.picture!.key, document.extra['rules']),
+        ('c2FsdA==', 'Club', 'a2V5', 'none'),
+      );
       expect(document.toJson(), json);
       final described = GroupDocument.fromJson({...json, 'description': 'After school.\nBring snacks.'});
-      expect((described.description, described.toJson()['description']), ('After school.\nBring snacks.', 'After school.\nBring snacks.'));
+      expect(
+        (described.description, described.toJson()['description']),
+        ('After school.\nBring snacks.', 'After school.\nBring snacks.'),
+      );
       // A malformed description is left out, not the group.
       for (final description in [5, ' ', 'x' * 501]) {
-        expect(GroupDocument.fromJson({...json, 'description': description}).description, isNull, reason: '$description');
+        expect(
+          GroupDocument.fromJson({...json, 'description': description}).description,
+          isNull,
+          reason: '$description',
+        );
       }
       for (final bad in [
         <String, Object?>{},
         {'salt': ''},
         {'salt': 's', 'title': ' '},
         {'salt': 's', 'title': 'x' * 65},
-        {'salt': 's', 'picture': {'hash': 'nope'}},
+        {
+          'salt': 's',
+          'picture': {'hash': 'nope'},
+        },
       ]) {
         expect(() => GroupDocument.fromJson(bad), throwsFormatException, reason: '$bad');
       }
@@ -722,12 +784,19 @@ void main() {
         expect((card.statusMessage, card.birthday), ('hi', null), reason: '$birthday');
       }
       expect(ProfileCard.fromJson({'statusMessage': 5}).statusMessage, isNull);
-      expect(ProfileCard.fromJson({'bio': ['no']}).bio, isNull);
+      expect(
+        ProfileCard.fromJson({
+          'bio': ['no'],
+        }).bio,
+        isNull,
+      );
     });
 
     test('presence from the wire; unknown values are safe', () {
-      expect((Presence.parse('focus'), Presence.parse('away'), PresenceMode.parse('invisible'), PresenceMode.parse(null)),
-          (Presence.focus, Presence.offline, PresenceMode.invisible, PresenceMode.auto));
+      expect(
+        (Presence.parse('focus'), Presence.parse('away'), PresenceMode.parse('invisible'), PresenceMode.parse(null)),
+        (Presence.focus, Presence.offline, PresenceMode.invisible, PresenceMode.auto),
+      );
     });
   });
 
@@ -757,8 +826,18 @@ void main() {
       final message = _roundTrip(Envelope.call(conv: 'c', from: 'a@b', call: id));
       expect((message.messageType, message.callId, message.preview), (MessageType.call, id, '[Voice call]'));
       expect(MessageType.call.isMedia, isFalse, reason: 'not on a card with a file');
-      expect([for (final t in MessageType.values) if (t.isMedia) t.name], ['image', 'video', 'file', 'gif']);
-      for (final body in [<String, Object?>{}, {'call': 'not-a-ulid'}, {'call': 5}]) {
+      expect(
+        [
+          for (final t in MessageType.values)
+            if (t.isMedia) t.name,
+        ],
+        ['image', 'video', 'file', 'gif'],
+      );
+      for (final body in [
+        <String, Object?>{},
+        {'call': 'not-a-ulid'},
+        {'call': 5},
+      ]) {
         expect(() => Envelope.fromJson(message.toJson()..['body'] = body), throwsFormatException, reason: '$body');
       }
     });
@@ -780,18 +859,29 @@ void main() {
         ],
       };
       final call = Call.fromJson(json);
-      expect((call.direct, call.ringUntil!.millisecondsSinceEpoch, call.active, call.unanswered, call.version), (true, 46000, false, false, 3));
+      expect(
+        (call.direct, call.ringUntil!.millisecondsSinceEpoch, call.active, call.unanswered, call.version),
+        (true, 46000, false, false, 3),
+      );
       expect(call.users, {'a@b'});
       expect(call.toJson(), json);
       for (final bad in [
         {...json, 'id': 'x'},
         {...json}..remove('startedAt'),
         {...json, 'endedAt': 'soon'},
-        {...json, 'participants': [{'user': 'a@b'}]},
+        {
+          ...json,
+          'participants': [
+            {'user': 'a@b'},
+          ],
+        },
       ]) {
         expect(() => Call.fromJson(bad), throwsFormatException, reason: '$bad');
       }
-      final join = CallJoin.fromJson({'call': json, 'livekit': {'url': 'wss://lk.example.org', 'token': 'jwt'}});
+      final join = CallJoin.fromJson({
+        'call': json,
+        'livekit': {'url': 'wss://lk.example.org', 'token': 'jwt'},
+      });
       expect((join.url, join.token, join.call.id), ('wss://lk.example.org', 'jwt', json['id']));
       expect(() => CallJoin.fromJson({'call': json}), throwsFormatException);
       expect((Integrations.fromJson({'calls': true}).calls, Integrations.fromJson({}).calls), (true, false));

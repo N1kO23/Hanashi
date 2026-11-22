@@ -28,7 +28,10 @@ void main() {
 
   test('how many emoji a text is, if nothing else', () {
     expect(
-      [for (final text in ['😂', ' 👍🏽❤️ ', '👨‍👩‍👧 1️⃣', '🇫🇮🇫🇮🇫🇮', '😂 nice', '❤', '123', '']) emojiOnlyCount(text)],
+      [
+        for (final text in ['😂', ' 👍🏽❤️ ', '👨‍👩‍👧 1️⃣', '🇫🇮🇫🇮🇫🇮', '😂 nice', '❤', '123', ''])
+          emojiOnlyCount(text),
+      ],
       [1, 2, 2, 3, null, null, null, null],
     );
   });
@@ -44,10 +47,10 @@ void main() {
     await tester.enterText(find.byKey(const Key('composer-field')), text);
     await tester.pump();
     final field = find.byKey(const Key('composer-field'));
-    final typed = tester.widget<TextField>(field).controller!.buildTextSpan(
-      context: tester.element(field),
-      withComposing: false,
-    );
+    final typed = tester
+        .widget<TextField>(field)
+        .controller!
+        .buildTextSpan(context: tester.element(field), withComposing: false);
     expect(parts(typed), [
       ['👋'],
       ['See you '],

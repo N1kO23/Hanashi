@@ -56,10 +56,7 @@ void main() {
     expect(await laptop.status(), EncryptionStatus.unverified);
     expect(await verifiedOnServer(laptop), isFalse);
 
-    await expectLater(
-      laptop.verifyWithRecoveryKey(RecoveryKey.generate()),
-      throwsA(isA<VerificationException>()),
-    );
+    await expectLater(laptop.verifyWithRecoveryKey(RecoveryKey.generate()), throwsA(isA<VerificationException>()));
     await laptop.verifyWithRecoveryKey(await RecoveryKey.parse(await recoveryKey.encode()));
     expect(await laptop.status(), EncryptionStatus.verified);
     expect(await verifiedOnServer(laptop), isTrue);

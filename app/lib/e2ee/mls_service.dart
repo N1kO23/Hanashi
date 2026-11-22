@@ -240,12 +240,13 @@ class MlsService {
         skipLifetimeValidation: false,
       );
 
-  Future<Uint8List> encrypt(String conv, List<int> payload, {required List<int> aad}) async => (await _engine.createMessage(
-    groupIdBytes: _gid(conv),
-    signerBytes: _signer.signerBytes,
-    message: payload,
-    aad: Uint8List.fromList(aad),
-  )).ciphertext;
+  Future<Uint8List> encrypt(String conv, List<int> payload, {required List<int> aad}) async =>
+      (await _engine.createMessage(
+        groupIdBytes: _gid(conv),
+        signerBytes: _signer.signerBytes,
+        message: payload,
+        aad: Uint8List.fromList(aad),
+      )).ciphertext;
 
   /// Decrypts an application message or merges a commit.
   Future<ProcessedMessageInspectResult> process(String conv, Uint8List message) =>

@@ -80,8 +80,7 @@ class SasParty {
   final String deviceId;
 
   @override
-  bool operator ==(Object other) =>
-      other is SasParty && other.userId == userId && other.deviceId == deviceId;
+  bool operator ==(Object other) => other is SasParty && other.userId == userId && other.deviceId == deviceId;
 
   @override
   int get hashCode => Object.hash(userId, deviceId);
@@ -155,19 +154,10 @@ class SasFailure implements Exception {
 /// Transport-independent: [handle] takes a received message, and the methods
 /// return what to send.
 class SasSession {
-  SasSession.initiator({
-    required this.txn,
-    required this.us,
-    required this.ourKeys,
-  }) : initiator = true,
-       them = null;
+  SasSession.initiator({required this.txn, required this.us, required this.ourKeys}) : initiator = true, them = null;
 
-  SasSession.responder({
-    required this.txn,
-    required this.us,
-    required SasParty this.them,
-    required this.ourKeys,
-  }) : initiator = false;
+  SasSession.responder({required this.txn, required this.us, required SasParty this.them, required this.ourKeys})
+    : initiator = false;
 
   final String txn;
   final SasParty us;
@@ -200,26 +190,18 @@ class SasSession {
   static const _protocol = 'HANASHI_SAS_V1';
 
   /// Initiator: the request to send.
-  SasMessage request({required String mode}) =>
-      SasMessage(SasType.request, {'txn': txn, 'mode': mode});
+  SasMessage request({required String mode}) => SasMessage(SasType.request, {'txn': txn, 'mode': mode});
 
   /// Responder: the user accepted.
   Future<SasMessage> accept() async {
     _expect(!initiator && state == SasState.requested, 'Nothing to accept');
     await _newKey();
     state = SasState.exchanging;
-    return SasMessage(SasType.accept, {
-      'txn': txn,
-      'commitment': await _commitment(_ourPublic!),
-    });
+    return SasMessage(SasType.accept, {'txn': txn, 'commitment': await _commitment(_ourPublic!)});
   }
 
   /// Handles a message from [from]; returns what to send in reply.
-  Future<List<SasMessage>> handle(
-    String type,
-    Map<String, Object?> data,
-    SasParty from,
-  ) async {
+  Future<List<SasMessage>> handle(String type, Map<String, Object?> data, SasParty from) async {
     if (state == SasState.cancelled || state == SasState.verified) {
       return const [];
     }
@@ -242,8 +224,7 @@ class SasSession {
           return [
             SasMessage(SasType.key, {'txn': txn, 'key': _ourPublic}),
           ];
-        case SasType.key
-            when state == SasState.exchanging && _theirPublic == null:
+        case SasType.key when state == SasState.exchanging && _theirPublic == null:
           final key = _string(data, 'key');
           if (initiator && await _commitment(key) != _theirCommitment) {
             throw const SasFailure('The other device changed its key');
@@ -256,9 +237,7 @@ class SasSession {
               : [
                   SasMessage(SasType.key, {'txn': txn, 'key': _ourPublic}),
                 ];
-        case SasType.mac
-            when state == SasState.comparing ||
-                state == SasState.waitingForOther:
+        case SasType.mac when state == SasState.comparing || state == SasState.waitingForOther:
           _pendingMac = _string(data, 'mac');
           if (_confirmed) await _checkMac();
           return const [];
@@ -302,23 +281,13 @@ class SasSession {
   /// Seals [secret] for the other device; only after verification.
   Future<String> seal(List<int> secret) async {
     _expect(state == SasState.verified, 'Not verified');
-    return base64.encode(
-      await aeadSeal(
-        await _key('SECRETS', 32),
-        secret,
-        aad: utf8.encode('$_protocol|$txn'),
-      ),
-    );
+    return base64.encode(await aeadSeal(await _key('SECRETS', 32), secret, aad: utf8.encode('$_protocol|$txn')));
   }
 
   /// Opens what the other device [seal]ed. Throws [DecryptionFailed].
   Future<Uint8List> open(String sealed) async {
     _expect(state == SasState.verified, 'Not verified');
-    return aeadOpen(
-      await _key('SECRETS', 32),
-      base64.decode(sealed),
-      aad: utf8.encode('$_protocol|$txn'),
-    );
+    return aeadOpen(await _key('SECRETS', 32), base64.decode(sealed), aad: utf8.encode('$_protocol|$txn'));
   }
 
   // Internals
@@ -338,9 +307,8 @@ class SasSession {
     _ourPublic = base64.encode((await keyPair.extractPublicKey()).bytes);
   }
 
-  Future<String> _commitment(String publicKey) async => base64.encode(
-    await sha256(utf8.encode('$_protocol|COMMIT|$txn|$publicKey')),
-  );
+  Future<String> _commitment(String publicKey) async =>
+      base64.encode(await sha256(utf8.encode('$_protocol|COMMIT|$txn|$publicKey')));
 
   Future<void> _agree() async {
     final List<int> theirs;
@@ -373,18 +341,12 @@ class SasSession {
     return '$_protocol|$initiatorParty|$initiatorKey|$responderParty|$responderKey|$txn';
   }
 
-  Future<Uint8List> _key(String purpose, int length) =>
-      hkdf(_shared!, '$_transcript|$purpose', length: length);
+  Future<Uint8List> _key(String purpose, int length) => hkdf(_shared!, '$_transcript|$purpose', length: length);
 
   Future<String> _mac(SasParty sender, Map<String, String> keys) async {
     final macKey = await _key('MAC|$sender', 32);
-    final canonical = ([
-      for (final e in keys.entries) '${e.key}=${e.value}',
-    ]..sort()).join('\n');
-    final mac = await Hmac.sha256().calculateMac(
-      utf8.encode(canonical),
-      secretKey: SecretKey(macKey),
-    );
+    final canonical = ([for (final e in keys.entries) '${e.key}=${e.value}']..sort()).join('\n');
+    final mac = await Hmac.sha256().calculateMac(utf8.encode(canonical), secretKey: SecretKey(macKey));
     return base64.encode(mac.bytes);
   }
 

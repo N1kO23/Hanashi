@@ -17,12 +17,11 @@ void main() {
   });
 
   test('a refusal for being too old can be retried after updating', () async {
-    final client = MockClient(
-      (_) async => http.Response('{"error":"client_too_old","message":"Update the app"}', 426),
-    );
-    final error = await ApiClient('http://server', client: client)
-        .serverInfo()
-        .then<ApiException>((_) => fail('not refused'), onError: (Object e) => e as ApiException);
+    final client = MockClient((_) async => http.Response('{"error":"client_too_old","message":"Update the app"}', 426));
+    final error = await ApiClient(
+      'http://server',
+      client: client,
+    ).serverInfo().then<ApiException>((_) => fail('not refused'), onError: (Object e) => e as ApiException);
     expect(error.isClientTooOld, isTrue);
     expect(error.isPermanent, isFalse, reason: 'permanent would mark waiting messages as failed');
     expect(error.isUnauthorized, isFalse);

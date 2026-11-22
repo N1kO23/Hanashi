@@ -52,8 +52,7 @@ class UserId {
   String toString() => '$name@$host';
 
   @override
-  bool operator ==(Object other) =>
-      other is UserId && other.name == name && other.host == host;
+  bool operator ==(Object other) => other is UserId && other.name == name && other.host == host;
 
   @override
   int get hashCode => Object.hash(name, host);

@@ -60,9 +60,9 @@ class RemoteMediaLoader {
       }
       final http.StreamedResponse response;
       try {
-        response = await _client.send(http.Request('GET', url)..followRedirects = false).timeout(
-          const Duration(seconds: 20),
-        );
+        response = await _client
+            .send(http.Request('GET', url)..followRedirects = false)
+            .timeout(const Duration(seconds: 20));
       } on Exception {
         throw RemoteMediaException('Cannot reach ${media.provider}');
       }

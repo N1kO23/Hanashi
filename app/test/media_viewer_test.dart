@@ -43,7 +43,9 @@ void main() {
     expect(find.byKey(const Key('composer-field')), findsOneWidget);
   });
 
-  testWidgets('a picture shown larger than it is keeps its pixels sharp; one shown smaller is smoothed', (tester) async {
+  testWidgets('a picture shown larger than it is keeps its pixels sharp; one shown smaller is smoothed', (
+    tester,
+  ) async {
     await setSurfaceSize(tester, const Size(1200, 800));
     final dir = Directory.systemTemp.createTempSync('hanashi_viewer_');
     addTearDown(() => dir.delete(recursive: true));
@@ -51,7 +53,8 @@ void main() {
     FilterQuality quality() => tester.widget<Image>(image).filterQuality;
 
     Future<void> show(int width, int height, {LinkPreview Function(MediaRef picture)? link}) async {
-      final file = File('${dir.path}/$width.png')..writeAsBytesSync(img.encodePng(img.Image(width: width, height: height)));
+      final file = File('${dir.path}/$width.png')
+        ..writeAsBytesSync(img.encodePng(img.Image(width: width, height: height)));
       final picture = MediaRef(
         hash: 'sha256:${'$width'.padLeft(64, '0')}',
         size: 1,
@@ -123,7 +126,12 @@ void main() {
     );
 
     /// A chat with a button that opens [envelope] in the viewer.
-    Future<void> openViewer(WidgetTester tester, Envelope envelope, {MockChatRepository? repo, WindowControls? window}) async {
+    Future<void> openViewer(
+      WidgetTester tester,
+      Envelope envelope, {
+      MockChatRepository? repo,
+      WindowControls? window,
+    }) async {
       final file = File('${dir.path}/photo.png')..writeAsBytesSync(img.encodePng(img.Image(width: 64, height: 32)));
       await tester.pumpWidget(
         ProviderScope(

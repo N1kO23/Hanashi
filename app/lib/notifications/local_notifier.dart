@@ -70,10 +70,7 @@ class LocalNotifier implements NotificationDisplay, CallAlerts {
         android: const AndroidInitializationSettings('ic_notification'),
         iOS: darwin,
         macOS: darwin,
-        linux: LinuxInitializationSettings(
-          defaultActionName: 'Open',
-          defaultIcon: _linuxIcon(look.icon),
-        ),
+        linux: LinuxInitializationSettings(defaultActionName: 'Open', defaultIcon: _linuxIcon(look.icon)),
         windows: const WindowsInitializationSettings(
           appName: 'Hanashi',
           appUserModelId: 'nullpointr.Hanashi',
@@ -155,7 +152,12 @@ class LocalNotifier implements NotificationDisplay, CallAlerts {
   ({String conv, int when})? _ongoingSince;
 
   @override
-  Future<void> showOngoing({required String conv, required String title, bool video = false, bool sharing = false}) async {
+  Future<void> showOngoing({
+    required String conv,
+    required String title,
+    bool video = false,
+    bool sharing = false,
+  }) async {
     final android = _android;
     if (android == null) return;
     final now = WidgetsBinding.instance.lifecycleState;

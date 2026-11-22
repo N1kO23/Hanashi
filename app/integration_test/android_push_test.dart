@@ -175,7 +175,10 @@ void main() {
       // Kumiko starts a chat while the app is open.
       final me = container.read(accountProvider).value!.userId;
       await container.read(chatRepositoryProvider).requestContact(kumiko.repo.me);
-      await kumiko.repo.watchContacts().firstWhere((c) => c[me] == ContactState.incoming).timeout(const Duration(seconds: 30));
+      await kumiko.repo
+          .watchContacts()
+          .firstWhere((c) => c[me] == ContactState.incoming)
+          .timeout(const Duration(seconds: 30));
       await kumiko.repo.acceptContact(me);
       final conv = await kumiko.repo.openDirectConversation(me);
       await kumiko.repo.sendText(conv, 'Are you there?');
@@ -190,10 +193,14 @@ void main() {
       await kumiko.repo.sendText(conv, 'Sota, push check!');
 
       // FCM delivers the push; the app syncs and shows a notification.
-      final shown = await _eventually(() async {
-        final active = await FlutterLocalNotificationsPlugin().getActiveNotifications();
-        return active.where((n) => n.id == notificationId(conv)).firstOrNull;
-      }, 'the notification appears', seconds: 120);
+      final shown = await _eventually(
+        () async {
+          final active = await FlutterLocalNotificationsPlugin().getActiveNotifications();
+          return active.where((n) => n.id == notificationId(conv)).firstOrNull;
+        },
+        'the notification appears',
+        seconds: 120,
+      );
       debugPrint('Notification: ${shown.title} / ${shown.body} after $wakes wake-up(s)');
       expect(shown.title, 'kumiko$run');
       expect(shown.body, contains('Sota, push check!'));

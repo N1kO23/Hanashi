@@ -10,31 +10,18 @@ import 'package:hanashi_protocol/hanashi_protocol.dart';
 
 import 'support/test_app.dart';
 
-const _hash =
-    'sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08';
+const _hash = 'sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08';
 const _me = 'sota@localhost';
 const _them = 'kumiko@localhost';
 
-ChatMessage _text(
-  String from,
-  String text, {
-  DeliveryState state = DeliveryState.sent,
-}) => ChatMessage(
+ChatMessage _text(String from, String text, {DeliveryState state = DeliveryState.sent}) => ChatMessage(
   envelope: Envelope.text(conv: 'c', from: from, text: text, now: testNow),
   state: state,
 );
 
-ChatMessage _media(MessageType type, MediaRef ref, {String? caption}) =>
-    ChatMessage(
-      envelope: Envelope.media(
-        conv: 'c',
-        from: _them,
-        type: type,
-        media: ref,
-        caption: caption,
-        now: testNow,
-      ),
-    );
+ChatMessage _media(MessageType type, MediaRef ref, {String? caption}) => ChatMessage(
+  envelope: Envelope.media(conv: 'c', from: _them, type: type, media: ref, caption: caption, now: testNow),
+);
 
 Widget _host(List<Widget> children) => ProviderScope(
   overrides: [chatRepositoryProvider.overrideWithValue(testRepository())],
@@ -49,23 +36,11 @@ Widget _host(List<Widget> children) => ProviderScope(
 );
 
 void main() {
-  testWidgets('incoming group: only the first bubble shows name and avatar', (
-    tester,
-  ) async {
+  testWidgets('incoming group: only the first bubble shows name and avatar', (tester) async {
     await tester.pumpWidget(
       _host([
-        MessageBubble(
-          message: _text(_them, 'one'),
-          isMine: false,
-          senderName: 'Kumiko',
-          isLastInGroup: false,
-        ),
-        MessageBubble(
-          message: _text(_them, 'two'),
-          isMine: false,
-          senderName: 'Kumiko',
-          isFirstInGroup: false,
-        ),
+        MessageBubble(message: _text(_them, 'one'), isMine: false, senderName: 'Kumiko', isLastInGroup: false),
+        MessageBubble(message: _text(_them, 'two'), isMine: false, senderName: 'Kumiko', isFirstInGroup: false),
       ]),
     );
     expect(find.text('Kumiko'), findsOneWidget);
@@ -95,9 +70,7 @@ void main() {
     expect(retried, isTrue);
   });
 
-  testWidgets('a message this device has no keys for yet waits for them', (
-    tester,
-  ) async {
+  testWidgets('a message this device has no keys for yet waits for them', (tester) async {
     final placeholder = ChatMessage(
       envelope: Envelope(
         id: newUlid(),
@@ -108,15 +81,7 @@ void main() {
         body: const {},
       ),
     );
-    await tester.pumpWidget(
-      _host([
-        MessageBubble(
-          message: placeholder,
-          isMine: false,
-          senderName: 'Kumiko',
-        ),
-      ]),
-    );
+    await tester.pumpWidget(_host([MessageBubble(message: placeholder, isMine: false, senderName: 'Kumiko')]));
     expect(find.text('Waiting for keys...'), findsOneWidget);
     expect(find.byIcon(Icons.lock_clock_outlined), findsOneWidget);
   });
@@ -127,12 +92,7 @@ void main() {
         MessageBubble(
           message: _media(
             MessageType.file,
-            const MediaRef(
-              hash: _hash,
-              size: 284331,
-              mime: 'application/pdf',
-              name: 'report.pdf',
-            ),
+            const MediaRef(hash: _hash, size: 284331, mime: 'application/pdf', name: 'report.pdf'),
           ),
           isMine: false,
           senderName: 'Kumiko',
@@ -170,26 +130,14 @@ void main() {
     await setSurfaceSize(tester, const Size(480, 900));
     await tester.pumpWidget(
       _host([
+        MessageBubble(message: _text(_them, 'Sota!'), isMine: false, senderName: 'Kumiko', isLastInGroup: false),
         MessageBubble(
-          message: _text(_them, 'Sota!'),
-          isMine: false,
-          senderName: 'Kumiko',
-          isLastInGroup: false,
-        ),
-        MessageBubble(
-          message: _text(
-            _them,
-            'There is a new cafe near the station and I want to try their parfait.',
-          ),
+          message: _text(_them, 'There is a new cafe near the station and I want to try their parfait.'),
           isMine: false,
           senderName: 'Kumiko',
           isFirstInGroup: false,
         ),
-        MessageBubble(
-          message: _text(_me, 'Sounds good. After class?'),
-          isMine: true,
-          senderName: 'Sota',
-        ),
+        MessageBubble(message: _text(_me, 'Sounds good. After class?'), isMine: true, senderName: 'Sota'),
         MessageBubble(
           message: _text(_me, 'Sending...', state: DeliveryState.pending),
           isMine: true,
@@ -199,13 +147,7 @@ void main() {
         MessageBubble(
           message: _media(
             MessageType.image,
-            const MediaRef(
-              hash: _hash,
-              size: 512000,
-              mime: 'image/jpeg',
-              width: 1080,
-              height: 1440,
-            ),
+            const MediaRef(hash: _hash, size: 512000, mime: 'image/jpeg', width: 1080, height: 1440),
           ),
           isMine: false,
           senderName: 'Kumiko',
@@ -213,14 +155,7 @@ void main() {
         MessageBubble(
           message: _media(
             MessageType.video,
-            const MediaRef(
-              hash: _hash,
-              size: 4200000,
-              mime: 'video/mp4',
-              width: 1280,
-              height: 720,
-              durationMs: 42000,
-            ),
+            const MediaRef(hash: _hash, size: 4200000, mime: 'video/mp4', width: 1280, height: 720, durationMs: 42000),
             caption: 'Practice run',
           ),
           isMine: false,
@@ -229,22 +164,14 @@ void main() {
         MessageBubble(
           message: _media(
             MessageType.file,
-            const MediaRef(
-              hash: _hash,
-              size: 284331,
-              mime: 'application/pdf',
-              name: 'weekly-report.pdf',
-            ),
+            const MediaRef(hash: _hash, size: 284331, mime: 'application/pdf', name: 'weekly-report.pdf'),
           ),
           isMine: false,
           senderName: 'Kumiko',
         ),
       ]),
     );
-    await expectLater(
-      find.byType(Scaffold),
-      matchesGoldenFile('goldens/bubbles.png'),
-    );
+    await expectLater(find.byType(Scaffold), matchesGoldenFile('goldens/bubbles.png'));
   });
 
   test('ordinary text never falls back to the emoji font', () {
@@ -264,9 +191,7 @@ void main() {
       ]),
     );
     expect(
-      [
-        for (final t in tester.widgetList<EmojiText>(find.byKey(const Key('big-emoji')))) (t.text, t.style!.fontSize),
-      ],
+      [for (final t in tester.widgetList<EmojiText>(find.byKey(const Key('big-emoji')))) (t.text, t.style!.fontSize)],
       [('😂', 48.0), ('👍🏽❤️', 40.0), ('🇫🇮 🎉 😂', 32.0)],
     );
     // With other text, or more emoji: as usual.

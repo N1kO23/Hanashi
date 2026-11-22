@@ -537,7 +537,9 @@ class CallController extends Notifier<CallView> {
         // Too late to answer.
         _opened = null;
         _openedTimeout?.cancel();
-        state = CallView(problem: call.active && call.answeredAt != null ? 'Answered on another device' : 'Missed call');
+        state = CallView(
+          problem: call.active && call.answeredAt != null ? 'Answered on another device' : 'Missed call',
+        );
         unawaited(_window.callOver());
       }
     }
@@ -589,7 +591,9 @@ class CallController extends Notifier<CallView> {
       case CallStop(:final callId, :final reason, :final missed):
         _settled.add(callId);
         if (state.phase == CallPhase.incoming && state.call?.id == callId) {
-          _finish(problem: missed ? 'Missed call' : (reason == CallStop.answered ? 'Answered on another device' : null));
+          _finish(
+            problem: missed ? 'Missed call' : (reason == CallStop.answered ? 'Answered on another device' : null),
+          );
         }
     }
   }
@@ -625,7 +629,10 @@ class CallController extends Notifier<CallView> {
   /// Whether a device of this user got into the call after this one.
   bool _laterDeviceOfMine(Call call) {
     final device = ref.read(accountProvider).value?.deviceId;
-    final mine = [for (final p in call.participants) if (p.user == _repo.me) p];
+    final mine = [
+      for (final p in call.participants)
+        if (p.user == _repo.me) p,
+    ];
     final self = mine.where((p) => p.device == device).firstOrNull;
     return self != null && mine.any((p) => p.device != device && p.joinedAt.isAfter(self.joinedAt));
   }
@@ -704,7 +711,9 @@ class CallController extends Notifier<CallView> {
         return;
       }
       final known = state.call;
-      state = state.copyWith(call: known != null && known.id == join.call.id && known.version > join.call.version ? known : join.call);
+      state = state.copyWith(
+        call: known != null && known.id == join.call.id && known.version > join.call.version ? known : join.call,
+      );
       if (!join.call.active) {
         _ended(join.call);
         return;
@@ -716,12 +725,14 @@ class CallController extends Notifier<CallView> {
       if (givenUp()) return;
       // Nothing goes out without the call's key.
       final first = Completer<CallKey>();
-      _keys = _repo.watchCallKeys(conv, join.call.id).listen(
-        (key) => _takeKey(key, first),
-        onError: (Object e) {
-          if (!first.isCompleted) first.completeError(e);
-        },
-      );
+      _keys = _repo
+          .watchCallKeys(conv, join.call.id)
+          .listen(
+            (key) => _takeKey(key, first),
+            onError: (Object e) {
+              if (!first.isCompleted) first.completeError(e);
+            },
+          );
       final key = await first.future.timeout(
         const Duration(seconds: 15),
         onTimeout: () => throw const CallConnectionException("Could not get the call's key"),

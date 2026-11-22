@@ -63,7 +63,9 @@ void main() {
   bool held() => container.read(callHoldProvider);
   final ringUntil = testNow.add(const Duration(seconds: 45));
 
-  testWidgets('a call made: in once its key is here; later keys taken at once, sent with a while later', (tester) async {
+  testWidgets('a call made: in once its key is here; later keys taken at once, sent with a while later', (
+    tester,
+  ) async {
     start();
     await tester.pump();
     final joining = controller().start(conv);
@@ -157,7 +159,9 @@ void main() {
     expect((view().phase, view().problem, repo.left.length), (CallPhase.idle, 'No longer in this chat', 1));
   });
 
-  testWidgets('a call nobody says ended stops ringing once its time is up; a room gone is a call cut off', (tester) async {
+  testWidgets('a call nobody says ended stops ringing once its time is up; a room gone is a call cut off', (
+    tester,
+  ) async {
     start();
     await tester.pump();
     repo.tell(testCall(id: 'unanswered', conv: conv, startedBy: kumiko, ringUntil: ringUntil));
@@ -220,7 +224,9 @@ void main() {
     expect(connection.log, ['disconnect']);
   });
 
-  testWidgets('the microphone first: refused, nobody is rung, and a call that rings goes on ringing elsewhere', (tester) async {
+  testWidgets('the microphone first: refused, nobody is rung, and a call that rings goes on ringing elsewhere', (
+    tester,
+  ) async {
     start();
     await tester.pump();
     connection.microphoneError = const CallConnectionException('Hanashi may not use the microphone');
@@ -239,34 +245,37 @@ void main() {
     expect(view().phase, CallPhase.idle, reason: 'it rings here no more');
   });
 
-  testWidgets('a call going on: shown outside the app once the microphone is open, earpiece for two and speaker for groups', (tester) async {
-    start();
-    await tester.pump();
-    final joining = controller().start(conv);
-    await tester.pump();
-    expect(connection.microphoneOpen, isTrue);
-    expect(alerts.log, ['ongoing $conv Voice call']);
-    // A chat of two: the earpiece, so the screen goes dark against the ear.
-    expect((view().speaker, connection.speaker, window.proximity), (false, false, true));
-    repo.keys.add(testKey(1));
-    await tester.pump();
-    await joining;
-    await controller().toggleSpeaker();
-    expect((view().speaker, connection.speaker, window.proximity), (true, true, false));
-    await controller().hangUp();
-    expect((alerts.log.last, window.proximity, connection.microphoneOpen), ('ongoing gone', false, false));
+  testWidgets(
+    'a call going on: shown outside the app once the microphone is open, earpiece for two and speaker for groups',
+    (tester) async {
+      start();
+      await tester.pump();
+      final joining = controller().start(conv);
+      await tester.pump();
+      expect(connection.microphoneOpen, isTrue);
+      expect(alerts.log, ['ongoing $conv Voice call']);
+      // A chat of two: the earpiece, so the screen goes dark against the ear.
+      expect((view().speaker, connection.speaker, window.proximity), (false, false, true));
+      repo.keys.add(testKey(1));
+      await tester.pump();
+      await joining;
+      await controller().toggleSpeaker();
+      expect((view().speaker, connection.speaker, window.proximity), (true, true, false));
+      await controller().hangUp();
+      expect((alerts.log.last, window.proximity, connection.microphoneOpen), ('ongoing gone', false, false));
 
-    // A group's call: the speaker.
-    connection = FakeConnection();
-    repo.onJoin = (id) => testCall(id: 'group', conv: id, startedBy: repo.me, direct: false);
-    final group = controller().start('group');
-    await tester.pump();
-    expect((view().speaker, connection.speaker, window.proximity), (true, true, false));
-    repo.keys.add(testKey(1));
-    await tester.pump();
-    await group;
-    expect(view().phase, CallPhase.connected);
-  });
+      // A group's call: the speaker.
+      connection = FakeConnection();
+      repo.onJoin = (id) => testCall(id: 'group', conv: id, startedBy: repo.me, direct: false);
+      final group = controller().start('group');
+      await tester.pump();
+      expect((view().speaker, connection.speaker, window.proximity), (true, true, false));
+      repo.keys.add(testKey(1));
+      await tester.pump();
+      await group;
+      expect(view().phase, CallPhase.connected);
+    },
+  );
 
   testWidgets('hung up, or declined, from a notification', (tester) async {
     start();
@@ -297,7 +306,9 @@ void main() {
     expect((view().phase, repo.declined.last), (CallPhase.idle, later.id));
   });
 
-  testWidgets('opened from a notification before the call is known: it rings once known, or with Accept is answered', (tester) async {
+  testWidgets('opened from a notification before the call is known: it rings once known, or with Accept is answered', (
+    tester,
+  ) async {
     start();
     // Names as the app knows them by then.
     container.listen(profilesProvider, (_, _) {});
@@ -330,7 +341,9 @@ void main() {
     expect((view().phase, view().problem, window.callsOver), (CallPhase.idle, 'Missed call', 3));
   });
 
-  testWidgets('pushes while the app runs: a call that rings is told as the server would, one that stops stops', (tester) async {
+  testWidgets('pushes while the app runs: a call that rings is told as the server would, one that stops stops', (
+    tester,
+  ) async {
     start();
     await tester.pump();
     final call = testCall(id: 'pushed', conv: conv, startedBy: kumiko, ringUntil: ringUntil);
@@ -355,7 +368,10 @@ void main() {
     await tester.pump();
     await calling;
     expect(repo.joinedVideo.single, isTrue);
-    expect((view().video, view().camera, connection.camera, view().speaker, window.proximity), (true, true, true, true, false));
+    expect(
+      (view().video, view().camera, connection.camera, view().speaker, window.proximity),
+      (true, true, true, true, false),
+    );
     expect(view().room.camera, isNotNull, reason: 'a picture of oneself');
     await controller().hangUp();
 
@@ -396,7 +412,10 @@ void main() {
     repo.keys.add(testKey(1));
     await tester.pump();
     await calling;
-    expect((view().phase, view().camera, view().notice), (CallPhase.connected, false, 'Hanashi may not use the camera'));
+    expect(
+      (view().phase, view().camera, view().notice),
+      (CallPhase.connected, false, 'Hanashi may not use the camera'),
+    );
     final first = view().noticeCount;
     await controller().toggleCamera();
     expect((view().notice, view().noticeCount), ('Hanashi may not use the camera', first + 1), reason: 'told again');
@@ -512,7 +531,10 @@ void main() {
     await tester.pump();
     await calling;
     connection.emit(
-      const CallRoomState(encrypted: true, peers: [CallPeer(user: kumiko, device: 'desktop', unwatchedScreen: true)]),
+      const CallRoomState(
+        encrypted: true,
+        peers: [CallPeer(user: kumiko, device: 'desktop', unwatchedScreen: true)],
+      ),
     );
     await tester.pump();
     CallPeer kumikoThere() => view().room.peers.single;
@@ -524,7 +546,10 @@ void main() {
     await tester.pump();
     expect(kumikoThere().unwatchedScreen, isTrue);
     expect(kumikoThere().screen, isNull);
-    expect(connection.log.where((l) => l.contains('watch')), ['watch $kumiko/desktop', 'stop watching $kumiko/desktop']);
+    expect(connection.log.where((l) => l.contains('watch')), [
+      'watch $kumiko/desktop',
+      'stop watching $kumiko/desktop',
+    ]);
   });
 
   testWidgets('each one as loud as the user sets them: at once, in the next call, and after a restart', (tester) async {
@@ -579,7 +604,9 @@ void main() {
     expect(await kept(), isNull);
   });
 
-  testWidgets('a phone shares its screen: leave, then the call service for it, then sharing; once more if too soon', (tester) async {
+  testWidgets('a phone shares its screen: leave, then the call service for it, then sharing; once more if too soon', (
+    tester,
+  ) async {
     start(phone: true);
     await tester.pump();
     final calling = controller().start(conv);
@@ -621,7 +648,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 800));
     await failing;
     await tester.pump();
-    expect((view().sharing, view().notice, alerts.log.last), (false, 'Sharing the screen failed', 'ongoing $conv Voice call'));
+    expect(
+      (view().sharing, view().notice, alerts.log.last),
+      (false, 'Sharing the screen failed', 'ongoing $conv Voice call'),
+    );
 
     // No leave: nothing else.
     final told = alerts.log.length;

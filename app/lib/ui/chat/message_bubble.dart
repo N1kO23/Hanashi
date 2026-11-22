@@ -92,11 +92,9 @@ class MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxBubbleWidth =
-            (constraints.maxWidth - _avatarSize - _avatarGap - 48) * 0.85;
+        final maxBubbleWidth = (constraints.maxWidth - _avatarSize - _avatarGap - 48) * 0.85;
         final actions = onActions;
-        final actionable =
-            actions != null && !message.isDeleted && message.envelope.type != Envelope.encryptedType;
+        final actionable = actions != null && !message.isDeleted && message.envelope.type != Envelope.encryptedType;
         Widget bubble = ConstrainedBox(
           constraints: BoxConstraints(maxWidth: maxBubbleWidth.clamp(120, 520)),
           child: _Bubble(
@@ -114,11 +112,7 @@ class MessageBubble extends StatelessWidget {
             child: bubble,
           );
         }
-        final meta = _Meta(
-          message: message,
-          showTime: isLastInGroup,
-          onRetry: onRetry,
-        );
+        final meta = _Meta(message: message, showTime: isLastInGroup, onRetry: onRetry);
         final reactions = message.reactions.isEmpty
             ? null
             : Padding(
@@ -137,7 +131,9 @@ class MessageBubble extends StatelessWidget {
         // in the row, so nothing moves when they show.
         Widget row(Widget Function(Widget bubble)? anchor) {
           final anchored = anchor?.call(bubble) ?? bubble;
-          return isMine ? _mine(padding, anchored, meta, reactions) : _theirs(context, padding, anchored, meta, reactions);
+          return isMine
+              ? _mine(padding, anchored, meta, reactions)
+              : _theirs(context, padding, anchored, meta, reactions);
         }
 
         return AnimatedContainer(
@@ -429,11 +425,7 @@ class _HoverState extends State<_Hover> {
         top: corner.dy,
         child: FractionalTranslation(
           translation: const Offset(0, -0.5),
-          child: MouseRegion(
-            onEnter: (_) => _over(bar: true),
-            onExit: (_) => _over(bar: false),
-            child: widget.bar,
-          ),
+          child: MouseRegion(onEnter: (_) => _over(bar: true), onExit: (_) => _over(bar: false), child: widget.bar),
         ),
       );
     },
@@ -482,16 +474,26 @@ class _HoverBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: context.palette.fieldBorder),
         // It floats over the bubble.
-        boxShadow: [BoxShadow(color: context.palette.shadow.withAlpha(0x26), blurRadius: 6, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(color: context.palette.shadow.withAlpha(0x26), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          button(const Key('hover-react'), 'React', Icons.add_reaction_outlined,
-              onReact == null ? null : (context) => onReact!(below(context))),
+          button(
+            const Key('hover-react'),
+            'React',
+            Icons.add_reaction_outlined,
+            onReact == null ? null : (context) => onReact!(below(context)),
+          ),
           button(const Key('hover-reply'), 'Reply', Icons.reply, onReply == null ? null : (_) => onReply!()),
-          button(const Key('hover-more'), 'More', Icons.more_horiz,
-              onMore == null ? null : (context) => onMore!(below(context))),
+          button(
+            const Key('hover-more'),
+            'More',
+            Icons.more_horiz,
+            onMore == null ? null : (context) => onMore!(below(context)),
+          ),
         ],
       ),
     );
@@ -555,20 +557,11 @@ class _Bubble extends ConsumerWidget {
               _GifBody(envelope: envelope, gif: gif)
             else if (media != null)
               switch (envelope.messageType!) {
-                MessageType.image => _VisualMediaBody(
-                  envelope: envelope,
-                  media: media,
-                ),
-                MessageType.video => _VisualMediaBody(
-                  envelope: envelope,
-                  media: media,
-                  isVideo: true,
-                ),
+                MessageType.image => _VisualMediaBody(envelope: envelope, media: media),
+                MessageType.video => _VisualMediaBody(envelope: envelope, media: media, isVideo: true),
                 _ => _FileBody(envelope: envelope, media: media),
               },
-            if (caption != null &&
-                caption.isNotEmpty &&
-                envelope.messageType != MessageType.file)
+            if (caption != null && caption.isNotEmpty && envelope.messageType != MessageType.file)
               Padding(
                 padding: const EdgeInsets.fromLTRB(6, 8, 6, 2),
                 child: EmojiText(
@@ -584,9 +577,7 @@ class _Bubble extends ConsumerWidget {
       );
     }
 
-    final color = isMine
-        ? context.palette.outgoingBubble
-        : context.palette.incomingBubble;
+    final color = isMine ? context.palette.outgoingBubble : context.palette.incomingBubble;
     if (envelope.type == Envelope.encryptedType) {
       return _FadedBubble(
         color: color,
@@ -643,9 +634,7 @@ class _Bubble extends ConsumerWidget {
               children: [quote(false), shown],
             );
     }
-    final content = envelope.messageType == MessageType.text
-        ? caption ?? ''
-        : envelope.preview;
+    final content = envelope.messageType == MessageType.text ? caption ?? '' : envelope.preview;
     // A few emoji by themselves: large, without a bubble.
     final emoji = envelope.messageType == MessageType.text
         ? emojiOnlyCount(content, custom: emojis.keys.toSet())
@@ -685,7 +674,11 @@ class _Bubble extends ConsumerWidget {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
-                children: [if (reply != null) quote(true), text, if (link != null) _LinkCard(link: link)],
+                children: [
+                  if (reply != null) quote(true),
+                  text,
+                  if (link != null) _LinkCard(link: link),
+                ],
               ),
       ),
     );
@@ -906,7 +899,11 @@ class _LinkText extends StatelessWidget {
           heading!,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: context.palette.onBubble.withAlpha(0xB3)),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12.5,
+            color: context.palette.onBubble.withAlpha(0xB3),
+          ),
         ),
       if (title != null)
         EmojiText(
@@ -929,12 +926,7 @@ class _LinkText extends StatelessWidget {
 /// The message a reply answers: who wrote it and how it starts. Tapping it
 /// shows the original.
 class _Quote extends StatelessWidget {
-  const _Quote({
-    required this.reply,
-    required this.nameOf,
-    required this.onDark,
-    this.onTap,
-  });
+  const _Quote({required this.reply, required this.nameOf, required this.onDark, this.onTap});
 
   final ReplyRef reply;
   final String Function(String userId) nameOf;
@@ -961,7 +953,10 @@ class _Quote extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(width: 3, color: onDark ? context.palette.onBubble.withAlpha(0xB3) : context.palette.replyAccent),
+              Container(
+                width: 3,
+                color: onDark ? context.palette.onBubble.withAlpha(0xB3) : context.palette.replyAccent,
+              ),
               Flexible(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(8, 4, 10, 5),
@@ -1019,13 +1014,18 @@ class _Reactions extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: users.contains(me) ? context.palette.replyPanel : context.palette.listBackground,
-                  border: Border.all(color: users.contains(me) ? context.palette.replyAccent : context.palette.fieldBorder),
+                  border: Border.all(
+                    color: users.contains(me) ? context.palette.replyAccent : context.palette.fieldBorder,
+                  ),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text.rich(
                   TextSpan(
                     children: [
-                      TextSpan(text: emoji, style: const TextStyle(fontSize: 15, fontFamilyFallback: emojiOnlyFallback)),
+                      TextSpan(
+                        text: emoji,
+                        style: const TextStyle(fontSize: 15, fontFamilyFallback: emojiOnlyFallback),
+                      ),
                       TextSpan(
                         text: ' ${users.length}',
                         style: TextStyle(fontSize: 12.5, color: context.palette.textSecondary),
@@ -1159,11 +1159,7 @@ class _GifBody extends ConsumerWidget {
 /// aspect ratio; an animated image (up to [maxInlineAnimationBytes]) plays.
 /// Tapping opens the full-screen viewer.
 class _VisualMediaBody extends ConsumerWidget {
-  const _VisualMediaBody({
-    required this.envelope,
-    required this.media,
-    this.isVideo = false,
-  });
+  const _VisualMediaBody({required this.envelope, required this.media, this.isVideo = false});
 
   final Envelope envelope;
   final MediaRef media;
@@ -1172,13 +1168,9 @@ class _VisualMediaBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final w = media.width, h = media.height;
-    final aspect = (w != null && h != null && w > 0 && h > 0)
-        ? (w / h).clamp(0.6, 2.0)
-        : 4 / 3;
+    final aspect = (w != null && h != null && w > 0 && h > 0) ? (w / h).clamp(0.6, 2.0) : 4 / 3;
     final thumb = media.thumb;
-    final thumbBytes = thumb == null
-        ? null
-        : ref.watch(mediaBytesProvider(mediaKey(thumb))).value;
+    final thumbBytes = thumb == null ? null : ref.watch(mediaBytesProvider(mediaKey(thumb))).value;
     final animated = !isVideo && _animatedImages.contains(media.mime) && media.size <= maxInlineAnimationBytes;
     final shown = (animated ? ref.watch(mediaBytesProvider(mediaKey(media))).value : null) ?? thumbBytes;
     return GestureDetector(
@@ -1193,11 +1185,7 @@ class _VisualMediaBody extends ConsumerWidget {
               if (shown != null)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
-                  child: Image.memory(
-                    shown,
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
-                  ),
+                  child: Image.memory(shown, fit: BoxFit.cover, gaplessPlayback: true),
                 )
               else
                 DecoratedBox(
@@ -1210,10 +1198,7 @@ class _VisualMediaBody extends ConsumerWidget {
                 Center(
                   child: Container(
                     padding: const EdgeInsets.all(8),
-                    decoration: const BoxDecoration(
-                      color: Color(0x55000000),
-                      shape: BoxShape.circle,
-                    ),
+                    decoration: const BoxDecoration(color: Color(0x55000000), shape: BoxShape.circle),
                     child: Icon(
                       isVideo ? Icons.play_arrow_rounded : Icons.image_outlined,
                       color: Colors.white,
@@ -1227,14 +1212,8 @@ class _VisualMediaBody extends ConsumerWidget {
                   right: 8,
                   bottom: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0x99000000),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: const Color(0x99000000), borderRadius: BorderRadius.circular(4)),
                     child: Text(
                       formatDuration(Duration(milliseconds: media.durationMs!)),
                       style: const TextStyle(color: Colors.white, fontSize: 12),
@@ -1271,12 +1250,7 @@ class _FileBodyState extends ConsumerState<_FileBody> {
   Future<void> _save() async {
     if (_downloading) return;
     setState(() => _downloading = true);
-    await saveMedia(
-      context,
-      ref,
-      widget.media,
-      onProgress: (p) => mounted ? setState(() => _progress = p) : null,
-    );
+    await saveMedia(context, ref, widget.media, onProgress: (p) => mounted ? setState(() => _progress = p) : null);
     if (mounted) {
       setState(() {
         _downloading = false;
@@ -1301,10 +1275,7 @@ class _FileBodyState extends ConsumerState<_FileBody> {
             Container(
               width: 42,
               height: 42,
-              decoration: BoxDecoration(
-                color: context.palette.replyAccent,
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: context.palette.replyAccent, shape: BoxShape.circle),
               child: _downloading
                   ? Padding(
                       padding: const EdgeInsets.all(10),
@@ -1326,19 +1297,15 @@ class _FileBodyState extends ConsumerState<_FileBody> {
                     media.name ?? 'File',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: context.palette.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(color: context.palette.textPrimary, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    [if (duration != null) formatDuration(Duration(milliseconds: duration)), formatBytes(media.size)]
-                        .join(' · '),
-                    style: TextStyle(
-                      color: context.palette.textMuted,
-                      fontSize: 12,
-                    ),
+                    [
+                      if (duration != null) formatDuration(Duration(milliseconds: duration)),
+                      formatBytes(media.size),
+                    ].join(' · '),
+                    style: TextStyle(color: context.palette.textMuted, fontSize: 12),
                   ),
                 ],
               ),
@@ -1361,11 +1328,7 @@ class _Meta extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (message.state) {
       case DeliveryState.pending:
-        return Icon(
-          Icons.schedule,
-          size: 14,
-          color: context.palette.textMuted,
-        );
+        return Icon(Icons.schedule, size: 14, color: context.palette.textMuted);
       case DeliveryState.failed:
         return IconButton(
           tooltip: 'Retry',
@@ -1374,15 +1337,9 @@ class _Meta extends StatelessWidget {
           onPressed: onRetry,
         );
       case DeliveryState.sent:
-        final label = [
-          if (message.edited) 'edited',
-          if (showTime) formatClock(message.sentAt),
-        ].join(' ');
+        final label = [if (message.edited) 'edited', if (showTime) formatClock(message.sentAt)].join(' ');
         if (label.isEmpty) return const SizedBox.shrink();
-        return Text(
-          label,
-          style: TextStyle(fontSize: 11, color: context.palette.textMuted),
-        );
+        return Text(label, style: TextStyle(fontSize: 11, color: context.palette.textMuted));
     }
   }
 }
@@ -1421,6 +1378,5 @@ class _TailPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_TailPainter old) =>
-      old.color != color || old.onLeft != onLeft || old.top != top;
+  bool shouldRepaint(_TailPainter old) => old.color != color || old.onLeft != onLeft || old.top != top;
 }

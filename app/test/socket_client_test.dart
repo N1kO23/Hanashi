@@ -17,14 +17,8 @@ Future<HttpServer> _readyServer() async {
 }
 
 void main() {
-  SocketClient client(Uri uri, Future<void> Function() onReady) => SocketClient(
-    uri: uri,
-    token: 't',
-    onReady: onReady,
-    onEvent: (_) {},
-    onInbox: (_) {},
-    onRevoked: () {},
-  );
+  SocketClient client(Uri uri, Future<void> Function() onReady) =>
+      SocketClient(uri: uri, token: 't', onReady: onReady, onEvent: (_) {}, onInbox: (_) {}, onRevoked: () {});
 
   Future<String?> problem(SocketClient socket, bool Function(String? p) test) =>
       socket.problemChanges.firstWhere(test).timeout(const Duration(seconds: 10));

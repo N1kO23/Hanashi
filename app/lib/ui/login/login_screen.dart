@@ -44,14 +44,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _error = null;
     });
     try {
-      await ref.read(accountProvider.notifier).signIn(
-        serverUrl: _server.text.trim(),
-        name: _name.text.trim().toLowerCase(),
-        password: _password.text,
-        register: _register,
-        displayName: _register && _displayName.text.trim().isNotEmpty ? _displayName.text.trim() : null,
-        inviteCode: _register && _invite.text.trim().isNotEmpty ? _invite.text.trim() : null,
-      );
+      await ref
+          .read(accountProvider.notifier)
+          .signIn(
+            serverUrl: _server.text.trim(),
+            name: _name.text.trim().toLowerCase(),
+            password: _password.text,
+            register: _register,
+            displayName: _register && _displayName.text.trim().isNotEmpty ? _displayName.text.trim() : null,
+            inviteCode: _register && _invite.text.trim().isNotEmpty ? _invite.text.trim() : null,
+          );
     } on ApiException catch (e) {
       setState(() => _error = e.toString());
     } on FormatException {

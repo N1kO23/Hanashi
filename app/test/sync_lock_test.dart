@@ -61,7 +61,11 @@ void main() {
     final waiter = SyncLock('device-4');
     addTearDown(waiter.close);
     var stop = false;
-    final waiting = waiter.acquire(cancelled: () => stop, poll: const Duration(milliseconds: 10), answerWithin: answerWithin);
+    final waiting = waiter.acquire(
+      cancelled: () => stop,
+      poll: const Duration(milliseconds: 10),
+      answerWithin: answerWithin,
+    );
     await Future<void>.delayed(const Duration(milliseconds: 600));
     expect(app.held, isTrue);
     stop = true;

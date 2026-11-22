@@ -369,7 +369,9 @@ class LinkPreviewFetcher {
     Future<VideoInfo?> probing(VideoProbe probe) async => probe(file.path);
     final info = !whole || probe == null
         ? null
-        : await probing(probe).timeout(const Duration(seconds: 15), onTimeout: () => null).catchError((Object _) => null);
+        : await probing(probe)
+              .timeout(const Duration(seconds: 15), onTimeout: () => null)
+              .catchError((Object _) => null);
     if (!whole || (probe != null && info?.width == null)) {
       await file.delete();
       return whole ? null : tooLarge;

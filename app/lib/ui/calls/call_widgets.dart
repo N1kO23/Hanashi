@@ -68,12 +68,8 @@ class _HoldToTalkState extends ConsumerState<HoldToTalk> {
 }
 
 /// The call going on in a conversation, if any.
-Call? activeCallIn(WidgetRef ref, String conversationId) => ref
-    .watch(callsProvider)
-    .value
-    ?.values
-    .where((c) => c.conv == conversationId && c.active)
-    .firstOrNull;
+Call? activeCallIn(WidgetRef ref, String conversationId) =>
+    ref.watch(callsProvider).value?.values.where((c) => c.conv == conversationId && c.active).firstOrNull;
 
 /// Calls a chat, or joins its call: in its title bar. With [video], a video
 /// call: only in chats of two, where the server has video, and not while a
@@ -185,7 +181,10 @@ class CallStrip extends ConsumerWidget {
             ),
             FilledButton(
               key: const Key('call-join'),
-              style: FilledButton.styleFrom(backgroundColor: context.palette.online, visualDensity: VisualDensity.compact),
+              style: FilledButton.styleFrom(
+                backgroundColor: context.palette.online,
+                visualDensity: VisualDensity.compact,
+              ),
               onPressed: view.phase == CallPhase.idle
                   ? () => unawaited(ref.read(callControllerProvider.notifier).start(conversationId))
                   : null,
@@ -258,22 +257,23 @@ class CallRecord extends ConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircleAvatar(radius: 18, backgroundColor: color.withValues(alpha: 0.14), child: Icon(icon, size: 20, color: color)),
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: color.withValues(alpha: 0.14),
+            child: Icon(icon, size: 20, color: color),
+          ),
           const SizedBox(width: 10),
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  switch ((missed, call?.video ?? false)) {
-                    (true, true) => 'Missed video call',
-                    (true, false) => 'Missed voice call',
-                    (false, true) => 'Video call',
-                    (false, false) => 'Voice call',
-                  },
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: context.palette.textPrimary),
-                ),
+                Text(switch ((missed, call?.video ?? false)) {
+                  (true, true) => 'Missed video call',
+                  (true, false) => 'Missed voice call',
+                  (false, true) => 'Video call',
+                  (false, false) => 'Voice call',
+                }, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: context.palette.textPrimary)),
                 if (status != null && !missed)
                   Text(status, style: TextStyle(fontSize: 13, color: context.palette.textSecondary)),
               ],
@@ -283,7 +283,10 @@ class CallRecord extends ConsumerWidget {
             const SizedBox(width: 10),
             FilledButton(
               key: ValueKey('call-record-join-$callId'),
-              style: FilledButton.styleFrom(backgroundColor: context.palette.online, visualDensity: VisualDensity.compact),
+              style: FilledButton.styleFrom(
+                backgroundColor: context.palette.online,
+                visualDensity: VisualDensity.compact,
+              ),
               onPressed: view.phase == CallPhase.idle
                   ? () => unawaited(ref.read(callControllerProvider.notifier).start(conversationId))
                   : null,
@@ -336,7 +339,12 @@ class CallOverlay extends ConsumerWidget {
       children: [
         child,
         if (view.phase == CallPhase.incoming && view.call != null)
-          Positioned(top: top, left: 12, right: 12, child: Center(child: _IncomingCall(call: view.call!))),
+          Positioned(
+            top: top,
+            left: 12,
+            right: 12,
+            child: Center(child: _IncomingCall(call: view.call!)),
+          ),
         if (view.phase.inCall && !full && !phoneView)
           Positioned(
             key: const ValueKey('call-pill-place'),
@@ -348,7 +356,9 @@ class CallOverlay extends ConsumerWidget {
               // Not over the chat that shows the call's video.
               builder: (context, open, _) => shown && !narrow && open == view.conv
                   ? const SizedBox.shrink()
-                  : Center(child: _CallPill(view: view, onOpenChat: onOpenChat, navigatorContext: navigatorContext)),
+                  : Center(
+                      child: _CallPill(view: view, onOpenChat: onOpenChat, navigatorContext: navigatorContext),
+                    ),
             ),
           ),
         if (phoneView)
@@ -362,13 +372,20 @@ class CallOverlay extends ConsumerWidget {
             child: FullCallStage(backButtonDispatcher: backButtonDispatcher),
           ),
         if (view.phase == CallPhase.idle && view.problem != null)
-          Positioned(top: top, left: 12, right: 12, child: Center(child: _Notice(text: view.problem!))),
+          Positioned(
+            top: top,
+            left: 12,
+            right: 12,
+            child: Center(child: _Notice(text: view.problem!)),
+          ),
         if (view.phase.inCall && view.notice != null)
           Positioned(
             bottom: MediaQuery.paddingOf(context).bottom + 96,
             left: 12,
             right: 12,
-            child: Center(child: _Notice(key: ValueKey(view.noticeCount), text: view.notice!)),
+            child: Center(
+              child: _Notice(key: ValueKey(view.noticeCount), text: view.notice!),
+            ),
           ),
       ],
     );
@@ -469,7 +486,10 @@ class _RoundButton extends StatelessWidget {
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onPressed,
-        child: Padding(padding: EdgeInsets.all(size / 2.2), child: Icon(icon, color: Colors.white, size: size)),
+        child: Padding(
+          padding: EdgeInsets.all(size / 2.2),
+          child: Icon(icon, color: Colors.white, size: size),
+        ),
       ),
     ),
   );
@@ -559,7 +579,11 @@ class _PersonAvatar extends ConsumerWidget {
         ),
         child: Avatar(id: named ? person.user : '', label: named ? _nameOf(ref, person.user) : '', size: size),
       ),
-      Positioned(right: -2, bottom: -2, child: _StateBadge(person: person, size: size * 0.38)),
+      Positioned(
+        right: -2,
+        bottom: -2,
+        child: _StateBadge(person: person, size: size * 0.38),
+      ),
     ],
   );
 }
@@ -779,7 +803,14 @@ class _CallPill extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(children: [lock, const SizedBox(width: 8), Expanded(child: where), people]),
+                    Row(
+                      children: [
+                        lock,
+                        const SizedBox(width: 8),
+                        Expanded(child: where),
+                        people,
+                      ],
+                    ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -862,7 +893,11 @@ class _CallClockState extends ConsumerState<CallClock> {
     final elapsed = ref.read(clockProvider)().difference(widget.since);
     return Text(
       callTime(elapsed.isNegative ? Duration.zero : elapsed),
-      style: TextStyle(color: context.palette.railIcon, fontSize: widget.fontSize, fontFeatures: const [FontFeature.tabularFigures()]),
+      style: TextStyle(
+        color: context.palette.railIcon,
+        fontSize: widget.fontSize,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
     );
   }
 }
@@ -1091,12 +1126,18 @@ class LockedCallScreen extends ConsumerWidget {
                   ],
                 )
               else
-                SizedBox(height: 88, child: Center(child: CircularProgressIndicator(color: context.palette.onRail))),
+                SizedBox(
+                  height: 88,
+                  child: Center(child: CircularProgressIndicator(color: context.palette.onRail)),
+                ),
               const SizedBox(height: 24),
               TextButton(
                 key: const Key('locked-unlock'),
                 onPressed: () => unawaited(ref.read(callWindowProvider).unlock()),
-                child: Text('Unlock to open ${context.appName}', style: TextStyle(color: context.palette.railIcon, fontSize: 14)),
+                child: Text(
+                  'Unlock to open ${context.appName}',
+                  style: TextStyle(color: context.palette.railIcon, fontSize: 14),
+                ),
               ),
             ],
           ),
@@ -1119,7 +1160,9 @@ class _Labelled extends StatelessWidget {
     children: [
       child,
       const SizedBox(height: 8),
-      ExcludeSemantics(child: Text(label, style: TextStyle(color: context.palette.onRail, fontSize: 13))),
+      ExcludeSemantics(
+        child: Text(label, style: TextStyle(color: context.palette.onRail, fontSize: 13)),
+      ),
     ],
   );
 }

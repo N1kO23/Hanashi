@@ -110,7 +110,10 @@ void main() {
       expect([for (final r in page.items) r.full.id], ['happy-cat', 'old-gif']);
       final [cat, old] = page.items;
       expect((cat.preview.url, cat.preview.mime), ('https://static.klipy.com/ii/happy-cat/sm.webp', 'image/webp'));
-      expect((cat.full.url, cat.full.width, cat.full.title), ('https://static.klipy.com/ii/happy-cat/md.webp', 360, 'Title of happy-cat'));
+      expect(
+        (cat.full.url, cat.full.width, cat.full.title),
+        ('https://static.klipy.com/ii/happy-cat/md.webp', 360, 'Title of happy-cat'),
+      );
       expect(old.full.url, 'https://static.klipy.com/ii/old-gif/md.gif');
 
       await search.trending();
@@ -158,7 +161,10 @@ void main() {
       expect(loader.cached(dance), isNull);
       expect(loader.cached(_klipy('wave', 'md')), isNotNull);
 
-      final small = RemoteMediaLoader(maxBytes: 32, client: MockClient((_) async => http.Response.bytes(List.filled(64, 0), 200)));
+      final small = RemoteMediaLoader(
+        maxBytes: 32,
+        client: MockClient((_) async => http.Response.bytes(List.filled(64, 0), 200)),
+      );
       await expectLater(small.load(_klipy('huge', 'md')), throwsA(isA<RemoteMediaException>()));
     });
   });
@@ -189,7 +195,9 @@ void main() {
   Future<List<GifRef>> savedGifs(WidgetTester tester, ChatRepository repository) async =>
       (await tester.runAsync(() => repository.watchSavedGifs().first))!;
 
-  final gifBubbles = find.byWidgetPredicate((w) => w is MessageBubble && w.message.envelope.messageType == MessageType.gif);
+  final gifBubbles = find.byWidgetPredicate(
+    (w) => w is MessageBubble && w.message.envelope.messageType == MessageType.gif,
+  );
   final theGif = find.descendant(of: gifBubbles, matching: find.byType(GifView));
   List<GifRef> sentGifs(WidgetTester tester) => [
     for (final b in tester.widgetList<MessageBubble>(gifBubbles)) b.message.envelope.gif!,
@@ -240,8 +248,14 @@ void main() {
   testWidgets('GIFs saved from chats; without search on the server the GIF tab has those', (tester) async {
     final repository = testRepository();
     // A GIF file sent as a photo.
-    repository.sendGif('club', const GifRef.media(MediaRef(hash: _hash, size: 900, mime: 'image/gif', width: 40, height: 30)));
-    await openClubRoom(tester, testApp(repository, overrides: [remoteMediaLoaderProvider.overrideWithValue(_loader([]))]));
+    repository.sendGif(
+      'club',
+      const GifRef.media(MediaRef(hash: _hash, size: 900, mime: 'image/gif', width: 40, height: 30)),
+    );
+    await openClubRoom(
+      tester,
+      testApp(repository, overrides: [remoteMediaLoaderProvider.overrideWithValue(_loader([]))]),
+    );
 
     await tester.longPress(theGif);
     await tester.pumpAndSettle();
@@ -266,7 +280,9 @@ void main() {
     expect([for (final gif in sentGifs(tester)) gif.media!.hash], [_hash, _hash]);
   });
 
-  testWidgets("a KLIPY GIF opens in the viewer, where it can be saved to the user's GIFs and taken out", (tester) async {
+  testWidgets("a KLIPY GIF opens in the viewer, where it can be saved to the user's GIFs and taken out", (
+    tester,
+  ) async {
     final loader = _loader([]);
     final repository = testRepository();
     const dance = RemoteMedia(

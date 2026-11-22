@@ -210,7 +210,10 @@ class VerificationService {
   /// Fetches and handles waiting messages, for a device that does not sync
   /// yet (an unverified one). Others get them through [handle].
   Future<void> pollInbox() async {
-    final items = [for (final item in await api.inbox()) if (item.type.startsWith('verification.')) item];
+    final items = [
+      for (final item in await api.inbox())
+        if (item.type.startsWith('verification.')) item,
+    ];
     for (final item in items) {
       await handle(item);
     }
@@ -306,7 +309,9 @@ class VerificationService {
         final secrets = await identity.localSecrets();
         if (secrets == null) return;
         final sealed = await session.seal(utf8.encode(secrets.toJson()));
-        await _send(entry, [SasMessage(SasType.secrets, {'txn': session.txn, 'data': sealed})]);
+        await _send(entry, [
+          SasMessage(SasType.secrets, {'txn': session.txn, 'data': sealed}),
+        ]);
         entry.done = true;
       case VerificationMode.device:
         break; // Done once the secrets arrive.

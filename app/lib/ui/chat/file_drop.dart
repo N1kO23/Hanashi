@@ -26,7 +26,13 @@ bool get filesFromOtherApps => switch (defaultTargetPlatform) {
 /// are over it, [label] says what dropping does. Folders and links (from a
 /// browser) are left out.
 class FileDropTarget extends StatefulWidget {
-  const FileDropTarget({super.key, required this.label, required this.onFiles, this.enabled = true, required this.child});
+  const FileDropTarget({
+    super.key,
+    required this.label,
+    required this.onFiles,
+    this.enabled = true,
+    required this.child,
+  });
 
   final String label;
   final Future<void> Function(List<LocalFile> files) onFiles;
@@ -52,7 +58,8 @@ class _FileDropTargetState extends State<FileDropTarget> {
       }
     }
     if (skipped > 0 && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Only files can be sent, not folders or links')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Only files can be sent, not folders or links')));
     }
     if (files.isEmpty) return;
     // A sandboxed app (macOS) may read dropped files only while it says so.
@@ -127,7 +134,8 @@ Future<List<LocalFile>?> clipboardFiles(Directory tempDir) async {
   final files = [
     for (final path in paths)
       // Also keeps out web addresses, which macOS hands out as paths.
-      if (FileSystemEntity.typeSync(path) == FileSystemEntityType.file) (path: path, name: File(path).uri.pathSegments.last),
+      if (FileSystemEntity.typeSync(path) == FileSystemEntityType.file)
+        (path: path, name: File(path).uri.pathSegments.last),
   ];
   if (files.isNotEmpty) return files;
   if (await Clipboard.hasStrings()) return null;

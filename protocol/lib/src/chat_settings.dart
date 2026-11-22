@@ -55,12 +55,7 @@ class ChatSettings {
     );
   }
 
-  Map<String, Object?> toJson() => {
-    ...extra,
-    'notify': ?notify?.name,
-    'mutedUntil': ?mutedUntil,
-    'sound': ?sound,
-  };
+  Map<String, Object?> toJson() => {...extra, 'notify': ?notify?.name, 'mutedUntil': ?mutedUntil, 'sound': ?sound};
 
   /// These settings with the fields this version knows set as given.
   ChatSettings edit({required ChatNotify? notify, required int? mutedUntil, required bool? sound}) =>

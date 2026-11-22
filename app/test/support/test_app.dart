@@ -22,8 +22,7 @@ import 'package:hanashi/ui/window/window_controls.dart';
 /// Fixed "now" so that rendered times and dates never change.
 final testNow = DateTime(2026, 10, 22, 18, 30);
 
-MockChatRepository testRepository() =>
-    MockChatRepository(latency: Duration.zero, autoReply: false, now: testNow);
+MockChatRepository testRepository() => MockChatRepository(latency: Duration.zero, autoReply: false, now: testNow);
 
 /// [linkPreviews] makes link previews; by default, there are none to be
 /// had (tests never go online).
@@ -97,8 +96,7 @@ Future<void> setSurfaceSize(WidgetTester tester, Size size) async {
 /// font's boxes.
 Future<void> loadRealFonts() async {
   final fontsDir = _flutterFontsDir();
-  Future<ByteData> font(String name) async =>
-      ByteData.sublistView(await File('${fontsDir.path}/$name').readAsBytes());
+  Future<ByteData> font(String name) async => ByteData.sublistView(await File('${fontsDir.path}/$name').readAsBytes());
 
   final roboto = FontLoader('Roboto');
   for (final style in ['Regular', 'Medium', 'Bold', 'Italic', 'BoldItalic']) {

@@ -8,12 +8,7 @@ const _log = Log('keys');
 /// A user's devices that are cross-signed by the identity key this device
 /// trusts for them.
 class TrustedDevices {
-  const TrustedDevices({
-    required this.userId,
-    required this.devices,
-    this.identityKey,
-    this.identityChanged = false,
-  });
+  const TrustedDevices({required this.userId, required this.devices, this.identityKey, this.identityChanged = false});
 
   final String userId;
 
@@ -32,12 +27,7 @@ class TrustedDevices {
 /// first time they are seen (trust on first use); our own comes from the
 /// secrets this verified device holds.
 class KeyDirectory {
-  KeyDirectory({
-    required this.api,
-    required this.db,
-    required this.me,
-    required this.ownIdentityKey,
-  });
+  KeyDirectory({required this.api, required this.db, required this.me, required this.ownIdentityKey});
 
   final ApiClient api;
   final AppDatabase db;
@@ -106,11 +96,7 @@ class KeyDirectory {
     final devices = <String, String>{};
     if (!changed) {
       for (final device in keys.devices) {
-        if (await isDeviceVerified(
-          identityKey: trusted,
-          userId: userId,
-          device: device,
-        )) {
+        if (await isDeviceVerified(identityKey: trusted, userId: userId, device: device)) {
           devices[device.deviceId] = device.mlsSigKey;
         }
       }
@@ -119,12 +105,7 @@ class KeyDirectory {
       'Keys of $userId: version ${keys.identityVersion}${changed ? ' (changed)' : ''}, '
       '${devices.length} of ${keys.devices.length} devices verified: ${devices.keys.join(', ')}',
     );
-    return TrustedDevices(
-      userId: userId,
-      identityKey: trusted,
-      identityChanged: changed,
-      devices: devices,
-    );
+    return TrustedDevices(userId: userId, identityKey: trusted, identityChanged: changed, devices: devices);
   }
 
   /// Trusts the user's new identity key (after a reset on their side).

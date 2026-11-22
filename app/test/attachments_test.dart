@@ -49,7 +49,12 @@ void main() {
     final voice = await prepare('voice.webm', _ebml, probed: const VideoInfo(duration: Duration(seconds: 7)));
     expect((voice.type, voice.media.mime, voice.media.durationMs), (MessageType.file, 'audio/webm', 7000));
 
-    final song = await prepare('song.mp3', const [0x49, 0x44, 0x33, 0x04], probed: const VideoInfo(duration: Duration(minutes: 3)));
+    final song = await prepare('song.mp3', const [
+      0x49,
+      0x44,
+      0x33,
+      0x04,
+    ], probed: const VideoInfo(duration: Duration(minutes: 3)));
     expect((song.type, song.media.mime, song.media.durationMs), (MessageType.file, 'audio/mpeg', 180000));
 
     // Without a player to ask, a video stays a video.

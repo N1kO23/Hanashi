@@ -230,7 +230,8 @@ class _EmojiTextState extends State<EmojiText> {
 class EmojiEditingController extends TextEditingController {
   @override
   TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
-    TextSpan part(String text, [TextStyle? style]) => emojiSpan(text, style: style) ?? TextSpan(text: text, style: style);
+    TextSpan part(String text, [TextStyle? style]) =>
+        emojiSpan(text, style: style) ?? TextSpan(text: text, style: style);
     if (!withComposing || !value.isComposingRangeValid) return part(text, style);
     // Being typed with an input method: underlined, as by default.
     final composing = value.composing;

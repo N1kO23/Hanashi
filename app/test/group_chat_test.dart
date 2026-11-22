@@ -11,67 +11,48 @@ import 'support/test_app.dart';
 
 /// A server that refuses a member who has not set up encryption.
 class _NoKeysRepository extends MockChatRepository {
-  _NoKeysRepository()
-    : super(latency: Duration.zero, autoReply: false, now: testNow);
+  _NoKeysRepository() : super(latency: Duration.zero, autoReply: false, now: testNow);
 
   @override
   Future<String> createGroup(String title, List<String> members) async =>
-      throw StateError(
-        'naoko@localhost has not set up encryption on any device yet.',
-      );
+      throw StateError('naoko@localhost has not set up encryption on any device yet.');
 }
 
 void main() {
-  testWidgets(
-    'create a group from Contacts, of contacts',
-    (tester) async {
-      await setSurfaceSize(tester, const Size(1200, 800));
-      final repo = testRepository();
-      await tester.pumpWidget(testApp(repo));
-      await tester.pumpAndSettle();
+  testWidgets('create a group from Contacts, of contacts', (tester) async {
+    await setSurfaceSize(tester, const Size(1200, 800));
+    final repo = testRepository();
+    await tester.pumpWidget(testApp(repo));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Contacts'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Add'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('new-group')));
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const Key('group-create')))
-            .onPressed,
-        isNull,
-      );
+    await tester.tap(find.byTooltip('Contacts'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Add'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('new-group')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(find.byKey(const Key('group-create'))).onPressed, isNull);
 
-      await tester.enterText(
-        find.byKey(const Key('group-title-field')),
-        'Study Group',
-      );
-      await tester.tap(find.byKey(const ValueKey('member-kumiko@localhost')));
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('member-naoko@localhost')));
-      await tester.pumpAndSettle();
-      expect(find.text('Create with 3'), findsOneWidget);
-      // Only contacts: nobody else can be typed in.
-      expect(find.byKey(const Key('member-id-field')), findsNothing);
+    await tester.enterText(find.byKey(const Key('group-title-field')), 'Study Group');
+    await tester.tap(find.byKey(const ValueKey('member-kumiko@localhost')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('member-naoko@localhost')));
+    await tester.pumpAndSettle();
+    expect(find.text('Create with 3'), findsOneWidget);
+    // Only contacts: nobody else can be typed in.
+    expect(find.byKey(const Key('member-id-field')), findsNothing);
 
-      await tester.tap(find.byKey(const Key('group-create')));
-      await tester.pumpAndSettle();
-      // The new group is open, with a line saying who made it.
-      expect(find.text('Study Group'), findsWidgets);
-      expect(find.text('3 members'), findsOneWidget);
-      // In the timeline, and as the list's preview.
-      expect(
-        find.text('You created the group "Study Group"'),
-        findsNWidgets(2),
-      );
-      repo.dispose();
-    },
-  );
+    await tester.tap(find.byKey(const Key('group-create')));
+    await tester.pumpAndSettle();
+    // The new group is open, with a line saying who made it.
+    expect(find.text('Study Group'), findsWidgets);
+    expect(find.text('3 members'), findsOneWidget);
+    // In the timeline, and as the list's preview.
+    expect(find.text('You created the group "Study Group"'), findsNWidgets(2));
+    repo.dispose();
+  });
 
-  testWidgets('a member without encryption: the dialog says so', (
-    tester,
-  ) async {
+  testWidgets('a member without encryption: the dialog says so', (tester) async {
     await setSurfaceSize(tester, const Size(1200, 800));
     final repo = _NoKeysRepository();
     await tester.pumpWidget(testApp(repo));
@@ -82,18 +63,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('new-group')));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('group-title-field')),
-      'Study Group',
-    );
+    await tester.enterText(find.byKey(const Key('group-title-field')), 'Study Group');
     await tester.tap(find.byKey(const ValueKey('member-naoko@localhost')));
     await tester.pump();
     await tester.tap(find.byKey(const Key('group-create')));
     await tester.pumpAndSettle();
-    expect(
-      find.text('naoko@localhost has not set up encryption on any device yet.'),
-      findsOneWidget,
-    );
+    expect(find.text('naoko@localhost has not set up encryption on any device yet.'), findsOneWidget);
     repo.dispose();
   });
 
@@ -132,17 +107,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('group-rename')));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('rename-field')),
-      'Club Room 2',
-    );
+    await tester.enterText(find.byKey(const Key('rename-field')), 'Club Room 2');
     await tester.tap(find.byKey(const Key('rename-save')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('group-info-title')), findsOneWidget);
-    expect(
-      tester.widget<Text>(find.byKey(const Key('group-info-title'))).data,
-      'Club Room 2',
-    );
+    expect(tester.widget<Text>(find.byKey(const Key('group-info-title'))).data, 'Club Room 2');
 
     await tester.tap(find.byKey(const Key('group-add-members')));
     await tester.pumpAndSettle();
@@ -246,10 +215,7 @@ void main() {
     repo.setTyping('club', {'yoko@localhost', 'kumiko@localhost'});
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Kumiko and Yoko are typing...'), findsOneWidget);
-    expect(
-      tester.getSemantics(bubble),
-      matchesSemantics(label: 'Kumiko and Yoko are typing...', isLiveRegion: true),
-    );
+    expect(tester.getSemantics(bubble), matchesSemantics(label: 'Kumiko and Yoko are typing...', isLiveRegion: true));
     // Below the newest message, with both pictures.
     final lowest = [
       for (final i in Iterable<int>.generate(find.byType(MessageBubble).evaluate().length))

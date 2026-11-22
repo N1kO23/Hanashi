@@ -243,9 +243,8 @@ class _CallNavigatorState extends State<_CallNavigator> {
 
   @override
   Widget build(BuildContext context) => Navigator(
-    onGenerateRoute: (_) => PageRouteBuilder<void>(
-      pageBuilder: (_, _, _) => PopScope(canPop: false, child: widget.child),
-    ),
+    onGenerateRoute: (_) =>
+        PageRouteBuilder<void>(pageBuilder: (_, _, _) => PopScope(canPop: false, child: widget.child)),
   );
 }
 
@@ -419,7 +418,12 @@ class _PhoneCallBodyState extends ConsumerState<_PhoneCallBody> {
         others.where((t) => t.video != null).firstOrNull ??
         others.firstOrNull ??
         self;
-    final strip = grid ? const <_TileData>[] : [for (final t in [...others, ?mine]) if (t.key != main.key) t];
+    final strip = grid
+        ? const <_TileData>[]
+        : [
+            for (final t in [...others, ?mine])
+              if (t.key != main.key) t,
+          ];
     _large = main.video;
     if (_video != (main.video != null)) {
       _video = main.video != null;
@@ -467,7 +471,11 @@ class _PhoneCallBodyState extends ConsumerState<_PhoneCallBody> {
         for (final tile in strip)
           Padding(
             padding: const EdgeInsets.all(4),
-            child: SizedBox(width: 136, height: 90, child: _Tile(tile: tile, onPin: _pin)),
+            child: SizedBox(
+              width: 136,
+              height: 90,
+              child: _Tile(tile: tile, onPin: _pin),
+            ),
           ),
       ],
     );
@@ -624,21 +632,26 @@ class ScreenPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screens = [for (final s in sources) if (!s.window) s];
-    final windows = [for (final s in sources) if (s.window) s];
+    final screens = [
+      for (final s in sources)
+        if (!s.window) s,
+    ];
+    final windows = [
+      for (final s in sources)
+        if (s.window) s,
+    ];
     Widget section(String title, List<ScreenSource> list) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
-          child: Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: context.palette.textSecondary)),
+          child: Text(
+            title,
+            style: TextStyle(fontWeight: FontWeight.bold, color: context.palette.textSecondary),
+          ),
         ),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [for (final source in list) _SourceTile(source: source)],
-        ),
+        Wrap(spacing: 12, runSpacing: 12, children: [for (final source in list) _SourceTile(source: source)]),
       ],
     );
     return AlertDialog(
@@ -868,7 +881,10 @@ class _TileData {
     }
   }
   for (final MapEntry(key: user, value: devices) in byUser.entries) {
-    final cameras = [for (final d in devices) if (d.camera != null) d];
+    final cameras = [
+      for (final d in devices)
+        if (d.camera != null) d,
+    ];
     if (cameras.isEmpty) {
       people.add(
         _TileData(
@@ -939,7 +955,10 @@ class _StageBody extends ConsumerWidget {
                   ? _Grid(tiles: tiles, onPin: onPin, onFullScreen: onFullScreen)
                   : _MainAndStrip(
                       main: main,
-                      others: [for (final t in tiles) if (t.key != main.key) t],
+                      others: [
+                        for (final t in tiles)
+                          if (t.key != main.key) t,
+                      ],
                       onPin: onPin,
                       onFullScreen: onFullScreen,
                     ),
@@ -1021,7 +1040,10 @@ class _ImmersiveStageState extends ConsumerState<_ImmersiveStage> {
   @override
   Widget build(BuildContext context) {
     final main = widget.main;
-    final others = [for (final t in widget.tiles) if (t.key != main?.key) t];
+    final others = [
+      for (final t in widget.tiles)
+        if (t.key != main?.key) t,
+    ];
     return MouseRegion(
       cursor: _shown ? MouseCursor.defer : SystemMouseCursors.none,
       onHover: (_) => _wake(),
@@ -1621,9 +1643,7 @@ class _StageControls extends ConsumerWidget {
               'stage-share',
               view.sharing ? 'Stop sharing' : 'Share your screen',
               view.sharing ? Icons.stop_screen_share : Icons.screen_share,
-              () => view.sharing
-                  ? unawaited(controller.stopSharing())
-                  : unawaited(pickAndShareScreen(context, ref)),
+              () => view.sharing ? unawaited(controller.stopSharing()) : unawaited(pickAndShareScreen(context, ref)),
               on: view.sharing,
             ),
           if (view.sharing) _ShareSound(view: view),

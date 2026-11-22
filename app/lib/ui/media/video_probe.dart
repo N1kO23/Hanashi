@@ -34,7 +34,8 @@ Future<VideoInfo?> probeVideoWithPlayer(String path) async {
     final known = duration == Duration.zero ? null : duration;
     // Audio: no picture (an album cover is none).
     if (!tracks.video.any((t) => real(t.id) && t.albumart != true)) return VideoInfo(duration: known);
-    final width = player.state.width ??
+    final width =
+        player.state.width ??
         await player.stream.width.firstWhere((w) => (w ?? 0) > 0).timeout(const Duration(seconds: 8));
     final height = player.state.height ?? await player.stream.height.firstWhere((h) => (h ?? 0) > 0);
     Uint8List? frame;

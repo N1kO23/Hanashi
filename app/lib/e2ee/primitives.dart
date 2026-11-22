@@ -15,11 +15,9 @@ final _aesGcm = AesGcm.with256bits();
 final _ed25519 = Ed25519();
 final _sha256 = Sha256();
 
-Uint8List randomBytes(int length) =>
-    Uint8List.fromList(List.generate(length, (_) => _random.nextInt(256)));
+Uint8List randomBytes(int length) => Uint8List.fromList(List.generate(length, (_) => _random.nextInt(256)));
 
-Future<Uint8List> sha256(List<int> data) async =>
-    Uint8List.fromList((await _sha256.hash(data)).bytes);
+Future<Uint8List> sha256(List<int> data) async => Uint8List.fromList((await _sha256.hash(data)).bytes);
 
 /// HKDF-SHA256 with an empty salt.
 Future<Uint8List> hkdf(List<int> secret, String info, {int length = 32}) async {
@@ -41,37 +39,18 @@ class DecryptionFailed implements Exception {
 }
 
 /// AES-256-GCM with a random 96-bit nonce. Output: nonce ‖ ciphertext ‖ tag.
-Future<Uint8List> aeadSeal(
-  List<int> key,
-  List<int> plaintext, {
-  List<int> aad = const [],
-}) async {
-  final box = await _aesGcm.encrypt(
-    plaintext,
-    secretKey: SecretKey(key),
-    nonce: randomBytes(12),
-    aad: aad,
-  );
+Future<Uint8List> aeadSeal(List<int> key, List<int> plaintext, {List<int> aad = const []}) async {
+  final box = await _aesGcm.encrypt(plaintext, secretKey: SecretKey(key), nonce: randomBytes(12), aad: aad);
   return Uint8List.fromList(box.concatenation());
 }
 
-Future<Uint8List> aeadOpen(
-  List<int> key,
-  List<int> sealed, {
-  List<int> aad = const [],
-}) async {
+Future<Uint8List> aeadOpen(List<int> key, List<int> sealed, {List<int> aad = const []}) async {
   if (sealed.length < 12 + 16) {
     throw const DecryptionFailed('Ciphertext is too short');
   }
   try {
-    final box = SecretBox.fromConcatenation(
-      sealed,
-      nonceLength: 12,
-      macLength: 16,
-    );
-    return Uint8List.fromList(
-      await _aesGcm.decrypt(box, secretKey: SecretKey(key), aad: aad),
-    );
+    final box = SecretBox.fromConcatenation(sealed, nonceLength: 12, macLength: 16);
+    return Uint8List.fromList(await _aesGcm.decrypt(box, secretKey: SecretKey(key), aad: aad));
   } on SecretBoxAuthenticationError {
     throw const DecryptionFailed();
   }
@@ -90,8 +69,7 @@ class RecoveryKey {
 
   final Uint8List bytes;
 
-  static Future<List<int>> _checksum(List<int> bytes) async =>
-      (await sha256(bytes)).sublist(0, 2);
+  static Future<List<int>> _checksum(List<int> bytes) async => (await sha256(bytes)).sublist(0, 2);
 
   Future<String> encode() async {
     final data = [...bytes, ...await _checksum(bytes)];
@@ -108,10 +86,7 @@ class RecoveryKey {
     }
     if (bits > 0) out.write(_crockford[(value << (5 - bits)) & 31]);
     final chars = out.toString();
-    return [
-      for (var i = 0; i < chars.length; i += 4)
-        chars.substring(i, min(i + 4, chars.length)),
-    ].join(' ');
+    return [for (var i = 0; i < chars.length; i += 4) chars.substring(i, min(i + 4, chars.length))].join(' ');
   }
 
   /// Accepts any case, spaces and dashes, and the usual Crockford look-alikes
@@ -127,9 +102,7 @@ class RecoveryKey {
     for (final char in cleaned.split('')) {
       final digit = _crockford.indexOf(char);
       if (digit < 0) {
-        throw const FormatException(
-          'The recovery key contains characters it cannot have',
-        );
+        throw const FormatException('The recovery key contains characters it cannot have');
       }
       value = (value << 5) | digit;
       bits += 5;
@@ -156,10 +129,7 @@ class RecoveryKey {
 /// What a verified device holds, and what secret storage keeps on the server
 /// encrypted with the recovery key.
 class AccountSecrets {
-  const AccountSecrets({
-    required this.identitySeed,
-    required this.backupSecret,
-  });
+  const AccountSecrets({required this.identitySeed, required this.backupSecret});
 
   /// Ed25519 seed of the user's identity key.
   final Uint8List identitySeed;
@@ -167,15 +137,9 @@ class AccountSecrets {
   /// Symmetric key for the message key backup.
   final Uint8List backupSecret;
 
-  factory AccountSecrets.generate() => AccountSecrets(
-    identitySeed: randomBytes(32),
-    backupSecret: randomBytes(32),
-  );
+  factory AccountSecrets.generate() => AccountSecrets(identitySeed: randomBytes(32), backupSecret: randomBytes(32));
 
-  String toJson() => jsonEncode({
-    'identity': base64.encode(identitySeed),
-    'backup': base64.encode(backupSecret),
-  });
+  String toJson() => jsonEncode({'identity': base64.encode(identitySeed), 'backup': base64.encode(backupSecret)});
 
   factory AccountSecrets.fromJson(String json) {
     final map = (jsonDecode(json) as Map).cast<String, Object?>();
@@ -187,36 +151,20 @@ class AccountSecrets {
 }
 
 /// Encrypts [secrets] with the recovery key, bound to [userId].
-Future<String> sealSecrets(
-  RecoveryKey recoveryKey,
-  String userId,
-  AccountSecrets secrets,
-) async {
+Future<String> sealSecrets(RecoveryKey recoveryKey, String userId, AccountSecrets secrets) async {
   final key = await hkdf(recoveryKey.bytes, 'hanashi-ssss-v1');
-  final sealed = await aeadSeal(
-    key,
-    utf8.encode(secrets.toJson()),
-    aad: utf8.encode(userId),
-  );
+  final sealed = await aeadSeal(key, utf8.encode(secrets.toJson()), aad: utf8.encode(userId));
   return jsonEncode({'v': 1, 'data': base64.encode(sealed)});
 }
 
 /// Throws [DecryptionFailed] for a wrong recovery key.
-Future<AccountSecrets> openSecrets(
-  RecoveryKey recoveryKey,
-  String userId,
-  String blob,
-) async {
+Future<AccountSecrets> openSecrets(RecoveryKey recoveryKey, String userId, String blob) async {
   final map = (jsonDecode(blob) as Map).cast<String, Object?>();
   if (map['v'] != 1) {
     throw const FormatException('Unknown secret storage version');
   }
   final key = await hkdf(recoveryKey.bytes, 'hanashi-ssss-v1');
-  final plain = await aeadOpen(
-    key,
-    base64.decode(map['data'] as String),
-    aad: utf8.encode(userId),
-  );
+  final plain = await aeadOpen(key, base64.decode(map['data'] as String), aad: utf8.encode(userId));
   return AccountSecrets.fromJson(utf8.decode(plain));
 }
 
@@ -237,31 +185,18 @@ class IdentityKeyPair {
     return IdentityKeyPair._(keyPair, Uint8List.fromList(publicKey.bytes));
   }
 
-  Future<Uint8List> sign(List<int> message) async => Uint8List.fromList(
-    (await _ed25519.sign(message, keyPair: _keyPair)).bytes,
-  );
+  Future<Uint8List> sign(List<int> message) async =>
+      Uint8List.fromList((await _ed25519.sign(message, keyPair: _keyPair)).bytes);
 
   /// Signs the record that marks one of the user's devices as verified.
-  Future<String> signDevice({
-    required String userId,
-    required String deviceId,
-    required String mlsSigKey,
-  }) async => base64.encode(
-    await sign(deviceRecordMessage(userId, deviceId, mlsSigKey)),
-  );
+  Future<String> signDevice({required String userId, required String deviceId, required String mlsSigKey}) async =>
+      base64.encode(await sign(deviceRecordMessage(userId, deviceId, mlsSigKey)));
 }
 
-Future<bool> verifySignature({
-  required List<int> publicKey,
-  required List<int> message,
-  required List<int> signature,
-}) {
+Future<bool> verifySignature({required List<int> publicKey, required List<int> message, required List<int> signature}) {
   return _ed25519.verify(
     message,
-    signature: Signature(
-      signature,
-      publicKey: SimplePublicKey(publicKey, type: KeyPairType.ed25519),
-    ),
+    signature: Signature(signature, publicKey: SimplePublicKey(publicKey, type: KeyPairType.ed25519)),
   );
 }
 

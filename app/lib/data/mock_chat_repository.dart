@@ -18,11 +18,8 @@ import 'remote/link_previews.dart';
 /// In-memory [ChatRepository] with sample data, used until the server exists
 /// and for UI tests. Simulates server acknowledgement and canned replies.
 class MockChatRepository implements ChatRepository {
-  MockChatRepository({
-    this.latency = const Duration(milliseconds: 400),
-    this.autoReply = true,
-    DateTime? now,
-  }) : _clock = now == null ? DateTime.now : (() => now) {
+  MockChatRepository({this.latency = const Duration(milliseconds: 400), this.autoReply = true, DateTime? now})
+    : _clock = now == null ? DateTime.now : (() => now) {
     _seed(_clock());
   }
 
@@ -33,8 +30,7 @@ class MockChatRepository implements ChatRepository {
   final bool autoReply;
 
   static const _host = 'localhost';
-  static const _fakeHash =
-      'sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08';
+  static const _fakeHash = 'sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08';
 
   @override
   final String me = 'sota@$_host';
@@ -69,8 +65,7 @@ class MockChatRepository implements ChatRepository {
       _watch(() => List.unmodifiable(_messages[conversationId] ?? const []));
 
   @override
-  Stream<List<UserProfile>> watchProfiles() =>
-      _watch(() => List.unmodifiable(_profiles.values));
+  Stream<List<UserProfile>> watchProfiles() => _watch(() => List.unmodifiable(_profiles.values));
 
   @override
   Future<void> sendText(String conversationId, String text, {String? replyTo, LinkPreviewDraft? link}) async {
@@ -87,20 +82,12 @@ class MockChatRepository implements ChatRepository {
       ),
     );
 
-    final other = _conversations[conversationId]?.members
-        .where((m) => m != me)
-        .firstOrNull;
+    final other = _conversations[conversationId]?.members.where((m) => m != me).firstOrNull;
     if (autoReply && other != null) {
       setTyping(conversationId, {other});
       await Future<void>.delayed(latency * 3);
       _typing.remove(conversationId);
-      _addIncoming(
-        Envelope.text(
-          conv: conversationId,
-          from: other,
-          text: _replies[_replyIndex++ % _replies.length],
-        ),
-      );
+      _addIncoming(Envelope.text(conv: conversationId, from: other, text: _replies[_replyIndex++ % _replies.length]));
       _notify();
     }
   }
@@ -111,7 +98,13 @@ class MockChatRepository implements ChatRepository {
 
   @override
   Future<void> sendSticker(String conversationId, StickerRef sticker, {String? replyTo}) async => _sendOwn(
-    Envelope.sticker(conv: conversationId, from: me, sticker: _toSend(sticker), replyTo: _quote(replyTo), now: _clock()),
+    Envelope.sticker(
+      conv: conversationId,
+      from: me,
+      sticker: _toSend(sticker),
+      replyTo: _quote(replyTo),
+      now: _clock(),
+    ),
   );
 
   ReplyRef? _quote(String? messageId) {
@@ -122,17 +115,13 @@ class MockChatRepository implements ChatRepository {
   /// Shows one of the user's messages as pending, then as sent.
   Future<void> _sendOwn(Envelope envelope) async {
     final conversationId = envelope.conv;
-    _messages.putIfAbsent(conversationId, () => []).add(
-      ChatMessage(envelope: envelope, state: DeliveryState.pending, replyTo: envelope.replyTo),
-    );
+    _messages
+        .putIfAbsent(conversationId, () => [])
+        .add(ChatMessage(envelope: envelope, state: DeliveryState.pending, replyTo: envelope.replyTo));
     _notify();
 
     await Future<void>.delayed(latency);
-    _replace(
-      conversationId,
-      envelope.id,
-      (m) => m.copyWith(seq: ++_seq, state: DeliveryState.sent),
-    );
+    _replace(conversationId, envelope.id, (m) => m.copyWith(seq: ++_seq, state: DeliveryState.sent));
     _readSeq[conversationId] = _seq;
     _notify();
   }
@@ -371,11 +360,7 @@ class MockChatRepository implements ChatRepository {
   Future<void> markRead(String conversationId) async {
     final messages = _messages[conversationId];
     if (messages == null || messages.isEmpty) return;
-    final last =
-        messages
-            .lastWhere((m) => m.seq != null, orElse: () => messages.last)
-            .seq ??
-        0;
+    final last = messages.lastWhere((m) => m.seq != null, orElse: () => messages.last).seq ?? 0;
     if ((_readSeq[conversationId] ?? 0) >= last) return;
     _readSeq[conversationId] = last;
     _notify();
@@ -392,10 +377,7 @@ class MockChatRepository implements ChatRepository {
 
   String _directChatWith(String userId) {
     final name = UserId.parse(userId).name;
-    _profiles.putIfAbsent(
-      userId,
-      () => UserProfile(id: userId, displayName: _capitalize(name)),
-    );
+    _profiles.putIfAbsent(userId, () => UserProfile(id: userId, displayName: _capitalize(name)));
     final id = 'dm-$name';
     _conversations[id] ??= Conversation(id: id, members: [me, userId], isDirect: true);
     _messages[id] ??= [];
@@ -406,15 +388,11 @@ class MockChatRepository implements ChatRepository {
   final _contacts = <String, ContactState>{};
 
   @override
-  Stream<Map<String, ContactState>> watchContacts() =>
-      _watch(() => Map<String, ContactState>.unmodifiable(_contacts));
+  Stream<Map<String, ContactState>> watchContacts() => _watch(() => Map<String, ContactState>.unmodifiable(_contacts));
 
   /// Shows [userId] as standing thus with the user (demo and tests).
   void setContactState(String userId, ContactState state) {
-    _profiles.putIfAbsent(
-      userId,
-      () => UserProfile(id: userId, displayName: _capitalize(UserId.parse(userId).name)),
-    );
+    _profiles.putIfAbsent(userId, () => UserProfile(id: userId, displayName: _capitalize(UserId.parse(userId).name)));
     if (state == ContactState.none) {
       _contacts.remove(userId);
     } else {
@@ -455,12 +433,7 @@ class MockChatRepository implements ChatRepository {
   @override
   Future<String> createGroup(String title, List<String> members) async {
     final id = 'group-${_conversations.length + 1}';
-    _conversations[id] = Conversation(
-      id: id,
-      members: [me, ...members],
-      isDirect: false,
-      title: title,
-    );
+    _conversations[id] = Conversation(id: id, members: [me, ...members], isDirect: false, title: title);
     _messages[id] = [];
     _groupLine(id, me, {'change': 'created', 'title': title});
     _notify();
@@ -484,12 +457,7 @@ class MockChatRepository implements ChatRepository {
   @override
   Future<void> renameGroup(String conversationId, String title) async {
     final c = _conversations[conversationId]!;
-    _conversations[conversationId] = Conversation(
-      id: c.id,
-      members: c.members,
-      isDirect: false,
-      title: title,
-    );
+    _conversations[conversationId] = Conversation(id: c.id, members: c.members, isDirect: false, title: title);
     _groupLine(conversationId, me, {'change': 'renamed', 'title': title});
     _notify();
   }
@@ -513,23 +481,21 @@ class MockChatRepository implements ChatRepository {
   void sendTyping(String conversationId) {}
 
   @override
-  Stream<Set<String>> watchTyping(String conversationId) =>
-      _watch(() => {...?_typing[conversationId]});
+  Stream<Set<String>> watchTyping(String conversationId) => _watch(() => {...?_typing[conversationId]});
 
-  void _groupLine(String conv, String by, Map<String, Object?> body) =>
-      _messages[conv]!.add(
-        ChatMessage(
-          envelope: Envelope(
-            id: newUlid(),
-            conv: conv,
-            from: by,
-            ts: _clock().millisecondsSinceEpoch,
-            type: Envelope.membershipType,
-            body: body,
-          ),
-          seq: ++_seq,
-        ),
-      );
+  void _groupLine(String conv, String by, Map<String, Object?> body) => _messages[conv]!.add(
+    ChatMessage(
+      envelope: Envelope(
+        id: newUlid(),
+        conv: conv,
+        from: by,
+        ts: _clock().millisecondsSinceEpoch,
+        type: Envelope.membershipType,
+        body: body,
+      ),
+      seq: ++_seq,
+    ),
+  );
 
   @override
   Future<void> sendAttachment(
@@ -542,7 +508,9 @@ class MockChatRepository implements ChatRepository {
   @override
   Future<void> react(String messageId, String emoji, {bool remove = false}) async {
     _update(messageId, (m) {
-      final reactions = {for (final MapEntry(:key, :value) in m.reactions.entries) key: [...value]};
+      final reactions = {
+        for (final MapEntry(:key, :value) in m.reactions.entries) key: [...value],
+      };
       final users = reactions.putIfAbsent(emoji, () => []);
       if (remove) {
         users.remove(me);
@@ -591,7 +559,12 @@ class MockChatRepository implements ChatRepository {
   @override
   Future<void> setDisplayName(String name) async {
     final profile = _profiles[me];
-    _profiles[me] = UserProfile(id: me, displayName: name, avatar: profile?.avatar, card: profile?.card ?? ProfileCard.empty);
+    _profiles[me] = UserProfile(
+      id: me,
+      displayName: name,
+      avatar: profile?.avatar,
+      card: profile?.card ?? ProfileCard.empty,
+    );
     _notify();
   }
 
@@ -753,30 +726,20 @@ class MockChatRepository implements ChatRepository {
   @override
   Future<void> discard(String messageId) async {
     for (final list in _messages.values) {
-      list.removeWhere(
-        (m) => m.id == messageId && m.state != DeliveryState.sent,
-      );
+      list.removeWhere((m) => m.id == messageId && m.state != DeliveryState.sent);
     }
     _notify();
   }
 
   @override
-  Stream<ConnectionStatus> watchConnection() =>
-      Stream.value(ConnectionStatus.online);
+  Stream<ConnectionStatus> watchConnection() => Stream.value(ConnectionStatus.online);
 
   @override
   Stream<String?> watchConnectionProblem() => Stream.value(null);
 
   @override
   Future<List<DeviceInfo>> devices() async => [
-    const DeviceInfo(
-      id: 'this',
-      name: 'This device',
-      platform: 'mock',
-      createdAt: 0,
-      lastSeenAt: 0,
-      current: true,
-    ),
+    const DeviceInfo(id: 'this', name: 'This device', platform: 'mock', createdAt: 0, lastSeenAt: 0, current: true),
   ];
 
   @override
@@ -787,36 +750,21 @@ class MockChatRepository implements ChatRepository {
       for (final c in _conversations.values)
         ConversationSummary(
           conversation: c,
-          title:
-              c.title ??
-              _profiles[_otherMember(c)]?.displayName ??
-              _otherMember(c),
+          title: c.title ?? _profiles[_otherMember(c)]?.displayName ?? _otherMember(c),
           avatarId: c.isGroup ? c.id : _otherMember(c),
           picture: _groupPictures[c.id],
           description: _groupDescriptions[c.id],
           lastMessage: _messages[c.id]?.lastOrNull,
           unreadCount:
-              _messages[c.id]
-                  ?.where(
-                    (m) =>
-                        m.senderId != me &&
-                        (m.seq ?? 0) > (_readSeq[c.id] ?? 0),
-                  )
-                  .length ??
-              0,
+              _messages[c.id]?.where((m) => m.senderId != me && (m.seq ?? 0) > (_readSeq[c.id] ?? 0)).length ?? 0,
         ),
     ];
     // Most recent activity first; empty conversations sink to the bottom.
-    result.sort(
-      (a, b) => (b.lastMessage?.envelope.ts ?? 0).compareTo(
-        a.lastMessage?.envelope.ts ?? 0,
-      ),
-    );
+    result.sort((a, b) => (b.lastMessage?.envelope.ts ?? 0).compareTo(a.lastMessage?.envelope.ts ?? 0));
     return result;
   }
 
-  String _otherMember(Conversation c) =>
-      c.members.firstWhere((m) => m != me, orElse: () => me);
+  String _otherMember(Conversation c) => c.members.firstWhere((m) => m != me, orElse: () => me);
 
   Stream<T> _watch<T>(T Function() snapshot) => Stream.multi((controller) {
     controller.add(snapshot());
@@ -828,11 +776,7 @@ class MockChatRepository implements ChatRepository {
     if (!_changes.isClosed) _changes.add(null);
   }
 
-  void _replace(
-    String conversationId,
-    String messageId,
-    ChatMessage Function(ChatMessage) update,
-  ) {
+  void _replace(String conversationId, String messageId, ChatMessage Function(ChatMessage) update) {
     final list = _messages[conversationId]!;
     final index = list.indexWhere((m) => m.id == messageId);
     if (index >= 0) list[index] = update(list[index]);
@@ -884,13 +828,7 @@ class MockChatRepository implements ChatRepository {
 
     void react(String id, Map<String, List<String>> reactions) =>
         _replace(_find(id)!.envelope.conv, id, (m) => m.copyWith(reactions: reactions));
-    void media(
-      String conv,
-      String from,
-      MessageType type,
-      MediaRef ref, {
-      String? caption,
-    }) => _addIncoming(
+    void media(String conv, String from, MessageType type, MediaRef ref, {String? caption}) => _addIncoming(
       Envelope.media(
         conv: conv,
         from: from,
@@ -918,34 +856,18 @@ class MockChatRepository implements ChatRepository {
       'club',
       kumiko,
       MessageType.video,
-      const MediaRef(
-        hash: _fakeHash,
-        size: 4200000,
-        mime: 'video/mp4',
-        width: 1280,
-        height: 720,
-        durationMs: 42000,
-      ),
+      const MediaRef(hash: _fakeHash, size: 4200000, mime: 'video/mp4', width: 1280, height: 720, durationMs: 42000),
       caption: 'Practice run from yesterday',
     );
     _readSeq['club'] = _seq;
 
-    _conversations['dm-naoko'] = Conversation(
-      id: 'dm-naoko',
-      members: [me, naoko],
-      isDirect: true,
-    );
+    _conversations['dm-naoko'] = Conversation(id: 'dm-naoko', members: [me, naoko], isDirect: true);
     text('dm-naoko', naoko, 'Sota, I finished the report.');
     media(
       'dm-naoko',
       naoko,
       MessageType.file,
-      const MediaRef(
-        hash: _fakeHash,
-        size: 284331,
-        mime: 'application/pdf',
-        name: 'weekly-report.pdf',
-      ),
+      const MediaRef(hash: _fakeHash, size: 284331, mime: 'application/pdf', name: 'weekly-report.pdf'),
     );
     text('dm-naoko', me, 'Thank you, I will read it tonight.');
     _readSeq['dm-naoko'] = _seq;
@@ -953,32 +875,17 @@ class MockChatRepository implements ChatRepository {
       'dm-naoko',
       naoko,
       MessageType.image,
-      const MediaRef(
-        hash: _fakeHash,
-        size: 512000,
-        mime: 'image/jpeg',
-        width: 1080,
-        height: 1440,
-      ),
+      const MediaRef(hash: _fakeHash, size: 512000, mime: 'image/jpeg', width: 1080, height: 1440),
     );
 
-    _conversations['dm-kumiko'] = Conversation(
-      id: 'dm-kumiko',
-      members: [me, kumiko],
-      isDirect: true,
-    );
+    _conversations['dm-kumiko'] = Conversation(id: 'dm-kumiko', members: [me, kumiko], isDirect: true);
     text('dm-kumiko', kumiko, 'Sota!');
     text('dm-kumiko', me, 'What is it?');
     _readSeq['dm-kumiko'] = _seq;
     text('dm-kumiko', kumiko, 'Are you free after school today?');
-    text(
-      'dm-kumiko',
-      kumiko,
-      'There is a new cafe near the station and I want to try their parfait.',
-    );
+    text('dm-kumiko', kumiko, 'There is a new cafe near the station and I want to try their parfait.');
     text('dm-kumiko', kumiko, 'It is my treat this time!');
   }
 }
 
-String _capitalize(String s) =>
-    s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+String _capitalize(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);

@@ -13,14 +13,26 @@ void main() {
     final aad = Uint8List.fromList(utf8.encode('hanashi-msg-v2|id|conv|a@b|dev'));
 
     test('round-trips through the key that travels in MLS', () async {
-      final sealed = await sealContent({'type': 'text', 'body': {'text': 'hi'}}, aad);
+      final sealed = await sealContent({
+        'type': 'text',
+        'body': {'text': 'hi'},
+      }, aad);
       final received = ContentKey.fromBytes(sealed.contentKey.toBytes());
-      expect(await openContent(received, sealed.ct, aad), {'type': 'text', 'body': {'text': 'hi'}});
+      expect(await openContent(received, sealed.ct, aad), {
+        'type': 'text',
+        'body': {'text': 'hi'},
+      });
     });
 
     test('rejects swapped ciphertext, wrong header or wrong key', () async {
-      final one = await sealContent({'type': 'text', 'body': {'text': 'one'}}, aad);
-      final two = await sealContent({'type': 'text', 'body': {'text': 'two'}}, aad);
+      final one = await sealContent({
+        'type': 'text',
+        'body': {'text': 'one'},
+      }, aad);
+      final two = await sealContent({
+        'type': 'text',
+        'body': {'text': 'two'},
+      }, aad);
       await expectLater(openContent(one.contentKey, two.ct, aad), throwsA(isA<DecryptionFailed>()));
       await expectLater(
         openContent(one.contentKey, one.ct, Uint8List.fromList(utf8.encode('other header'))),
@@ -31,8 +43,10 @@ void main() {
     });
 
     test('is padded: the server sees only roughly how long a message is', () async {
-      Future<int> sealed(String text) async =>
-          (await sealContent({'type': 'text', 'body': {'text': text}}, aad)).ct.length;
+      Future<int> sealed(String text) async => (await sealContent({
+        'type': 'text',
+        'body': {'text': text},
+      }, aad)).ct.length;
       // Nonce and tag around 256, 512 and 8 KiB of padded JSON.
       expect([await sealed('ok'), await sealed('a' * 200)], [256 + 28, 256 + 28]);
       expect(await sealed('a' * 300), 512 + 28);
@@ -40,22 +54,46 @@ void main() {
       // Not so far that it would no longer fit in an envelope.
       expect(await sealed('a' * 46000), maxPaddedContent + 28);
       expect(await sealed('a' * 48500), 48500 + 34 + 28); // The JSON around the text is 34 bytes.
-      final long = await sealContent({'type': 'text', 'body': {'text': 'ä' * 3000}}, aad);
-      expect(await openContent(long.contentKey, long.ct, aad), {'type': 'text', 'body': {'text': 'ä' * 3000}});
+      final long = await sealContent({
+        'type': 'text',
+        'body': {'text': 'ä' * 3000},
+      }, aad);
+      expect(await openContent(long.contentKey, long.ct, aad), {
+        'type': 'text',
+        'body': {'text': 'ä' * 3000},
+      });
     });
 
     test('the keys of a shared history round-trip; anything else is refused', () async {
-      final sealed = await sealContent({'type': 'text', 'body': {'text': 'before you came'}}, aad);
+      final sealed = await sealContent({
+        'type': 'text',
+        'body': {'text': 'before you came'},
+      }, aad);
       const id = '01JB2Y8Q3M7W2V6T0Q9X4C5D6E';
       final keys = decodeHistoryKeys(encodeHistoryKeys({id: sealed.contentKey}));
-      expect(await openContent(keys[id]!, sealed.ct, aad), {'type': 'text', 'body': {'text': 'before you came'}});
+      expect(await openContent(keys[id]!, sealed.ct, aad), {
+        'type': 'text',
+        'body': {'text': 'before you came'},
+      });
       final k = base64.encode(randomBytes(32));
       for (final bad in [
         <String, Object?>{},
         {'keys': []},
-        {'keys': {'not-an-id': {'k': k, 'h': k}}},
-        {'keys': {id: {'k': k}}},
-        {'keys': {id: {'k': base64.encode(randomBytes(16)), 'h': k}}},
+        {
+          'keys': {
+            'not-an-id': {'k': k, 'h': k},
+          },
+        },
+        {
+          'keys': {
+            id: {'k': k},
+          },
+        },
+        {
+          'keys': {
+            id: {'k': base64.encode(randomBytes(16)), 'h': k},
+          },
+        },
       ]) {
         expect(() => decodeHistoryKeys(utf8.encode(jsonEncode(bad))), throwsFormatException, reason: '$bad');
       }

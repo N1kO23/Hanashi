@@ -12,8 +12,10 @@ import '../widgets/avatar.dart';
 import '../widgets/emoji_text.dart';
 import '../widgets/format.dart';
 
-Future<void> showEditProfile(BuildContext context, {required String userId, required String name}) =>
-    showDialog<void>(context: context, builder: (_) => EditProfileDialog(userId: userId, name: name));
+Future<void> showEditProfile(BuildContext context, {required String userId, required String name}) => showDialog<void>(
+  context: context,
+  builder: (_) => EditProfileDialog(userId: userId, name: name),
+);
 
 /// Changes the display name (seen by the server, like before), the profile
 /// picture and the profile card (status message, bio, birthday); the last two are
@@ -61,7 +63,10 @@ class _EditProfileDialogState extends ConsumerState<EditProfileDialog> {
   }
 
   Future<void> _pickBirthday() async {
-    final picked = await showDialog<Birthday>(context: context, builder: (_) => _BirthdayDialog(initial: _birthday));
+    final picked = await showDialog<Birthday>(
+      context: context,
+      builder: (_) => _BirthdayDialog(initial: _birthday),
+    );
     if (picked != null) setState(() => _birthday = picked);
   }
 
@@ -144,7 +149,9 @@ class _EditProfileDialogState extends ConsumerState<EditProfileDialog> {
                     child: Text(
                       birthday == null ? 'No birthday' : formatBirthday(birthday),
                       key: const Key('birthday-value'),
-                      style: TextStyle(color: birthday == null ? context.palette.textMuted : context.palette.textPrimary),
+                      style: TextStyle(
+                        color: birthday == null ? context.palette.textMuted : context.palette.textPrimary,
+                      ),
                     ),
                   ),
                   TextButton(

@@ -70,7 +70,10 @@ void main() {
     const picture = '-f lavfi -i testsrc=duration=3:size=320x240:rate=24 -pix_fmt yuv420p';
     const tone = '-f lavfi -i sine=duration=3';
     Future<File?> webm(String name, String codec) async =>
-        await make(name, '$ffmpeg $picture $tone -c:v libvpx${codec == 'vp9' ? '-vp9' : ''} -c:a libvorbis -shortest $name') ??
+        await make(
+          name,
+          '$ffmpeg $picture $tone -c:v libvpx${codec == 'vp9' ? '-vp9' : ''} -c:a libvorbis -shortest $name',
+        ) ??
         await make(
           name,
           '$ffmpeg $picture -f yuv4mpegpipe - | vpxenc --quiet --passes=1 --codec=$codec -o v-$name - && '

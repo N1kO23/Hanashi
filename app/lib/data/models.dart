@@ -4,12 +4,7 @@ import 'package:hanashi_protocol/hanashi_protocol.dart';
 
 /// Public profile of a user, as shown in lists and message headers.
 class UserProfile {
-  const UserProfile({
-    required this.id,
-    required this.displayName,
-    this.avatar,
-    this.card = ProfileCard.empty,
-  });
+  const UserProfile({required this.id, required this.displayName, this.avatar, this.card = ProfileCard.empty});
 
   /// `name@host`.
   final String id;
@@ -24,12 +19,7 @@ class UserProfile {
 }
 
 class Conversation {
-  const Conversation({
-    required this.id,
-    required this.members,
-    required this.isDirect,
-    this.title,
-  });
+  const Conversation({required this.id, required this.members, required this.isDirect, this.title});
 
   final String id;
 
@@ -123,11 +113,7 @@ class ChatMessage {
   DateTime get sentAt => envelope.sentAt;
   bool get isDeleted => envelope.type == Envelope.deletedType;
 
-  ChatMessage copyWith({
-    int? seq,
-    DeliveryState? state,
-    Map<String, List<String>>? reactions,
-  }) => ChatMessage(
+  ChatMessage copyWith({int? seq, DeliveryState? state, Map<String, List<String>>? reactions}) => ChatMessage(
     envelope: envelope,
     seq: seq ?? this.seq,
     state: state ?? this.state,

@@ -505,7 +505,9 @@ class _ImageViewState extends ConsumerState<_ImageView> {
       fit: StackFit.expand,
       children: [
         if (thumbBytes != null) Image.memory(thumbBytes, fit: BoxFit.contain),
-        Center(child: CircularProgressIndicator(value: _progress, color: Colors.white)),
+        Center(
+          child: CircularProgressIndicator(value: _progress, color: Colors.white),
+        ),
       ],
     );
   }
@@ -647,22 +649,17 @@ class _VideoViewState extends ConsumerState<_VideoView> {
     super.initState();
     // Media is encrypted end to end, so it is downloaded and decrypted
     // before playing; there is no streaming from the server.
-    widget
-        .load((p) => mounted ? setState(() => _progress = p) : null)
-        .then(
-          (playable) {
-            if (!mounted) {
-              playable.close?.call();
-              return;
-            }
-            _close = playable.close;
-            final player = _player = Player();
-            setState(() => _controller = VideoController(player));
-            if (widget.loop) player.setPlaylistMode(PlaylistMode.single);
-            player.open(Media(playable.uri));
-          },
-          onError: (Object e) => mounted ? setState(() => _error = e) : null,
-        );
+    widget.load((p) => mounted ? setState(() => _progress = p) : null).then((playable) {
+      if (!mounted) {
+        playable.close?.call();
+        return;
+      }
+      _close = playable.close;
+      final player = _player = Player();
+      setState(() => _controller = VideoController(player));
+      if (widget.loop) player.setPlaylistMode(PlaylistMode.single);
+      player.open(Media(playable.uri));
+    }, onError: (Object e) => mounted ? setState(() => _error = e) : null);
   }
 
   @override
@@ -679,7 +676,9 @@ class _VideoViewState extends ConsumerState<_VideoView> {
     if (_error != null || controller == null) {
       final waiting = _error != null
           ? _Message('Could not load the ${widget.audio ? 'audio' : 'video'}: $_error')
-          : Center(child: CircularProgressIndicator(value: _progress, color: Colors.white));
+          : Center(
+              child: CircularProgressIndicator(value: _progress, color: Colors.white),
+            );
       if (bar == null) return waiting;
       return Stack(
         fit: StackFit.expand,
@@ -835,7 +834,9 @@ class _SourceViewState extends ConsumerState<_SourceView> {
     if (_error != null) {
       shown = _Message('Could not load it: $_error');
     } else if (_agreed) {
-      shown = Center(child: CircularProgressIndicator(value: _progress, color: Colors.white));
+      shown = Center(
+        child: CircularProgressIndicator(value: _progress, color: Colors.white),
+      );
     } else {
       // The picture the sender's app made, until the user agrees.
       final thumb = widget.link.thumb;

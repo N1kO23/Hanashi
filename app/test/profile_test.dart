@@ -15,8 +15,21 @@ const _newer = 'sha256:000000000000000000000000000000000000000000000000000000000
 void main() {
   test('birthdays read as the game writes them', () {
     expect(
-      [for (final (m, d) in [(3, 24), (1, 1), (2, 2), (5, 3), (6, 11), (7, 12), (8, 13), (9, 21), (12, 31)]) formatBirthday(Birthday(m, d))],
-      ['March 24th', 'January 1st', 'February 2nd', 'May 3rd', 'June 11th', 'July 12th', 'August 13th', 'September 21st', 'December 31st'],
+      [
+        for (final (m, d) in [(3, 24), (1, 1), (2, 2), (5, 3), (6, 11), (7, 12), (8, 13), (9, 21), (12, 31)])
+          formatBirthday(Birthday(m, d)),
+      ],
+      [
+        'March 24th',
+        'January 1st',
+        'February 2nd',
+        'May 3rd',
+        'June 11th',
+        'July 12th',
+        'August 13th',
+        'September 21st',
+        'December 31st',
+      ],
     );
   });
 
@@ -114,7 +127,10 @@ void main() {
     expect(find.text('Only the best for you!'), findsOneWidget);
     expect(find.text('March 24th'), findsOneWidget);
     expect(
-      find.descendant(of: find.byKey(const Key('profile-bio')), matching: find.textContaining('Teacher at Minato.\nLikes')),
+      find.descendant(
+        of: find.byKey(const Key('profile-bio')),
+        matching: find.textContaining('Teacher at Minato.\nLikes'),
+      ),
       findsOneWidget,
     );
     expect(find.byKey(const Key('profile-edit')), findsOneWidget);

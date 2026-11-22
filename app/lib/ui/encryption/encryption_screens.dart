@@ -47,7 +47,11 @@ class _GateScaffold extends StatelessWidget {
                           Text(
                             title,
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: context.palette.textHeading),
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: context.palette.textHeading,
+                            ),
                           ),
                           const SizedBox(height: 16),
                           ...children,
@@ -75,8 +79,10 @@ String _errorText(Object error) => switch (error) {
 
 TextStyle _bodyStyle(BuildContext context) => TextStyle(fontSize: 15, height: 1.45, color: context.palette.textPrimary);
 
-ButtonStyle _primary(BuildContext context) =>
-    FilledButton.styleFrom(backgroundColor: context.palette.replyAccent, padding: const EdgeInsets.symmetric(vertical: 14));
+ButtonStyle _primary(BuildContext context) => FilledButton.styleFrom(
+  backgroundColor: context.palette.replyAccent,
+  padding: const EdgeInsets.symmetric(vertical: 14),
+);
 
 /// First run for an account without an encryption identity.
 class EncryptionSetupScreen extends ConsumerStatefulWidget {
@@ -304,13 +310,19 @@ class _VerifyDeviceScreenState extends ConsumerState<VerifyDeviceScreen> {
         ),
         if (_error != null) ...[
           const SizedBox(height: 10),
-          Text(_error!, key: const Key('verify-error'), style: TextStyle(color: context.palette.failed)),
+          Text(
+            _error!,
+            key: const Key('verify-error'),
+            style: TextStyle(color: context.palette.failed),
+          ),
         ],
         const SizedBox(height: 16),
         FilledButton(
           key: const Key('verify-submit'),
           style: _primary(context),
-          onPressed: _busy ? null : () => _run(() => ref.read(encryptionProvider.notifier).verifyWithRecoveryKey(_key.text)),
+          onPressed: _busy
+              ? null
+              : () => _run(() => ref.read(encryptionProvider.notifier).verifyWithRecoveryKey(_key.text)),
           child: _busy ? const _Spinner() : const Text('Verify'),
         ),
         const SizedBox(height: 8),
@@ -445,10 +457,8 @@ class _SignOutButton extends ConsumerWidget {
   const _SignOutButton();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => TextButton(
-    onPressed: () => ref.read(accountProvider.notifier).signOut(),
-    child: const Text('Sign out'),
-  );
+  Widget build(BuildContext context, WidgetRef ref) =>
+      TextButton(onPressed: () => ref.read(accountProvider.notifier).signOut(), child: const Text('Sign out'));
 }
 
 /// The app's log, for finding out why setting up encryption failed.
@@ -469,8 +479,5 @@ class _Spinner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      SizedBox.square(
-        dimension: 18,
-        child: CircularProgressIndicator(strokeWidth: 2, color: context.palette.onAccent),
-      );
+      SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: context.palette.onAccent));
 }

@@ -63,11 +63,7 @@ void main() {
       final device = DeviceKeyInfo(
         deviceId: '01JB2Y8Q3M7W2V6T0Q9X4C5D6E',
         mlsSigKey: base64.encode(randomBytes(32)),
-        signature: await identity.signDevice(
-          userId: 'a@x',
-          deviceId: '01JB2Y8Q3M7W2V6T0Q9X4C5D6E',
-          mlsSigKey: '',
-        ),
+        signature: await identity.signDevice(userId: 'a@x', deviceId: '01JB2Y8Q3M7W2V6T0Q9X4C5D6E', mlsSigKey: ''),
       );
       // Signed for a different key than the device presents.
       expect(await isDeviceVerified(identityKey: identity.publicKeyBase64, userId: 'a@x', device: device), isFalse);

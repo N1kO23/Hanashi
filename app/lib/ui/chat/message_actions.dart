@@ -98,8 +98,10 @@ Future<void> showMessageActions(
       if (mine) _Action.delete,
     ],
   ];
-  Widget icon(_Action a) => Icon(a.icon, color: a == _Action.delete ? context.palette.failed : context.palette.textSecondary);
-  Widget label(_Action a) => Text(a.label, style: a == _Action.delete ? TextStyle(color: context.palette.failed) : null);
+  Widget icon(_Action a) =>
+      Icon(a.icon, color: a == _Action.delete ? context.palette.failed : context.palette.textSecondary);
+  Widget label(_Action a) =>
+      Text(a.label, style: a == _Action.delete ? TextStyle(color: context.palette.failed) : null);
 
   final _Choice? choice;
   if (at == null) {

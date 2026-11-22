@@ -26,7 +26,11 @@ void main() {
       const ConversationInfo(
         id: 'c',
         isDirect: false,
-        members: [MemberInfo(id: _me), MemberInfo(id: _kumiko), MemberInfo(id: _naoko)],
+        members: [
+          MemberInfo(id: _me),
+          MemberInfo(id: _kumiko),
+          MemberInfo(id: _naoko),
+        ],
       ),
     );
   });
@@ -91,11 +95,24 @@ void main() {
 
     // A conversation row that comes later takes the state that came first.
     await db.setGroupState('later', hash: 'h', document: encoded(club));
-    await db.applyConversation(const ConversationInfo(id: 'later', isDirect: false, members: [MemberInfo(id: _me)]));
+    await db.applyConversation(
+      const ConversationInfo(
+        id: 'later',
+        isDirect: false,
+        members: [MemberInfo(id: _me)],
+      ),
+    );
     expect((await db.conversation('later'))!.title, 'Club');
     // And a direct chat is named after the other one, whatever it holds.
     await db.applyConversation(
-      const ConversationInfo(id: 'dm', isDirect: true, members: [MemberInfo(id: _me), MemberInfo(id: _naoko)]),
+      const ConversationInfo(
+        id: 'dm',
+        isDirect: true,
+        members: [
+          MemberInfo(id: _me),
+          MemberInfo(id: _naoko),
+        ],
+      ),
     );
     final direct = (await db.watchSummaries(_me).first).singleWhere((s) => s.id == 'dm');
     expect((direct.title, direct.avatarId), ('naoko', _naoko));
@@ -189,7 +206,9 @@ void main() {
     );
     var shown = await message(mine.id);
     expect(shown.envelope.text, 'hello');
-    expect(shown.reactions, {'👍': [_me]});
+    expect(shown.reactions, {
+      '👍': [_me],
+    });
 
     await db.setState(edit.id, DeliveryState.failed);
     shown = await message(mine.id);
@@ -242,7 +261,11 @@ void main() {
     final original = text(_kumiko, 'Meeting at 5?');
     final elsewhere = ReplyRef(id: newUlid(), from: _naoko, text: 'From before you joined');
     await receive(original);
-    final reply = text(_me, 'Yes', replyTo: ReplyRef(id: original.id, from: _kumiko, text: 'Meeting at 5?'));
+    final reply = text(
+      _me,
+      'Yes',
+      replyTo: ReplyRef(id: original.id, from: _kumiko, text: 'Meeting at 5?'),
+    );
     final older = text(_me, 'Agreed', replyTo: elsewhere);
     await receive(reply);
     await receive(older);
@@ -253,7 +276,11 @@ void main() {
     await receive(Envelope.delete(conv: 'c', from: _kumiko, target: original.id, now: next()));
     expect((await message(reply.id)).replyTo!.text, 'This message was deleted');
     // The reply does not keep the quoted text either, even one that arrives later.
-    final late = text(_naoko, 'Too late', replyTo: ReplyRef(id: original.id, from: _kumiko, text: 'Meeting at 5?'));
+    final late = text(
+      _naoko,
+      'Too late',
+      replyTo: ReplyRef(id: original.id, from: _kumiko, text: 'Meeting at 5?'),
+    );
     await receive(late, at: 1);
     expect(await db.messageRow(late.id).then((r) => r!.envelope), isNot(contains('Meeting')));
     expect(await db.messageRow(reply.id).then((r) => r!.envelope), isNot(contains('Meeting')));
@@ -265,9 +292,15 @@ void main() {
     Future<UserProfile> kumiko() async => (await db.watchProfiles().first).singleWhere((p) => p.id == _kumiko);
     expect((await kumiko()).displayName, 'kumiko'); // Named after their ID until then.
 
-    expect(await db.noteProfile(_kumiko, const ProfileDocument(displayName: 'Kumiko', avatar: first), version: 10), isTrue);
+    expect(
+      await db.noteProfile(_kumiko, const ProfileDocument(displayName: 'Kumiko', avatar: first), version: 10),
+      isTrue,
+    );
     expect(((await kumiko()).displayName, (await kumiko()).avatar!.hash), ('Kumiko', _hash));
-    expect(await db.noteProfile(_kumiko, const ProfileDocument(displayName: 'Kumiko', avatar: second), version: 20), isTrue);
+    expect(
+      await db.noteProfile(_kumiko, const ProfileDocument(displayName: 'Kumiko', avatar: second), version: 20),
+      isTrue,
+    );
     expect((await kumiko()).avatar!.hash, _thumb);
     // An older one changes nothing.
     expect(await db.noteProfile(_kumiko, const ProfileDocument(displayName: 'Old'), version: 15), isFalse);
@@ -294,52 +327,64 @@ void main() {
     expect([for (final m in unread['c']!) m.envelope.text], ['typo']);
   });
 
-  test('a shared history: a line once sent, its keys taken once, each opening only an earlier message of its chat', () async {
-    const keys = MediaRef(hash: _hash, size: 100, mime: 'application/json', key: 'a2V5');
-    List<String> lines(List<ChatMessage> l) => [
-      for (final m in l)
-        if (m.envelope.type == Envelope.membershipType) '${m.envelope.from} ${m.envelope.body['change']} ${m.envelope.body['user']}',
-    ];
-    /// A message Sota cannot read (yet), in [conv] at [at].
-    Future<String> waiting(String conv, int at) async {
-      final envelope = Envelope(id: newUlid(now: next()), conv: conv, from: _kumiko, ts: ts, type: Envelope.encryptedType, body: const {});
-      await db.applyEvents(
-        [SyncEvent(seq: at, type: EventType.message, conv: conv, ts: ts, data: const {})],
-        me: _me,
-        received: {at: ReceivedMessage(envelope: envelope, wire: '{}')},
-      );
-      return envelope.id;
-    }
+  test(
+    'a shared history: a line once sent, its keys taken once, each opening only an earlier message of its chat',
+    () async {
+      const keys = MediaRef(hash: _hash, size: 100, mime: 'application/json', key: 'a2V5');
+      List<String> lines(List<ChatMessage> l) => [
+        for (final m in l)
+          if (m.envelope.type == Envelope.membershipType)
+            '${m.envelope.from} ${m.envelope.body['change']} ${m.envelope.body['user']}',
+      ];
 
-    final before = await waiting('c', 1);
-    final elsewhere = await waiting('d', 2);
-    final share = Envelope.history(conv: 'c', from: _kumiko, user: _me, keys: keys, now: next());
-    await receive(share, at: 3);
-    final after = await waiting('c', 4);
-    await receive(Envelope.history(conv: 'c', from: _kumiko, user: _naoko, keys: keys, now: next()), at: 5);
-    expect(lines(await timeline()), ['$_kumiko history $_me', '$_kumiko history $_naoko']);
+      /// A message Sota cannot read (yet), in [conv] at [at].
+      Future<String> waiting(String conv, int at) async {
+        final envelope = Envelope(
+          id: newUlid(now: next()),
+          conv: conv,
+          from: _kumiko,
+          ts: ts,
+          type: Envelope.encryptedType,
+          body: const {},
+        );
+        await db.applyEvents(
+          [SyncEvent(seq: at, type: EventType.message, conv: conv, ts: ts, data: const {})],
+          me: _me,
+          received: {at: ReceivedMessage(envelope: envelope, wire: '{}')},
+        );
+        return envelope.id;
+      }
 
-    // Only Sota's share is for this device, and only until its keys are taken.
-    expect([for (final s in await db.untakenShares(_me)) s.id], [share.id]);
-    await db.addSharedKeys(share, {before: 'a2V5', elsewhere: 'a2V5', after: 'a2V5'});
-    expect(await db.untakenShares(_me), isEmpty);
-    // Its keys open what came before it in its chat, nothing else.
-    expect(await db.sharedKeysFor(await db.undecrypted()), {
-      before: ['a2V5'],
-    });
+      final before = await waiting('c', 1);
+      final elsewhere = await waiting('d', 2);
+      final share = Envelope.history(conv: 'c', from: _kumiko, user: _me, keys: keys, now: next());
+      await receive(share, at: 3);
+      final after = await waiting('c', 4);
+      await receive(Envelope.history(conv: 'c', from: _kumiko, user: _naoko, keys: keys, now: next()), at: 5);
+      expect(lines(await timeline()), ['$_kumiko history $_me', '$_kumiko history $_naoko']);
 
-    // Sota's own share shows once it is sent; one never sent leaves no trace.
-    final sent = Envelope.history(conv: 'c', from: _me, user: _naoko, now: next());
-    final dropped = Envelope.history(conv: 'c', from: _me, user: _naoko, now: next());
-    await db.insertPending(PendingMessage(sent));
-    await db.insertPending(PendingMessage(dropped));
-    expect(lines(await timeline()), hasLength(2));
-    await db.markSent(sent.id, 6);
-    await db.deleteMessage(dropped.id);
-    expect(lines(await timeline()), ['$_kumiko history $_me', '$_kumiko history $_naoko', '$_me history $_naoko']);
-    // The shares and their lines are not news; the two waiting messages are.
-    expect((await db.watchSummaries(_me).first).single.unreadCount, 2);
-  });
+      // Only Sota's share is for this device, and only until its keys are taken.
+      expect([for (final s in await db.untakenShares(_me)) s.id], [share.id]);
+      await db.addSharedKeys(share, {before: 'a2V5', elsewhere: 'a2V5', after: 'a2V5'});
+      expect(await db.untakenShares(_me), isEmpty);
+      // Its keys open what came before it in its chat, nothing else.
+      expect(await db.sharedKeysFor(await db.undecrypted()), {
+        before: ['a2V5'],
+      });
+
+      // Sota's own share shows once it is sent; one never sent leaves no trace.
+      final sent = Envelope.history(conv: 'c', from: _me, user: _naoko, now: next());
+      final dropped = Envelope.history(conv: 'c', from: _me, user: _naoko, now: next());
+      await db.insertPending(PendingMessage(sent));
+      await db.insertPending(PendingMessage(dropped));
+      expect(lines(await timeline()), hasLength(2));
+      await db.markSent(sent.id, 6);
+      await db.deleteMessage(dropped.id);
+      expect(lines(await timeline()), ['$_kumiko history $_me', '$_kumiko history $_naoko', '$_me history $_naoko']);
+      // The shares and their lines are not news; the two waiting messages are.
+      expect((await db.watchSummaries(_me).first).single.unreadCount, 2);
+    },
+  );
 
   group('lines about members', () {
     /// What the server's event for a change of members brings.
@@ -353,7 +398,9 @@ void main() {
           'conversation': {
             'id': 'c',
             'isDirect': false,
-            'members': [for (final m in [_me, _kumiko, _naoko]) {'id': m}],
+            'members': [
+              for (final m in [_me, _kumiko, _naoko]) {'id': m},
+            ],
           },
           ...data,
         },
@@ -379,11 +426,7 @@ void main() {
       // Someone leaving says so before the server does.
       await receive(said(_naoko, 'left'));
       await event(EventType.memberRemoved, {'user': _naoko});
-      expect(await lines(), [
-        '$_me created',
-        '$_kumiko added $_naoko',
-        '$_naoko left',
-      ]);
+      expect(await lines(), ['$_me created', '$_kumiko added $_naoko', '$_naoko left']);
     });
 
     test('each word goes with the change it is about, and nobody speaks for someone else', () async {

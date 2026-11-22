@@ -71,11 +71,10 @@ class GoServer {
     final environment = {
       'HANASHI_FEDERATION': 'on',
       'HANASHI_FEDERATION_SERVERS': hosts.join(','),
-      'HANASHI_FEDERATION_RESOLVE': [for (final (i, host) in hosts.indexed) '$host=http://127.0.0.1:${ports[i]}'].join(','),
+      'HANASHI_FEDERATION_RESOLVE': [for (final (i, host) in hosts.indexed) '$host=http://127.0.0.1:${ports[i]}']
+          .join(','),
     };
-    return [
-      for (final (i, host) in hosts.indexed) await start(host: host, environment: environment, port: ports[i]),
-    ];
+    return [for (final (i, host) in hosts.indexed) await start(host: host, environment: environment, port: ports[i])];
   }
 
   static Future<int> _freePort() async {
@@ -88,19 +87,23 @@ class GoServer {
   /// Starts (or starts again, keeping the database and media) the process.
   Future<void> restart({int? minClient}) async {
     await stop();
-    _process = await Process.start(_binary, [], environment: {
-      'HANASHI_DB_DSN': _dsn,
-      'HANASHI_DB_CREATE': 'true',
-      'HANASHI_HOST': host,
-      'HANASHI_BIND': '127.0.0.1',
-      'HANASHI_PORT': '$port',
-      'HANASHI_DATA_DIR': dataDir.path,
-      // Test push services listen on loopback.
-      'HANASHI_PUSH_ALLOW_PRIVATE': 'true',
-      'HANASHI_KLIPY_API_KEY': 'test-klipy-key',
-      'HANASHI_MIN_CLIENT': ?minClient?.toString(),
-      ..._environment,
-    });
+    _process = await Process.start(
+      _binary,
+      [],
+      environment: {
+        'HANASHI_DB_DSN': _dsn,
+        'HANASHI_DB_CREATE': 'true',
+        'HANASHI_HOST': host,
+        'HANASHI_BIND': '127.0.0.1',
+        'HANASHI_PORT': '$port',
+        'HANASHI_DATA_DIR': dataDir.path,
+        // Test push services listen on loopback.
+        'HANASHI_PUSH_ALLOW_PRIVATE': 'true',
+        'HANASHI_KLIPY_API_KEY': 'test-klipy-key',
+        'HANASHI_MIN_CLIENT': ?minClient?.toString(),
+        ..._environment,
+      },
+    );
     _process!.stdout.transform(const SystemEncoding().decoder).listen(_log.write);
     _process!.stderr.transform(const SystemEncoding().decoder).listen(_log.write);
     final client = HttpClient();
@@ -127,10 +130,13 @@ class GoServer {
     _process = null;
     if (process == null) return;
     process.kill(ProcessSignal.sigterm);
-    await process.exitCode.timeout(const Duration(seconds: 10), onTimeout: () {
-      process.kill(ProcessSignal.sigkill);
-      return -1;
-    });
+    await process.exitCode.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        process.kill(ProcessSignal.sigkill);
+        return -1;
+      },
+    );
   }
 
   /// Runs [statements] on the server's database: for tests that play a
@@ -147,7 +153,13 @@ class GoServer {
     await dataDir.delete(recursive: true);
     if (Platform.environment['HANASHI_TEST_DSN'] == null) {
       await Process.run('docker', [
-        'exec', _container, 'mariadb', '-uroot', '-p$_rootPassword', '-e', 'DROP DATABASE IF EXISTS $_database',
+        'exec',
+        _container,
+        'mariadb',
+        '-uroot',
+        '-p$_rootPassword',
+        '-e',
+        'DROP DATABASE IF EXISTS $_database',
       ]);
     }
   }
@@ -163,11 +175,12 @@ class GoServer {
   static Future<String> _build({String package = './cmd/hanashi-server', String name = 'hanashi-server'}) async {
     final out = await Directory.systemTemp.createTemp('hanashi_bin_');
     final binary = '${out.path}/$name';
-    final result = await Process.run(
-      'go',
-      ['build', '-o', binary, package],
-      workingDirectory: '${_repoRoot().path}/server',
-    );
+    final result = await Process.run('go', [
+      'build',
+      '-o',
+      binary,
+      package,
+    ], workingDirectory: '${_repoRoot().path}/server');
     if (result.exitCode != 0) throw StateError('go build failed:\n${result.stderr}');
     return binary;
   }
@@ -176,10 +189,17 @@ class GoServer {
     final dsn = Platform.environment['HANASHI_TEST_DSN'];
     if (dsn != null && dsn.isNotEmpty) return dsn;
     final result = await Process.run('docker', [
-      'run', '-d', '--rm', '--name', _container,
-      '-e', 'MARIADB_ROOT_PASSWORD=$_rootPassword',
-      '-p', '127.0.0.1:33306:3306',
-      '--tmpfs', '/var/lib/mysql',
+      'run',
+      '-d',
+      '--rm',
+      '--name',
+      _container,
+      '-e',
+      'MARIADB_ROOT_PASSWORD=$_rootPassword',
+      '-p',
+      '127.0.0.1:33306:3306',
+      '--tmpfs',
+      '/var/lib/mysql',
       'mariadb:11.8',
     ]);
     if (result.exitCode != 0 && !'${result.stderr}'.contains('is already in use')) {

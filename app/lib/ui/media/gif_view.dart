@@ -142,10 +142,7 @@ class _LoopingVideoState extends ConsumerState<LoopingVideo> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (picture != null)
-          Image.memory(picture, fit: widget.fit, gaplessPlayback: true)
-        else
-          const GifPlaceholder(),
+        if (picture != null) Image.memory(picture, fit: widget.fit, gaplessPlayback: true) else const GifPlaceholder(),
         if (controller != null)
           Video(controller: controller, controls: NoVideoControls, fit: widget.fit, fill: Colors.transparent),
       ],

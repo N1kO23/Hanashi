@@ -41,11 +41,7 @@ class Avatar extends ConsumerWidget {
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       child: Text(
         initial,
-        style: TextStyle(
-          color: context.palette.onAccent,
-          fontWeight: FontWeight.bold,
-          fontSize: size * 0.42,
-        ),
+        style: TextStyle(color: context.palette.onAccent, fontWeight: FontWeight.bold, fontSize: size * 0.42),
       ),
     );
   }

@@ -9,9 +9,7 @@ String formatClock(DateTime time) =>
 /// Clock time for today, otherwise a short date.
 String formatListTime(DateTime time, {DateTime? now}) {
   final today = now ?? DateTime.now();
-  if (time.year == today.year &&
-      time.month == today.month &&
-      time.day == today.day) {
+  if (time.year == today.year && time.month == today.month && time.day == today.day) {
     return formatClock(time);
   }
   return '${time.month}/${time.day}';
@@ -28,9 +26,7 @@ String formatBytes(int bytes) {
     value /= 1024;
     unit++;
   }
-  return unit == 0
-      ? '$bytes B'
-      : '${value.toStringAsFixed(value < 10 ? 1 : 0)} ${units[unit]}';
+  return unit == 0 ? '$bytes B' : '${value.toStringAsFixed(value < 10 ? 1 : 0)} ${units[unit]}';
 }
 
 String formatDuration(Duration d) {
@@ -89,11 +85,7 @@ int daysUntilBirthday(Birthday birthday, DateTime now) {
 /// A change to a group in words, from a line ([Envelope.isGroupLine]):
 /// "Kumiko added Naoko", "You renamed the group to "Club Room"". One that only
 /// the server's events say, and not the member who made it, says so.
-String describeGroupChange(
-  Envelope line, {
-  required String me,
-  required String Function(String userId) nameOf,
-}) {
+String describeGroupChange(Envelope line, {required String me, required String Function(String userId) nameOf}) {
   String who(String id) => id == me ? 'You' : nameOf(id);
   final by = who(line.from);
   final user = line.body['user'];

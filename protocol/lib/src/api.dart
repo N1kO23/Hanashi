@@ -58,13 +58,7 @@ abstract final class InboxType {
 /// Seqs of events in conversations the user is not part of are skipped, so
 /// gaps are normal.
 class SyncEvent {
-  const SyncEvent({
-    required this.seq,
-    required this.type,
-    required this.conv,
-    required this.ts,
-    required this.data,
-  });
+  const SyncEvent({required this.seq, required this.type, required this.conv, required this.ts, required this.data});
 
   final int seq;
   final String type;
@@ -82,21 +76,13 @@ class SyncEvent {
     data: (json['data'] as Map).cast<String, Object?>(),
   );
 
-  Map<String, Object?> toJson() => {
-    'seq': seq,
-    'type': type,
-    'conv': conv,
-    'ts': ts,
-    'data': data,
-  };
+  Map<String, Object?> toJson() => {'seq': seq, 'type': type, 'conv': conv, 'ts': ts, 'data': data};
 
   Envelope get envelope => Envelope.fromJson(data);
 
   ConversationInfo? get conversation {
     final c = data['conversation'];
-    return c == null
-        ? null
-        : ConversationInfo.fromJson((c as Map).cast<String, Object?>());
+    return c == null ? null : ConversationInfo.fromJson((c as Map).cast<String, Object?>());
   }
 }
 
@@ -122,9 +108,7 @@ class ConversationInfo {
   factory ConversationInfo.fromJson(Map<String, Object?> json) => ConversationInfo(
     id: json['id'] as String,
     isDirect: json['isDirect'] as bool,
-    members: [
-      for (final m in json['members'] as List) MemberInfo.fromJson((m as Map).cast<String, Object?>()),
-    ],
+    members: [for (final m in json['members'] as List) MemberInfo.fromJson((m as Map).cast<String, Object?>())],
   );
 
   Map<String, Object?> toJson() => {
@@ -172,11 +156,7 @@ class ContactInfo {
 
 /// Result of `GET /sync?since=<cursor>`.
 class SyncPage {
-  const SyncPage({
-    required this.events,
-    required this.cursor,
-    required this.more,
-  });
+  const SyncPage({required this.events, required this.cursor, required this.more});
 
   final List<SyncEvent> events;
 
@@ -187,10 +167,7 @@ class SyncPage {
   final bool more;
 
   factory SyncPage.fromJson(Map<String, Object?> json) => SyncPage(
-    events: [
-      for (final e in json['events'] as List)
-        SyncEvent.fromJson((e as Map).cast<String, Object?>()),
-    ],
+    events: [for (final e in json['events'] as List) SyncEvent.fromJson((e as Map).cast<String, Object?>())],
     cursor: json['cursor'] as int,
     more: json['more'] as bool,
   );
@@ -220,18 +197,12 @@ class ConversationSnapshot {
   /// Older messages exist; fetch them with `GET /conversations/{id}/messages?before=`.
   final bool moreHistory;
 
-  factory ConversationSnapshot.fromJson(Map<String, Object?> json) =>
-      ConversationSnapshot(
-        conversation: ConversationInfo.fromJson(
-          (json['conversation'] as Map).cast<String, Object?>(),
-        ),
-        readUpTo: json['readUpTo'] as int,
-        messages: [
-          for (final e in json['messages'] as List)
-            SyncEvent.fromJson((e as Map).cast<String, Object?>()),
-        ],
-        moreHistory: json['moreHistory'] as bool,
-      );
+  factory ConversationSnapshot.fromJson(Map<String, Object?> json) => ConversationSnapshot(
+    conversation: ConversationInfo.fromJson((json['conversation'] as Map).cast<String, Object?>()),
+    readUpTo: json['readUpTo'] as int,
+    messages: [for (final e in json['messages'] as List) SyncEvent.fromJson((e as Map).cast<String, Object?>())],
+    moreHistory: json['moreHistory'] as bool,
+  );
 
   Map<String, Object?> toJson() => {
     'conversation': conversation.toJson(),
@@ -251,8 +222,7 @@ class SyncSnapshot {
   factory SyncSnapshot.fromJson(Map<String, Object?> json) => SyncSnapshot(
     cursor: json['cursor'] as int,
     conversations: [
-      for (final c in json['conversations'] as List)
-        ConversationSnapshot.fromJson((c as Map).cast<String, Object?>()),
+      for (final c in json['conversations'] as List) ConversationSnapshot.fromJson((c as Map).cast<String, Object?>()),
     ],
   );
 
@@ -271,10 +241,7 @@ class HistoryPage {
   final bool more;
 
   factory HistoryPage.fromJson(Map<String, Object?> json) => HistoryPage(
-    messages: [
-      for (final e in json['messages'] as List)
-        SyncEvent.fromJson((e as Map).cast<String, Object?>()),
-    ],
+    messages: [for (final e in json['messages'] as List) SyncEvent.fromJson((e as Map).cast<String, Object?>())],
     more: json['more'] as bool,
   );
 
@@ -286,11 +253,7 @@ class HistoryPage {
 
 /// Result of register and login.
 class AuthResult {
-  const AuthResult({
-    required this.userId,
-    required this.token,
-    required this.deviceId,
-  });
+  const AuthResult({required this.userId, required this.token, required this.deviceId});
 
   final String userId;
 
@@ -304,11 +267,7 @@ class AuthResult {
     deviceId: json['deviceId'] as String,
   );
 
-  Map<String, Object?> toJson() => {
-    'userId': userId,
-    'token': token,
-    'deviceId': deviceId,
-  };
+  Map<String, Object?> toJson() => {'userId': userId, 'token': token, 'deviceId': deviceId};
 }
 
 class DeviceInfo {
@@ -440,11 +399,7 @@ class Integrations {
     video: json['video'] == true,
   );
 
-  Map<String, Object?> toJson() => {
-    'klipyApiKey': ?klipyApiKey,
-    if (calls) 'calls': true,
-    if (video) 'video': true,
-  };
+  Map<String, Object?> toJson() => {'klipyApiKey': ?klipyApiKey, if (calls) 'calls': true, if (video) 'video': true};
 }
 
 /// Why a [Call] ended.

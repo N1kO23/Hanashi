@@ -85,11 +85,8 @@ class LeafProblem {
 
 /// Whether this device should update its own keys in a group: a key that
 /// leaked stops being useful after the next update (post-compromise security).
-bool keyRotationDue({
-  required DateTime rotatedAt,
-  required int sentSince,
-  required DateTime now,
-}) => sentSince >= 100 || now.difference(rotatedAt) >= const Duration(days: 7);
+bool keyRotationDue({required DateTime rotatedAt, required int sentSince, required DateTime now}) =>
+    sentSince >= 100 || now.difference(rotatedAt) >= const Duration(days: 7);
 
 /// A commit merged here, with the state it leaves the group in.
 class _MadeCommit {
@@ -224,12 +221,7 @@ class GroupManager {
   /// While another device holds the lease, throws `lease_held` at once (the
   /// repository retries upkeep a little later), or with [wait], for what the
   /// user is waiting for, tries again for a few seconds.
-  Future<T> _withLease<T>(
-    String conv,
-    Future<T> Function(Lease lease) body, {
-    int? epoch,
-    bool wait = false,
-  }) async {
+  Future<T> _withLease<T>(String conv, Future<T> Function(Lease lease) body, {int? epoch, bool wait = false}) async {
     final lease = await _lease(conv, epoch: epoch, wait: wait);
     _log.debug('Lease for $conv at epoch ${lease.epoch}');
     try {
@@ -273,7 +265,9 @@ class GroupManager {
     final held = await heldState(conv);
     GroupState? next = held;
     if (change != null) {
-      if (held == null) throw StateError("This group's details have not reached this device yet. Try again in a moment.");
+      if (held == null) {
+        throw StateError("This group's details have not reached this device yet. Try again in a moment.");
+      }
       final document = change(held.document);
       next = GroupState.create(
         title: document.title,
@@ -315,11 +309,8 @@ class GroupManager {
     };
   }
 
-  Future<String> _seal(String conv, GroupState state) async => state.seal(
-    await mls.exporterSecret(conv, GroupState.secretLabel),
-    conv: conv,
-    epoch: await mls.epoch(conv),
-  );
+  Future<String> _seal(String conv, GroupState state) async =>
+      state.seal(await mls.exporterSecret(conv, GroupState.secretLabel), conv: conv, epoch: await mls.epoch(conv));
 
   /// Sends a commit this device already merged (see [_commitFailed] for when
   /// that does not work out).
@@ -420,7 +411,9 @@ class GroupManager {
       await recover(conv);
       return;
     }
-    _log.info('Commit to $conv at epoch ${lease.epoch}: no clear answer (${e.status} ${e.code}), waiting to see if it counted');
+    _log.info(
+      'Commit to $conv at epoch ${lease.epoch}: no clear answer (${e.status} ${e.code}), waiting to see if it counted',
+    );
     onCommitUnsettled?.call(conv);
   }
 
@@ -611,7 +604,8 @@ class GroupManager {
         _log.warning('The state of $conv does not match what its commits pin: keeping what is here');
       }
       roster = {
-        for (final MapEntry(:key, :value) in row == null ? const <String, String>{}.entries : _parseRoster(row.roster).entries)
+        for (final MapEntry(:key, :value)
+            in row == null ? const <String, String>{}.entries : _parseRoster(row.roster).entries)
           if (key != me) key: value,
         ...opened.roster,
       };
@@ -765,7 +759,9 @@ class GroupManager {
     final minutes = 1 << (removals - _removalsBeforeWaiting).clamp(0, 6);
     final wait = Duration(minutes: minutes) > _longestRejoinWait ? _longestRejoinWait : Duration(minutes: minutes);
     _rejoinNotBefore[conv] = clock().add(wait);
-    _log.warning('$by removed this device from $conv right after it joined, $removals times in a row: joining again in $wait');
+    _log.warning(
+      '$by removed this device from $conv right after it joined, $removals times in a row: joining again in $wait',
+    );
     await db.setSecurityIssue(
       conv,
       "Another member's device keeps removing this one from this chat, which it then cannot read. It tries again later.",
@@ -811,14 +807,9 @@ class GroupManager {
   /// can be added: they could never join safely later.
   Future<Map<String, Uint8List>> _claimPackages(Iterable<String> users) async {
     final devicesByUser = {
-      for (final user in users)
-        user: (await keys.devicesOf(user)).devices.keys
-            .where((d) => d != deviceId)
-            .toList(),
+      for (final user in users) user: (await keys.devicesOf(user)).devices.keys.where((d) => d != deviceId).toList(),
     };
-    final packages = await api.claimKeyPackages([
-      for (final devices in devicesByUser.values) ...devices,
-    ]);
+    final packages = await api.claimKeyPackages([for (final devices in devicesByUser.values) ...devices]);
     if (_log.detailed) {
       final found = [
         for (final MapEntry(key: user, value: devices) in devicesByUser.entries)
@@ -839,9 +830,7 @@ class GroupManager {
     _leafCache.remove(conv);
     final problems = (await leafProblems(conv)).where((p) => !p.routine);
     if (problems.isNotEmpty) {
-      throw StateError(
-        'A key package did not match a verified device (${problems.first.leaf}).',
-      );
+      throw StateError('A key package did not match a verified device (${problems.first.leaf}).');
     }
   }
 
@@ -932,10 +921,7 @@ class GroupManager {
       if (await mls.epoch(conv) != lease.epoch) throw const StaleGroup();
       final made = await _makeCommit(conv, add: packages.values.toList(), users: [userId]);
       final welcome = made.result.welcome!;
-      final welcomes = [
-        for (final device in packages.keys)
-          Welcome(device: device, data: welcome),
-      ];
+      final welcomes = [for (final device in packages.keys) Welcome(device: device, data: welcome)];
       try {
         await _requireTrustedLeaves(conv);
       } catch (_) {
@@ -1033,9 +1019,7 @@ class GroupManager {
       final previous = _selfJoins[conv];
       _selfJoins[conv] = (at: clock(), removals: previous?.removals ?? 0);
       // The GroupInfo was signed by a member; trust who it says is in the group.
-      await db.addGroupUsers(conv, {
-        for (final leaf in await _leaves(conv)) leaf.userId,
-      });
+      await db.addGroupUsers(conv, {for (final leaf in await _leaves(conv)) leaf.userId});
       if (held != null) await db.setGroupState(conv, roster: held.roster);
       await db.noteKeyRotation(conv, clock());
     });
@@ -1073,9 +1057,7 @@ class GroupManager {
       'Joined $conv from a Welcome by ${item.fromUser}/${item.fromDevice}: epoch ${await mls.epoch(conv)}, '
       'the Welcome was for ${item.data['epoch']}',
     );
-    await db.addGroupUsers(conv, {
-      for (final leaf in await _leaves(conv)) leaf.userId,
-    });
+    await db.addGroupUsers(conv, {for (final leaf in await _leaves(conv)) leaf.userId});
     await db.noteKeyRotation(conv, clock());
     // A new start in this group: what this device knew from an earlier time
     // in it does not count.
@@ -1167,7 +1149,10 @@ class GroupManager {
       // while they had none there) would otherwise keep them out for good.
       final known = await db.groupUsersOf(conv);
       bool isNew(MlsLeaf leaf) => !before.any((b) => b.index == leaf.index && b.signatureKey == leaf.signatureKey);
-      final unknown = {for (final leaf in after) if (isNew(leaf) && !known.contains(leaf.userId)) leaf.userId};
+      final unknown = {
+        for (final leaf in after)
+          if (isNew(leaf) && !known.contains(leaf.userId)) leaf.userId,
+      };
       final others = {for (final leaf in after) leaf.userId}..remove(me);
       if (unknown.length == 1 && others.length == 1 && unknown.single == others.single) {
         if (await _onContactList(others.single)) known.add(others.single);
@@ -1213,20 +1198,13 @@ class GroupManager {
     }
     final raw = jsonEncode(event.data);
     if (wire.device == deviceId) {
-      return ReceivedMessage(
-        envelope: _placeholderFor(wire),
-        wire: raw,
-        own: true,
-      );
+      return ReceivedMessage(envelope: _placeholderFor(wire), wire: raw, own: true);
     }
     final opened = await _open(wire, log: _log.info);
     if (opened == null) {
       return ReceivedMessage(envelope: _placeholderFor(wire), wire: raw);
     }
-    return ReceivedMessage(
-      envelope: opened.envelope,
-      contentKey: opened.contentKey,
-    );
+    return ReceivedMessage(envelope: opened.envelope, contentKey: opened.contentKey);
   }
 
   /// Retries messages stored as placeholders (e.g. after joining a group).
@@ -1272,20 +1250,13 @@ class GroupManager {
         return null;
       }
       // The MLS sender must be the device the header names.
-      final sender = (await _leaves(wire.conv))
-          .where((l) => l.index == result.senderIndex)
-          .firstOrNull;
-      if (sender == null ||
-          sender.userId != wire.from ||
-          sender.deviceId != wire.device) {
+      final sender = (await _leaves(wire.conv)).where((l) => l.index == result.senderIndex).firstOrNull;
+      if (sender == null || sender.userId != wire.from || sender.deviceId != wire.device) {
         _log.warning('$what: the group says ${sender?.userId}/${sender?.deviceId} sent it');
         return null;
       }
       final contentKey = ContentKey.fromBytes(result.applicationMessage!);
-      return (
-        envelope: await openMessage(wire, contentKey),
-        contentKey: base64.encode(contentKey.toBytes()),
-      );
+      return (envelope: await openMessage(wire, contentKey), contentKey: base64.encode(contentKey.toBytes()));
     } catch (e) {
       log('$what, here at epoch ${await localEpoch(wire.conv)}: $e');
       return null;
@@ -1332,15 +1303,8 @@ class GroupManager {
       mls: Uint8List(0),
       ct: Uint8List(0),
     );
-    final sealed = await sealContent({
-      'type': message.type,
-      'body': message.body,
-    }, header.contentAad);
-    final mlsMessage = await mls.encrypt(
-      conv,
-      sealed.contentKey.toBytes(),
-      aad: utf8.encode(message.id),
-    );
+    final sealed = await sealContent({'type': message.type, 'body': message.body}, header.contentAad);
+    final mlsMessage = await mls.encrypt(conv, sealed.contentKey.toBytes(), aad: utf8.encode(message.id));
     return (
       wire: EncryptedEnvelope(
         id: message.id,
@@ -1387,13 +1351,9 @@ class GroupManager {
   }
 
   static String describe(List<LeafProblem> problems) {
-    final first = problems.firstWhere(
-      (p) => !p.routine,
-      orElse: () => problems.first,
-    );
+    final first = problems.firstWhere((p) => !p.routine, orElse: () => problems.first);
     return switch (first.kind) {
-      LeafProblemKind.identityChanged =>
-        "${first.leaf.userId}'s security key changed. Review it before sending.",
+      LeafProblemKind.identityChanged => "${first.leaf.userId}'s security key changed. Review it before sending.",
       LeafProblemKind.notMember => 'Updating who can read this chat...',
       _ => 'An unverified device was found in this chat and is being removed.',
     };
@@ -1426,22 +1386,15 @@ class GroupManager {
     if (removable.isNotEmpty) {
       await _withLease(conv, epoch: await mls.epoch(conv), (lease) async {
         if (await mls.epoch(conv) != lease.epoch) throw const StaleGroup();
-        final made = await _makeCommit(conv, remove: [
-          for (final p in removable) p.leaf.index,
-        ]);
+        final made = await _makeCommit(conv, remove: [for (final p in removable) p.leaf.index]);
         await _submit(conv, lease, made);
       });
       _leafCache.remove(conv);
-      await db.clearSuspiciousLeaves(conv, {
-        for (final leaf in await _leaves(conv)) leaf.signatureKey,
-      });
+      await db.clearSuspiciousLeaves(conv, {for (final leaf in await _leaves(conv)) leaf.signatureKey});
       problems = await leafProblems(conv);
     }
     final security = problems.where((p) => !p.routine).toList();
-    await db.setSecurityIssue(
-      conv,
-      security.isEmpty ? null : describe(security),
-    );
+    await db.setSecurityIssue(conv, security.isEmpty ? null : describe(security));
   }
 
   /// Updates this device's keys in [conv] if they were used long enough
@@ -1452,11 +1405,7 @@ class GroupManager {
     final state = await db.keyRotation(conv);
     if (state == null) return db.noteKeyRotation(conv, now);
     final rotatedAt = DateTime.fromMillisecondsSinceEpoch(state.rotatedAt);
-    if (!keyRotationDue(
-      rotatedAt: rotatedAt,
-      sentSince: state.sentSince,
-      now: now,
-    )) {
+    if (!keyRotationDue(rotatedAt: rotatedAt, sentSince: state.sentSince, now: now)) {
       return;
     }
     await _requireVerified('updating keys in $conv');
@@ -1474,12 +1423,8 @@ class GroupManager {
     if (status.count >= 10 && status.lastResort) return;
     _log.info('Uploading key packages: ${status.count} left${status.lastResort ? '' : ', no last-resort one'}');
     await api.uploadKeyPackages(
-      status.count >= 10
-          ? const []
-          : await mls.createKeyPackages(20 - status.count),
-      lastResort: status.lastResort
-          ? null
-          : await mls.createLastResortKeyPackage(),
+      status.count >= 10 ? const [] : await mls.createKeyPackages(20 - status.count),
+      lastResort: status.lastResort ? null : await mls.createLastResortKeyPackage(),
     );
   }
 }

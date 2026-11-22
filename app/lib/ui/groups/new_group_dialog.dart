@@ -79,7 +79,11 @@ class _NewGroupDialogState extends ConsumerState<NewGroupDialog> {
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Text(_error!, key: const Key('group-error'), style: TextStyle(color: context.palette.failed)),
+                  child: Text(
+                    _error!,
+                    key: const Key('group-error'),
+                    style: TextStyle(color: context.palette.failed),
+                  ),
                 ),
               const SizedBox(height: 8),
               Row(

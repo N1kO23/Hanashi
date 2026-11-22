@@ -91,8 +91,7 @@ class _VerificationDialogState extends ConsumerState<VerificationDialog> {
     _seen = true;
     final peer = v.mode == VerificationMode.device
         ? (v.peerDeviceName == null ? 'your other device' : '"${v.peerDeviceName}"')
-        : profiles[v.peerUser]?.displayName ??
-              UserId.fallbackName(v.peerUser, me: ref.read(chatRepositoryProvider).me);
+        : profiles[v.peerUser]?.displayName ?? UserId.fallbackName(v.peerUser, me: ref.read(chatRepositoryProvider).me);
 
     void close() => _close();
 
@@ -110,8 +109,16 @@ class _VerificationDialogState extends ConsumerState<VerificationDialog> {
               : '$peer wants to confirm that you are who you say. Compare emoji together, in person or on a call.',
         ),
         [
-          TextButton(key: const Key('verification-decline'), onPressed: () => cancel('Declined'), child: const Text('Decline')),
-          FilledButton(key: const Key('verification-accept'), onPressed: () => service.accept(txn), child: const Text('Accept')),
+          TextButton(
+            key: const Key('verification-decline'),
+            onPressed: () => cancel('Declined'),
+            child: const Text('Decline'),
+          ),
+          FilledButton(
+            key: const Key('verification-accept'),
+            onPressed: () => service.accept(txn),
+            child: const Text('Accept'),
+          ),
         ],
       ),
       SasState.requested => (
@@ -146,7 +153,11 @@ class _VerificationDialogState extends ConsumerState<VerificationDialog> {
             onPressed: () => cancel('The emoji did not match'),
             child: const Text('They do not match'),
           ),
-          FilledButton(key: const Key('verification-match'), onPressed: () => service.confirm(txn), child: const Text('They match')),
+          FilledButton(
+            key: const Key('verification-match'),
+            onPressed: () => service.confirm(txn),
+            child: const Text('They match'),
+          ),
         ],
       ),
       SasState.waitingForOther => ('Compare emoji', _Waiting('Waiting for $peer to confirm...'), const <Widget>[]),

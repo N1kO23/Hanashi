@@ -342,7 +342,10 @@ class NotificationCenter {
               case final audible?)
             (item: item, audible: audible),
       ];
-      final fresh = [for (final s in shown) if (s.item.seq > before) s];
+      final fresh = [
+        for (final s in shown)
+          if (s.item.seq > before) s,
+      ];
       if (focus && !foreground) {
         // Not marked as notified: shown once Focus ends.
         if (fresh.isNotEmpty) held.add(conv);
@@ -382,26 +385,26 @@ class NotificationCenter {
       }
     }
     await notifier.show(
-        preferences.preview
-            ? ChatNotification(
-                conversationId: conv,
-                title: conversation.title ?? nameOf(lines.last.sender),
-                isGroup: !conversation.isDirect,
-                unread: lines.length,
-                lines: [
-                  for (final m in latest)
-                    NotificationLine(sender: nameOf(m.sender), text: m.text, time: m.time, picture: pictures[m.sender]),
-                ],
-                audible: audible,
-              )
-            : ChatNotification(
-                conversationId: conv,
-                title: _appName(),
-                isGroup: false,
-                unread: lines.length,
-                lines: const [],
-                audible: audible,
-              ),
+      preferences.preview
+          ? ChatNotification(
+              conversationId: conv,
+              title: conversation.title ?? nameOf(lines.last.sender),
+              isGroup: !conversation.isDirect,
+              unread: lines.length,
+              lines: [
+                for (final m in latest)
+                  NotificationLine(sender: nameOf(m.sender), text: m.text, time: m.time, picture: pictures[m.sender]),
+              ],
+              audible: audible,
+            )
+          : ChatNotification(
+              conversationId: conv,
+              title: _appName(),
+              isGroup: false,
+              unread: lines.length,
+              lines: const [],
+              audible: audible,
+            ),
     );
   }
 

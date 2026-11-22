@@ -88,10 +88,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
-          home: KeyringMissingScreen(
-            onRetry: () async => keyring,
-            onUseFile: () async => usedFile = true,
-          ),
+          home: KeyringMissingScreen(onRetry: () async => keyring, onUseFile: () async => usedFile = true),
         ),
       ),
     );

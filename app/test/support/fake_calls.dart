@@ -29,7 +29,10 @@ class FakeVideo implements CallVideo {
     key: ValueKey('video-$name'),
     color: color,
     child: Center(
-      child: Text('$name${mirror ? ' (mirrored)' : ''}', style: const TextStyle(color: Color(0xFFFFFFFF), fontSize: 12)),
+      child: Text(
+        '$name${mirror ? ' (mirrored)' : ''}',
+        style: const TextStyle(color: Color(0xFFFFFFFF), fontSize: 12),
+      ),
     ),
   );
 }
@@ -186,7 +189,8 @@ class FakeConnection implements CallConnection {
     log.add('${watch ? 'watch' : 'stop watching'} ${peer.user}/${peer.device}');
     _changePeer(
       peer,
-      (p) => _peer(p, screen: watch ? FakeVideo('${p.user}-screen') : null, unwatched: !watch, soundOff: p.screenSoundOff),
+      (p) =>
+          _peer(p, screen: watch ? FakeVideo('${p.user}-screen') : null, unwatched: !watch, soundOff: p.screenSoundOff),
     );
   }
 
@@ -272,8 +276,12 @@ class FakeCallAlerts implements CallAlerts {
   String? caller;
 
   @override
-  Future<void> showOngoing({required String conv, required String title, bool video = false, bool sharing = false}) async =>
-      log.add('ongoing $conv $title${video ? ' video' : ''}${sharing ? ' sharing' : ''}');
+  Future<void> showOngoing({
+    required String conv,
+    required String title,
+    bool video = false,
+    bool sharing = false,
+  }) async => log.add('ongoing $conv $title${video ? ' video' : ''}${sharing ? ' sharing' : ''}');
 
   @override
   Future<void> hideOngoing() async => log.add('ongoing gone');
@@ -376,7 +384,12 @@ class CallsRepository extends MockChatRepository {
     await holdJoin?.future;
     final call =
         onJoin?.call(conversationId) ??
-        testCall(conv: conversationId, startedBy: me, ringUntil: testNow.add(const Duration(seconds: 45)), video: video);
+        testCall(
+          conv: conversationId,
+          startedBy: me,
+          ringUntil: testNow.add(const Duration(seconds: 45)),
+          video: video,
+        );
     tell(call);
     return CallJoin(call: call, url: 'wss://livekit.test', token: 'token');
   }

@@ -87,13 +87,18 @@ void main() {
     expect(find.byType(Dialog), findsNothing);
     expect(find.byKey(const Key('profile-birthday')), findsOneWidget);
     expect(
-      [for (final t in tester.widgetList<ContactTile>(find.byType(ContactTile))) if (t.selected) t.profile.displayName],
+      [
+        for (final t in tester.widgetList<ContactTile>(find.byType(ContactTile)))
+          if (t.selected) t.profile.displayName,
+      ],
       ['Naoko', 'Naoko'],
     );
     repo.dispose();
   });
 
-  testWidgets('on a phone, a contact opens their profile in place of the list, and from there the chat', (tester) async {
+  testWidgets('on a phone, a contact opens their profile in place of the list, and from there the chat', (
+    tester,
+  ) async {
     await setSurfaceSize(tester, const Size(400, 860));
     final repo = testRepository();
     await tester.pumpWidget(testApp(repo));

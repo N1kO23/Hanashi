@@ -23,7 +23,14 @@ void main() {
     addTearDown(db.close);
     alerts = FakeCallAlerts();
     await db.applyConversation(
-      const ConversationInfo(id: conv, isDirect: true, members: [MemberInfo(id: me), MemberInfo(id: kumiko)]),
+      const ConversationInfo(
+        id: conv,
+        isDirect: true,
+        members: [
+          MemberInfo(id: me),
+          MemberInfo(id: kumiko),
+        ],
+      ),
     );
     await db.into(db.profiles).insertOnConflictUpdate(ProfilesCompanion.insert(id: kumiko, displayName: 'Kumiko'));
   });
@@ -55,15 +62,27 @@ void main() {
 
     await show(CallRing(call), now: ringUntil.add(const Duration(minutes: 2)));
     await show(CallRing(testCall(id: 'push-mine', conv: conv, startedBy: me, ringUntil: ringUntil)));
-    await show(CallRing(testCall(id: 'push-answered', conv: conv, startedBy: kumiko, ringUntil: ringUntil, answeredAt: testNow)));
+    await show(
+      CallRing(testCall(id: 'push-answered', conv: conv, startedBy: kumiko, ringUntil: ringUntil, answeredAt: testNow)),
+    );
     expect(alerts.log, hasLength(2));
   });
 
   test('a call that stops: the ring goes, and one unanswered shows as missed', () async {
     final call = testCall(id: 'push-stop', conv: conv, startedBy: kumiko, ringUntil: ringUntil);
-    await showCallPush(CallStop(callId: call.id, conv: conv, reason: CallStop.answered), db: db, me: me, alerts: alerts);
+    await showCallPush(
+      CallStop(callId: call.id, conv: conv, reason: CallStop.answered),
+      db: db,
+      me: me,
+      alerts: alerts,
+    );
     expect(alerts.log, ['ring gone ${call.id}']);
-    await showCallPush(CallStop(callId: call.id, conv: conv, reason: CallEnd.missed), db: db, me: me, alerts: alerts);
+    await showCallPush(
+      CallStop(callId: call.id, conv: conv, reason: CallEnd.missed),
+      db: db,
+      me: me,
+      alerts: alerts,
+    );
     expect(alerts.log.sublist(1), ['ring gone ${call.id}', 'missed $conv Kumiko']);
   });
 

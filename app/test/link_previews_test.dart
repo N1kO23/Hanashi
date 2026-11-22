@@ -220,11 +220,8 @@ void main() {
           '/kumiko/status/1' => page('https://video.example/v.mp4'),
           '/kumiko/status/2' => page('https://video.example/huge.mp4'),
           '/kumiko/status/3' => page('https://player.example/embed/1', type: 'text/html'),
-          '/v.mp4' || '/direct.mp4' => http.StreamedResponse(
-            Stream.value(mp4),
-            200,
-            headers: {'content-type': 'video/mp4'},
-          ),
+          '/v.mp4' ||
+          '/direct.mp4' => http.StreamedResponse(Stream.value(mp4), 200, headers: {'content-type': 'video/mp4'}),
           '/huge.mp4' => http.StreamedResponse(
             Stream.value(mp4),
             200,
@@ -263,10 +260,7 @@ void main() {
         requests,
         probe: (_) async => const VideoInfo(width: 640, height: 360, duration: Duration(seconds: 3), hasAudio: false),
       ).fetch('https://fxtwitter.example/kumiko/status/1'))!;
-      expect(
-        (silent.kind, silent.media!.width, silent.media!.durationMs),
-        (LinkKind.gif, 640, 3000),
-      );
+      expect((silent.kind, silent.media!.width, silent.media!.durationMs), (LinkKind.gif, 640, 3000));
       final sound = (await fetcher(
         requests,
         probe: (_) async => const VideoInfo(width: 640, height: 360, hasAudio: true),
@@ -317,7 +311,10 @@ void main() {
       expect(File(dance.media!.path).readAsBytesSync(), animated);
       // One that does not move is a picture, for the viewer.
       final still = (await links.fetch('https://cdn.example/still.gif'))!;
-      expect((still.kind, still.media!.mime, still.media!.width, still.source), (LinkKind.image, 'image/gif', 40, null));
+      expect(
+        (still.kind, still.media!.mime, still.media!.width, still.source),
+        (LinkKind.image, 'image/gif', 40, null),
+      );
     });
 
     test('what was never sent is cleared out after a day', () async {
@@ -348,9 +345,17 @@ void main() {
           asked.add((request.url.path, range));
           switch (request.url.path) {
             case '/go':
-              return http.StreamedResponse(const Stream.empty(), 302, headers: {'location': 'https://video.example/v.mp4'});
+              return http.StreamedResponse(
+                const Stream.empty(),
+                302,
+                headers: {'location': 'https://video.example/v.mp4'},
+              );
             case '/to-lan':
-              return http.StreamedResponse(const Stream.empty(), 302, headers: {'location': 'https://192.168.1.1/v.mp4'});
+              return http.StreamedResponse(
+                const Stream.empty(),
+                302,
+                headers: {'location': 'https://192.168.1.1/v.mp4'},
+              );
             case '/v.mp4' when turnsAway:
               return http.StreamedResponse(const Stream.empty(), 302, headers: {'location': 'https://10.0.0.1/v.mp4'});
             case '/v.mp4':
@@ -381,9 +386,18 @@ void main() {
               });
               return http.StreamedResponse(body.stream, 200, headers: {'content-type': 'video/mp4'});
             case '/page':
-              return http.StreamedResponse(Stream.value(utf8.encode('<p>Hi')), 200, headers: {'content-type': 'text/html'});
+              return http.StreamedResponse(
+                Stream.value(utf8.encode('<p>Hi')),
+                200,
+                headers: {'content-type': 'text/html'},
+              );
             case '/cat.png':
-              return http.StreamedResponse(Stream.value(_png), 200, contentLength: _png.length, headers: {'content-type': 'image/png'});
+              return http.StreamedResponse(
+                Stream.value(_png),
+                200,
+                contentLength: _png.length,
+                headers: {'content-type': 'image/png'},
+              );
             case '/huge.png':
               return http.StreamedResponse(
                 const Stream.empty(),
@@ -424,12 +438,7 @@ void main() {
       expect((whole.$1, whole.$3.length), (200, video.length));
       expect((await play(stream.address.replace(path: '/something-else'))).$1, 404);
       // Asked at the address it redirected to, with the player's ranges.
-      expect(asked, [
-        ('/go', 'bytes=0-0'),
-        ('/v.mp4', 'bytes=0-0'),
-        ('/v.mp4', 'bytes=1000-1999'),
-        ('/v.mp4', null),
-      ]);
+      expect(asked, [('/go', 'bytes=0-0'), ('/v.mp4', 'bytes=0-0'), ('/v.mp4', 'bytes=1000-1999'), ('/v.mp4', null)]);
 
       // Redirects later on go by the same rules.
       turnsAway = true;
@@ -543,10 +552,7 @@ void main() {
     final file = await download('size=1000', name: '../../.bashrc');
     expect(file.parent.path, dir.path);
     expect((file.uri.pathSegments.last, file.lengthSync()), ('_.._.bashrc', 1000));
-    expect(
-      (await download('size=10', name: 'C:\\x\\y:z?.txt')).uri.pathSegments.last,
-      'C__x_y_z_.txt',
-    );
+    expect((await download('size=10', name: 'C:\\x\\y:z?.txt')).uri.pathSegments.last, 'C__x_y_z_.txt');
     expect((await download('size=10', name: '...')).uri.pathSegments.last, 'file');
 
     for (final query in ['size=1001&say=1', 'size=1001']) {

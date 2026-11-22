@@ -39,11 +39,7 @@ import 'message_bubble.dart';
 /// Messages of one conversation plus the composer. Used full-screen on phones
 /// and as the right-hand panel on wide layouts.
 class ChatView extends ConsumerStatefulWidget {
-  const ChatView({
-    super.key,
-    required this.conversationId,
-    this.fullScreen = false,
-  });
+  const ChatView({super.key, required this.conversationId, this.fullScreen = false});
 
   final String conversationId;
 
@@ -102,7 +98,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
   void _reply(ChatMessage message, String Function(String) nameOf) => setState(
     () => _mode = ComposerMode.reply(
       messageId: message.id,
-      title: 'Replying to ${message.senderId == ref.read(chatRepositoryProvider).me ? 'yourself' : nameOf(message.senderId)}',
+      title:
+          'Replying to ${message.senderId == ref.read(chatRepositoryProvider).me ? 'yourself' : nameOf(message.senderId)}',
       preview: AppDatabase.quotePreview(message.envelope),
     ),
   );
@@ -291,20 +288,13 @@ class _ChatViewState extends ConsumerState<ChatView> {
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          picked.length == 1
-              ? 'Preparing ${picked.single.name}...'
-              : 'Preparing ${picked.length} files...',
+          picked.length == 1 ? 'Preparing ${picked.single.name}...' : 'Preparing ${picked.length} files...',
         ),
       ),
     );
     for (final file in picked) {
       try {
-        await repository.sendAttachment(
-          widget.conversationId,
-          path: file.path,
-          name: file.name,
-          replyTo: replyTo,
-        );
+        await repository.sendAttachment(widget.conversationId, path: file.path, name: file.name, replyTo: replyTo);
         replyTo = null;
       } on AttachmentException catch (e) {
         _showError(e.message);
@@ -321,10 +311,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
     final picker = ImagePicker();
     switch (source) {
       case _AttachSource.gallery when _isMobile:
-        return [
-          for (final x in await picker.pickMultipleMedia())
-            (path: x.path, name: x.name),
-        ];
+        return [for (final x in await picker.pickMultipleMedia()) (path: x.path, name: x.name)];
       case _AttachSource.camera:
         final x = await picker.pickImage(source: ImageSource.camera);
         return x == null ? [] : [(path: x.path, name: x.name)];
@@ -332,19 +319,14 @@ class _ChatViewState extends ConsumerState<ChatView> {
         final x = await picker.pickVideo(source: ImageSource.camera);
         return x == null ? [] : [(path: x.path, name: x.name)];
       case _AttachSource.gallery || _AttachSource.file:
-        final files = await FilePicker.pickFiles(
-          type: source == _AttachSource.gallery ? FileType.media : FileType.any,
-        );
-        return [
-          for (final f in files) (path: await localPathOf(f), name: f.name),
-        ];
+        final files = await FilePicker.pickFiles(type: source == _AttachSource.gallery ? FileType.media : FileType.any);
+        return [for (final f in files) (path: await localPathOf(f), name: f.name)];
     }
   }
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _onFailedTap(ChatMessage message) async {
@@ -362,10 +344,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
               onTap: () => Navigator.pop(context, 'retry'),
             ),
             ListTile(
-              leading: Icon(
-                Icons.delete_outline,
-                color: context.palette.failed,
-              ),
+              leading: Icon(Icons.delete_outline, color: context.palette.failed),
               title: const Text('Delete'),
               onTap: () => Navigator.pop(context, 'delete'),
             ),
@@ -407,27 +386,20 @@ class _ChatViewState extends ConsumerState<ChatView> {
     final typing = [...ref.watch(typingProvider(widget.conversationId)).value ?? const <String>{}]..sort();
     final profiles = ref.watch(profilesProvider).value ?? const {};
     final me = ref.watch(chatRepositoryProvider).me;
-    String nameOf(String id) =>
-        profiles[id]?.displayName ?? UserId.fallbackName(id, me: me);
+    String nameOf(String id) => profiles[id]?.displayName ?? UserId.fallbackName(id, me: me);
 
     final view = ColoredBox(
       color: context.palette.chatBackground,
       child: Column(
         children: [
-          _TitleBar(
-            summary: summary,
-            nameOf: nameOf,
-            fullScreen: widget.fullScreen,
-          ),
-          if (summary != null)
-            _SecurityBanner(summary: summary, nameOf: nameOf),
-            CallStrip(conversationId: widget.conversationId),
+          _TitleBar(summary: summary, nameOf: nameOf, fullScreen: widget.fullScreen),
+          if (summary != null) _SecurityBanner(summary: summary, nameOf: nameOf),
+          CallStrip(conversationId: widget.conversationId),
           CallStage(conversationId: widget.conversationId),
           Expanded(
             child: messages.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) =>
-                  Center(child: Text('Could not load messages: $e')),
+              error: (e, _) => Center(child: Text('Could not load messages: $e')),
               data: (list) => _MessageList(
                 controller: _scroll,
                 onFailedTap: _onFailedTap,
@@ -530,11 +502,9 @@ class _MessageList extends StatelessWidget {
   final void Function(String messageId) onQuoteTap;
   final String? highlighted;
 
-  bool _sameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
+  bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 
-  static bool _isGroupLine(ChatMessage m) =>
-      m.envelope.isGroupLine;
+  static bool _isGroupLine(ChatMessage m) => m.envelope.isGroupLine;
 
   bool _continues(ChatMessage previous, ChatMessage next) =>
       !_isGroupLine(previous) &&
@@ -547,10 +517,7 @@ class _MessageList extends StatelessWidget {
   Widget build(BuildContext context) {
     if (messages.isEmpty && typing.isEmpty) {
       return Center(
-        child: Text(
-          'No messages yet. Say hello!',
-          style: TextStyle(color: context.palette.textSecondary),
-        ),
+        child: Text('No messages yet. Say hello!', style: TextStyle(color: context.palette.textSecondary)),
       );
     }
     // Reversed so the list starts at the newest message and stays anchored to
@@ -569,17 +536,12 @@ class _MessageList extends StatelessWidget {
         final message = messages[index];
         final previous = index > 0 ? messages[index - 1] : null;
         final next = index < messages.length - 1 ? messages[index + 1] : null;
-        final newDay =
-            previous == null || !_sameDay(previous.sentAt, message.sentAt);
+        final newDay = previous == null || !_sameDay(previous.sentAt, message.sentAt);
 
         final Widget bubble = _isGroupLine(message)
             ? _GroupLine(
                 key: ValueKey(message.id),
-                text: describeGroupChange(
-                  message.envelope,
-                  me: me,
-                  nameOf: nameOf,
-                ),
+                text: describeGroupChange(message.envelope, me: me, nameOf: nameOf),
                 emoji: _lineEmoji(message.envelope),
               )
             : MessageBubble(
@@ -596,14 +558,9 @@ class _MessageList extends StatelessWidget {
                 onReactAt: (position) => onActions(message, position, reactionsOnly: true),
                 onReact: (emoji, remove) => onReact(message, emoji, remove),
                 onQuoteTap: onQuoteTap,
-                isFirstInGroup:
-                    previous == null ||
-                    newDay ||
-                    !_continues(previous, message),
+                isFirstInGroup: previous == null || newDay || !_continues(previous, message),
                 isLastInGroup:
-                    next == null ||
-                    !_continues(message, next) ||
-                    next.sentAt.minute != message.sentAt.minute,
+                    next == null || !_continues(message, next) || next.sentAt.minute != message.sentAt.minute,
                 onRetry: () => onFailedTap(message),
               );
         if (!newDay) return bubble;
@@ -674,14 +631,8 @@ class _DaySeparator extends StatelessWidget {
       padding: const EdgeInsets.only(top: 16, bottom: 4),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-        decoration: BoxDecoration(
-          color: context.palette.listBackground,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          formatDay(day),
-          style: TextStyle(fontSize: 12, color: context.palette.textMuted),
-        ),
+        decoration: BoxDecoration(color: context.palette.listBackground, borderRadius: BorderRadius.circular(12)),
+        child: Text(formatDay(day), style: TextStyle(fontSize: 12, color: context.palette.textMuted)),
       ),
     );
   }
@@ -703,11 +654,7 @@ Widget _titleOnTap(BuildContext context, ConversationSummary? s, bool direct, Wi
 }
 
 class _TitleBar extends ConsumerWidget {
-  const _TitleBar({
-    required this.summary,
-    required this.nameOf,
-    required this.fullScreen,
-  });
+  const _TitleBar({required this.summary, required this.nameOf, required this.fullScreen});
 
   final ConversationSummary? summary;
   final String Function(String userId) nameOf;
@@ -717,15 +664,15 @@ class _TitleBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final foreground = fullScreen ? context.palette.onHeader : context.palette.textPrimary;
     final s = summary;
-    final typing = s == null
-        ? const <String>{}
-        : ref.watch(typingProvider(s.id)).value ?? const {};
+    final typing = s == null ? const <String>{} : ref.watch(typingProvider(s.id)).value ?? const {};
     final me = ref.watch(chatRepositoryProvider).me;
     final direct = s != null && !s.conversation.isGroup && s.avatarId != me;
     final muted = s != null && ref.watch(chatSettingsOfProvider(s.id)).mutedAt(ref.watch(clockProvider)());
     final presence = direct ? ref.watch(presenceOfProvider(s.avatarId)) : Presence.offline;
     final subtitle = typing.isNotEmpty
-        ? typingText([for (final user in [...typing]..sort()) nameOf(user)])
+        ? typingText([
+            for (final user in [...typing]..sort()) nameOf(user),
+          ])
         : s != null && s.conversation.isGroup
         ? '${s.conversation.members.length} members'
         : presence != Presence.offline
@@ -749,21 +696,13 @@ class _TitleBar extends ConsumerWidget {
                             s.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: foreground,
-                            ),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: foreground),
                           ),
                         ),
                         const SizedBox(width: 6),
                         Tooltip(
                           message: 'End-to-end encrypted',
-                          child: Icon(
-                            Icons.lock,
-                            size: 14,
-                            color: foreground.withValues(alpha: 0.75),
-                          ),
+                          child: Icon(Icons.lock, size: 14, color: foreground.withValues(alpha: 0.75)),
                         ),
                         if (muted) ...[
                           const SizedBox(width: 4),
@@ -785,10 +724,7 @@ class _TitleBar extends ConsumerWidget {
                         key: const Key('chat-subtitle'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: foreground.withValues(alpha: 0.75),
-                        ),
+                        style: TextStyle(fontSize: 12, color: foreground.withValues(alpha: 0.75)),
                       ),
                   ],
                 ),
@@ -826,9 +762,7 @@ class _TitleBar extends ConsumerWidget {
     return Container(
       decoration: BoxDecoration(
         color: fullScreen ? context.palette.header : context.palette.surface,
-        border: Border(
-          bottom: BorderSide(color: context.palette.panelDivider),
-        ),
+        border: Border(bottom: BorderSide(color: context.palette.panelDivider)),
       ),
       child: fullScreen ? SafeArea(bottom: false, child: bar) : bar,
     );
@@ -869,11 +803,7 @@ class _SecurityBanner extends ConsumerWidget {
                         'encryption. You verified them before, so your messages wait until you '
                         'verify them again or accept the new key.'
                   : issue!,
-              style: TextStyle(
-                color: context.palette.textPrimary,
-                fontSize: 13.5,
-                height: 1.3,
-              ),
+              style: TextStyle(color: context.palette.textPrimary, fontSize: 13.5, height: 1.3),
             ),
           ),
           if (changed != null)
@@ -917,7 +847,12 @@ class _ChatMenuButton extends ConsumerWidget {
     icon: Icon(Icons.more_vert, color: foreground),
     onPressed: () {
       final box = context.findRenderObject()! as RenderBox;
-      showChatMenu(context, ref, conversationId: conversationId, at: box.localToGlobal(box.size.bottomLeft(Offset.zero)));
+      showChatMenu(
+        context,
+        ref,
+        conversationId: conversationId,
+        at: box.localToGlobal(box.size.bottomLeft(Offset.zero)),
+      );
     },
   );
 }

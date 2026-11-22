@@ -61,6 +61,5 @@ abstract final class Autostart {
   }
 
   /// Quotes a path for a desktop entry's Exec key (the spec's rules).
-  static String _quoteExec(String path) =>
-      '"${path.replaceAllMapped(RegExp(r'["`$\\]'), (m) => '\\${m[0]}')}"';
+  static String _quoteExec(String path) => '"${path.replaceAllMapped(RegExp(r'["`$\\]'), (m) => '\\${m[0]}')}"';
 }

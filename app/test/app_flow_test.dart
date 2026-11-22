@@ -9,9 +9,7 @@ import 'package:hanashi/ui/widgets/hanashi_title_bar.dart';
 import 'support/test_app.dart';
 
 void main() {
-  testWidgets('phone: open a chat, unread clears, send a message', (
-    tester,
-  ) async {
+  testWidgets('phone: open a chat, unread clears, send a message', (tester) async {
     await setSurfaceSize(tester, const Size(400, 860));
     final repo = testRepository();
     await tester.pumpWidget(testApp(repo));
@@ -71,9 +69,7 @@ void main() {
     repo.dispose();
   });
 
-  testWidgets('desktop: window buttons and dragging live in the app', (
-    tester,
-  ) async {
+  testWidgets('desktop: window buttons and dragging live in the app', (tester) async {
     await setSurfaceSize(tester, const Size(1200, 800));
     final repo = testRepository();
     final window = FakeWindowControls();
@@ -82,10 +78,7 @@ void main() {
 
     await tester.tap(find.byTooltip('Maximize'));
     await tester.pumpAndSettle();
-    expect(
-      find.byTooltip('Restore'),
-      findsOneWidget,
-    ); // Icon follows the window state.
+    expect(find.byTooltip('Restore'), findsOneWidget); // Icon follows the window state.
     await tester.tap(find.byTooltip('Restore'));
     await tester.tap(find.byTooltip('Minimize'));
     await tester.tap(find.byTooltip('Close'));
@@ -98,14 +91,7 @@ void main() {
     await tester.tap(title);
     await tester.pumpAndSettle();
 
-    expect(window.calls, [
-      'toggleMaximize',
-      'toggleMaximize',
-      'minimize',
-      'close',
-      'startDragging',
-      'toggleMaximize',
-    ]);
+    expect(window.calls, ['toggleMaximize', 'toggleMaximize', 'minimize', 'close', 'startDragging', 'toggleMaximize']);
     repo.dispose();
   });
 
@@ -121,28 +107,20 @@ void main() {
   testWidgets('a chat explains why sending is paused', (tester) async {
     await setSurfaceSize(tester, const Size(400, 860));
     final repo = _SecurityRepository()
-      ..issues['dm-naoko'] =
-          'An unverified device was found in this chat and is being removed.';
+      ..issues['dm-naoko'] = 'An unverified device was found in this chat and is being removed.';
     await tester.pumpWidget(testApp(repo));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Naoko'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('security-banner')), findsOneWidget);
-    expect(
-      find.text(
-        'An unverified device was found in this chat and is being removed.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('An unverified device was found in this chat and is being removed.'), findsOneWidget);
     // Nothing for the user to decide here: the device is removed automatically.
     expect(find.byKey(const Key('accept-identity')), findsNothing);
     repo.dispose();
   });
 
-  testWidgets("a contact's changed security key can be accepted", (
-    tester,
-  ) async {
+  testWidgets("a contact's changed security key can be accepted", (tester) async {
     await setSurfaceSize(tester, const Size(400, 860));
     final repo = _SecurityRepository()..changed.add('kumiko@localhost');
     await tester.pumpWidget(testApp(repo));
@@ -150,10 +128,7 @@ void main() {
 
     await tester.tap(find.text('Kumiko'));
     await tester.pumpAndSettle();
-    expect(
-      find.textContaining("Kumiko's security key changed"),
-      findsOneWidget,
-    );
+    expect(find.textContaining("Kumiko's security key changed"), findsOneWidget);
     await tester.tap(find.byKey(const Key('accept-identity')));
     await tester.pumpAndSettle();
     expect(repo.changed, isEmpty);
@@ -173,8 +148,7 @@ void main() {
 
 /// Sample data plus per-chat security issues and changed identity keys.
 class _SecurityRepository extends MockChatRepository {
-  _SecurityRepository()
-    : super(latency: Duration.zero, autoReply: false, now: testNow);
+  _SecurityRepository() : super(latency: Duration.zero, autoReply: false, now: testNow);
 
   final issues = <String, String>{};
   final changed = <String>{};
@@ -183,20 +157,19 @@ class _SecurityRepository extends MockChatRepository {
   void notifyIdentityChanges() => _identityChanges.add({...changed});
 
   @override
-  Stream<List<ConversationSummary>> watchConversations() =>
-      super.watchConversations().map(
-        (list) => [
-          for (final s in list)
-            ConversationSummary(
-              conversation: s.conversation,
-              title: s.title,
-              avatarId: s.avatarId,
-              lastMessage: s.lastMessage,
-              unreadCount: s.unreadCount,
-              securityIssue: issues[s.id],
-            ),
-        ],
-      );
+  Stream<List<ConversationSummary>> watchConversations() => super.watchConversations().map(
+    (list) => [
+      for (final s in list)
+        ConversationSummary(
+          conversation: s.conversation,
+          title: s.title,
+          avatarId: s.avatarId,
+          lastMessage: s.lastMessage,
+          unreadCount: s.unreadCount,
+          securityIssue: issues[s.id],
+        ),
+    ],
+  );
 
   @override
   Stream<Set<String>> watchIdentityChanges() async* {

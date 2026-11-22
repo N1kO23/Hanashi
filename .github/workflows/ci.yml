@@ -103,6 +103,12 @@ jobs:
         run: |
           (cd protocol && dart analyze --fatal-infos)
           (cd app && dart analyze --fatal-infos)
+      - name: Dart formatting
+        # All but generated code (drift's), at each package's width.
+        run: |
+          for package in protocol app; do
+            (cd "$package" && git ls-files -z '*.dart' | grep -zv '\.g\.dart$' | xargs -0 dart format --output=none --set-exit-if-changed)
+          done
       - name: Protocol tests
         working-directory: protocol
         run: dart test

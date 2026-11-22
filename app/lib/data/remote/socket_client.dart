@@ -165,9 +165,7 @@ class SocketClient {
   /// asks for everyone's status again.
   void sendPresence({bool? active}) {
     if (!_ready) return;
-    _channel?.sink.add(
-      jsonEncode({'type': Frame.presence, if (active != null) 'state': active ? 'active' : 'idle'}),
-    );
+    _channel?.sink.add(jsonEncode({'type': Frame.presence, if (active != null) 'state': active ? 'active' : 'idle'}));
   }
 
   void _setStatus(ConnectionStatus status) {
@@ -235,7 +233,11 @@ class SocketClient {
         _requests
             .remove(frame['rid'])
             ?.completeError(
-              ApiException(frame['status'] as int? ?? 400, frame['error'] as String? ?? 'error', frame['message'] as String?),
+              ApiException(
+                frame['status'] as int? ?? 400,
+                frame['error'] as String? ?? 'error',
+                frame['message'] as String?,
+              ),
             );
       case Frame.inbox:
         onInbox(InboxItem.fromJson((frame['item'] as Map).cast<String, Object?>()));
@@ -250,9 +252,11 @@ class SocketClient {
       case Frame.presence:
         final mode = frame['mode'] == null ? null : PresenceMode.parse(frame['mode']);
         if (frame['statuses'] case final Map statuses) {
-          onPresence?.call({
-            for (final MapEntry(:key, :value) in statuses.entries) key as String: Presence.parse(value),
-          }, all: true, mode: mode);
+          onPresence?.call(
+            {for (final MapEntry(:key, :value) in statuses.entries) key as String: Presence.parse(value)},
+            all: true,
+            mode: mode,
+          );
         } else if (frame['user'] case final String user) {
           onPresence?.call({user: Presence.parse(frame['status'])}, all: false, mode: mode);
         }

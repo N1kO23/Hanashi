@@ -78,7 +78,14 @@ class HomeShell extends ConsumerWidget {
             child: MediaQuery.removePadding(
               context: context,
               removeTop: true,
-              child: wide ? Row(children: [_TabRail(selected: tab, unread: unread, requests: requests), Expanded(child: child)]) : child,
+              child: wide
+                  ? Row(
+                      children: [
+                        _TabRail(selected: tab, unread: unread, requests: requests),
+                        Expanded(child: child),
+                      ],
+                    )
+                  : child,
             ),
           ),
         ],
@@ -103,14 +110,11 @@ class _Header extends ConsumerWidget {
         color: context.palette.onHeader.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(
-        switch (connection) {
-          ConnectionStatus.offline => 'Offline',
-          ConnectionStatus.updateRequired => 'Update needed',
-          _ => 'Connecting...',
-        },
-        style: TextStyle(color: context.palette.onHeader, fontSize: 12, fontWeight: FontWeight.w600),
-      ),
+      child: Text(switch (connection) {
+        ConnectionStatus.offline => 'Offline',
+        ConnectionStatus.updateRequired => 'Update needed',
+        _ => 'Connecting...',
+      }, style: TextStyle(color: context.palette.onHeader, fontSize: 12, fontWeight: FontWeight.w600)),
     );
     return HanashiTitleBar(
       trailing: [
@@ -186,7 +190,13 @@ class _TabRail extends StatelessWidget {
       color: context.palette.rail,
       child: Column(
         children: [
-          for (final t in HomeTab.values) _TabTile(tab: t, selected: t == selected, unread: t == HomeTab.chats ? unread : (t == HomeTab.contacts ? requests : 0), height: 84),
+          for (final t in HomeTab.values)
+            _TabTile(
+              tab: t,
+              selected: t == selected,
+              unread: t == HomeTab.chats ? unread : (t == HomeTab.contacts ? requests : 0),
+              height: 84,
+            ),
         ],
       ),
     );
@@ -211,7 +221,14 @@ class _BottomTabs extends StatelessWidget {
         child: Row(
           children: [
             for (final t in HomeTab.values)
-              Expanded(child: _TabTile(tab: t, selected: t == selected, unread: t == HomeTab.chats ? unread : (t == HomeTab.contacts ? requests : 0), height: 60)),
+              Expanded(
+                child: _TabTile(
+                  tab: t,
+                  selected: t == selected,
+                  unread: t == HomeTab.chats ? unread : (t == HomeTab.contacts ? requests : 0),
+                  height: 60,
+                ),
+              ),
           ],
         ),
       ),

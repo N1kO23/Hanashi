@@ -5,7 +5,11 @@ import 'package:flutter/widgets.dart';
 /// differ (see `bubbleLookProvider`); the defaults are close to the game.
 @immutable
 class BubbleLook {
-  const BubbleLook({this.textSize = defaultTextSize, this.lineSpacing = defaultLineSpacing, this.padding = defaultPadding});
+  const BubbleLook({
+    this.textSize = defaultTextSize,
+    this.lineSpacing = defaultLineSpacing,
+    this.padding = defaultPadding,
+  });
 
   /// The look of the bubbles at [context] (see [BubbleLookScope]).
   static BubbleLook of(BuildContext context) => BubbleLookScope.of(context);

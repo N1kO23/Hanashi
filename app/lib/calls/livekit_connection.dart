@@ -382,7 +382,9 @@ class LiveKitConnection implements CallConnection {
         if (_screenSources.contains(event.publication.source)) await _applyWatching(event.participant);
         if (event.publication.encryptionType == EncryptionType.kNone) {
           // Whatever it is, it is not of a member: not played, not shown.
-          _log.warning('${event.publication.source.name} of ${event.participant.identity} came unencrypted: not played');
+          _log.warning(
+            '${event.publication.source.name} of ${event.participant.identity} came unencrypted: not played',
+          );
           _unencrypted.add(event.participant.identity);
           await event.track.disable();
         } else if (event.track is AudioTrack && !_plays(event.participant, event.publication)) {
@@ -803,7 +805,9 @@ class LiveKitConnection implements CallConnection {
   /// Where the system picks what is shared, with a dialog of its own: on
   /// Wayland (listing windows there also crashes libwebrtc), and on phones.
   static bool get _systemPicks =>
-      Platform.isAndroid || Platform.isIOS || (Platform.isLinux && Platform.environment['XDG_SESSION_TYPE'] == 'wayland');
+      Platform.isAndroid ||
+      Platform.isIOS ||
+      (Platform.isLinux && Platform.environment['XDG_SESSION_TYPE'] == 'wayland');
 
   @override
   Future<List<ScreenSource>> screenSources() async {
@@ -824,8 +828,7 @@ class LiveKitConnection implements CallConnection {
     }
     return [
       for (final source in found)
-        if (source.type == rtc.SourceType.Screen || source.name.isNotEmpty)
-          _sourceOf(source),
+        if (source.type == rtc.SourceType.Screen || source.name.isNotEmpty) _sourceOf(source),
     ];
   }
 
@@ -886,10 +889,7 @@ class LiveKitConnection implements CallConnection {
     _screenSoundMissing = noSound;
     // Until the screen's own size is known (see _fitShare): as if 16:9.
     final height = quality.height ?? 1080;
-    final encoding = VideoEncoding(
-      maxBitrate: quality.bitrateFor(height * 16 ~/ 9, height),
-      maxFramerate: quality.fps,
-    );
+    final encoding = VideoEncoding(maxBitrate: quality.bitrateFor(height * 16 ~/ 9, height), maxFramerate: quality.fps);
     final options = ScreenShareCaptureOptions(
       sourceId: source?.id,
       maxFrameRate: quality.fps.toDouble(),
@@ -960,8 +960,16 @@ class LiveKitConnection implements CallConnection {
       }
     }
     _log.info(
-      'Sharing ${source == null ? 'what the system picks' : source.window ? 'a window' : 'a screen'}'
-      '${_screenSound != null ? ', with its sound' : _screenSoundMissing != null ? ', without its sound: $_screenSoundMissing' : ''}',
+      'Sharing ${source == null
+          ? 'what the system picks'
+          : source.window
+          ? 'a window'
+          : 'a screen'}'
+      '${_screenSound != null
+          ? ', with its sound'
+          : _screenSoundMissing != null
+          ? ', without its sound: $_screenSoundMissing'
+          : ''}',
     );
     _changed();
     unawaited(_fitShare(track, quality));

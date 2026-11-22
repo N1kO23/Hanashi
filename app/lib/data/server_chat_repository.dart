@@ -156,6 +156,7 @@ class ServerChatRepository implements ChatRepository {
   Future<void> _queue = Future.value();
   final _pendingReads = <String, int>{};
   final _loadingHistory = <String>{};
+
   /// The outbox flush under way, which [dispose] lets finish.
   Future<void>? _flushing;
   var _flushAgain = false;
@@ -581,7 +582,11 @@ class ServerChatRepository implements ChatRepository {
   /// Runs group upkeep for [conv]; failures are retried on the next event or
   /// reconnect. Others than those expected (e.g. from openmls) are logged and
   /// go to [onFailure]: one chat never stops the sync of the rest.
-  Future<void> _repair(String conv, Future<void> Function() work, {Future<void> Function(Object error)? onFailure}) async {
+  Future<void> _repair(
+    String conv,
+    Future<void> Function() work, {
+    Future<void> Function(Object error)? onFailure,
+  }) async {
     if (_disposed) return;
     try {
       await work();
@@ -905,7 +910,8 @@ class ServerChatRepository implements ChatRepository {
           return;
         }
         final entries = {
-          for (final row in rows) row.id: await cipher.seal(row.id, ContentKey.fromBytes(base64.decode(row.contentKey!))),
+          for (final row in rows)
+            row.id: await cipher.seal(row.id, ContentKey.fromBytes(base64.decode(row.contentKey!))),
         };
         await api.putKeyBackup(identityVersion: version, entries: entries);
         _log.debug('Backed up the keys of ${entries.length} messages');
@@ -1036,9 +1042,7 @@ class ServerChatRepository implements ChatRepository {
       final key = file?.key;
       if (file == null || key == null) continue;
       try {
-        final keys = decodeHistoryKeys(
-          await media.bytes(file.hash, key: base64.decode(key), host: _elsewhere(file)),
-        );
+        final keys = decodeHistoryKeys(await media.bytes(file.hash, key: base64.decode(key), host: _elsewhere(file)));
         await db.addSharedKeys(share, {
           for (final MapEntry(key: id, value: contentKey) in keys.entries) id: base64.encode(contentKey.toBytes()),
         });
@@ -1245,9 +1249,8 @@ class ServerChatRepository implements ChatRepository {
     await _useContactList(contacts);
   }
 
-  Future<void> _trust(String user) => _changeContactList(
-    (contacts) => contacts.putIfAbsent(user, () => {'addedAt': clock().millisecondsSinceEpoch}),
-  );
+  Future<void> _trust(String user) =>
+      _changeContactList((contacts) => contacts.putIfAbsent(user, () => {'addedAt': clock().millisecondsSinceEpoch}));
 
   Future<void> _distrust(String user) => _changeContactList((contacts) => contacts.remove(user));
 
@@ -1440,12 +1443,14 @@ class ServerChatRepository implements ChatRepository {
     final signer = await identity.localIdentity();
     if (store == null || signer == null) throw const ApiException(0, 'not_ready', 'Not connected yet');
     var rotated = false;
-    final secret = await store.update(_profileData, (current) {
-      final key = current?['key'];
-      if (key is String && current?['rotate'] != true) return null;
-      rotated = key is String;
-      return {'key': base64.encode(randomBytes(32)), 'previous': ?key};
-    }) ?? (await store.read(_profileData))?.value;
+    final secret =
+        await store.update(_profileData, (current) {
+          final key = current?['key'];
+          if (key is String && current?['rotate'] != true) return null;
+          rotated = key is String;
+          return {'key': base64.encode(randomBytes(32)), 'previous': ?key};
+        }) ??
+        (await store.read(_profileData))?.value;
     final key = secret?['key'];
     if (key is! String) throw const ApiException(0, 'not_ready', 'Not connected yet');
     for (var attempt = 0; ; attempt++) {
@@ -1454,9 +1459,16 @@ class ServerChatRepository implements ChatRepository {
       final current = (stored == null ? null : await _openOwn(stored, secret!)) ?? _startingDocument(row);
       // Later than what the server shows, and than what this device has seen,
       // or the other devices would refuse it.
-      final version = max(max(stored?.version ?? 0, (await api.profile(me))?['version'] as int? ?? 0), row?.version ?? 0) + 1;
+      final version =
+          max(max(stored?.version ?? 0, (await api.profile(me))?['version'] as int? ?? 0), row?.version ?? 0) + 1;
       final document = change(current);
-      final record = await ProfileRecord.seal(document, user: me, version: version, key: base64.decode(key), signer: signer);
+      final record = await ProfileRecord.seal(
+        document,
+        user: me,
+        version: version,
+        key: base64.decode(key),
+        signer: signer,
+      );
       try {
         await api.putProfile(record.toJson());
         await db.noteProfile(me, document, version: version, profileKey: key);
@@ -1549,7 +1561,9 @@ class ServerChatRepository implements ChatRepository {
       final record = ProfileRecord.fromJson(json, user: user);
       final row = await db.profileRow(user);
       if (record.version < (row?.version ?? 0)) {
-        _log.warning("The server shows $user's profile at version ${record.version}, this device has seen ${row!.version}");
+        _log.warning(
+          "The server shows $user's profile at version ${record.version}, this device has seen ${row!.version}",
+        );
         return;
       }
       final trusted = await keys.devicesOf(user);
@@ -1738,9 +1752,8 @@ class ServerChatRepository implements ChatRepository {
   }
 
   @override
-  Future<void> sendGif(String conversationId, GifRef gif, {String? replyTo}) async => send(
-    PendingMessage(Envelope.gif(conv: conversationId, from: me, gif: gif, replyTo: await _quote(replyTo))),
-  );
+  Future<void> sendGif(String conversationId, GifRef gif, {String? replyTo}) async =>
+      send(PendingMessage(Envelope.gif(conv: conversationId, from: me, gif: gif, replyTo: await _quote(replyTo))));
 
   @override
   Future<void> sendSticker(String conversationId, StickerRef sticker, {String? replyTo}) async {
@@ -1989,7 +2002,9 @@ class ServerChatRepository implements ChatRepository {
     late List<GifRef> gifs;
     await store.update(_gifsData, (current) {
       gifs = [if (saved) gif, ..._parseGifs(current?['gifs']).where((g) => g.key != gif.key)];
-      Map<String, Object?> data() => {'gifs': [for (final g in gifs) g.toJson()]};
+      Map<String, Object?> data() => {
+        'gifs': [for (final g in gifs) g.toJson()],
+      };
       // The oldest go when the list is full.
       while (gifs.length > maxSavedGifs || utf8.encode(jsonEncode(data())).length > _maxSavedGifBytes) {
         gifs.removeLast();
@@ -2564,7 +2579,8 @@ class ServerChatRepository implements ChatRepository {
   Future<void> setAvatar(String? path) async {
     final avatar = path == null ? null : await _uploadPicture(path);
     await _changeProfile(
-      (current) => ProfileDocument(displayName: current.displayName, avatar: avatar, card: current.card, extra: current.extra),
+      (current) =>
+          ProfileDocument(displayName: current.displayName, avatar: avatar, card: current.card, extra: current.extra),
     );
   }
 
@@ -2573,7 +2589,8 @@ class ServerChatRepository implements ChatRepository {
     final json = utf8.encode(jsonEncode(card.toJson()));
     final file = card.isEmpty ? null : await _uploadJson(json);
     await _changeProfile(
-      (current) => ProfileDocument(displayName: current.displayName, avatar: current.avatar, card: file, extra: current.extra),
+      (current) =>
+          ProfileDocument(displayName: current.displayName, avatar: current.avatar, card: file, extra: current.extra),
     );
     // This device has it already.
     if (file != null) await db.setFetchedCard(me, file.hash, utf8.decode(json));
@@ -2686,13 +2703,7 @@ class ServerChatRepository implements ChatRepository {
     if (thumb != null) await media.put(thumb.hash, thumb.file);
     await send(
       PendingMessage(
-        Envelope.media(
-          conv: conversationId,
-          from: me,
-          type: prepared.type,
-          media: ref,
-          replyTo: await _quote(replyTo),
-        ),
+        Envelope.media(conv: conversationId, from: me, type: prepared.type, media: ref, replyTo: await _quote(replyTo)),
         attachmentPath: original.file.path,
         thumbnailPath: thumb?.file.path,
       ),

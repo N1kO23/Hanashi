@@ -1,7 +1,15 @@
 import 'dart:io';
 
 import 'package:tray_manager/tray_manager.dart'
-    show ContextMenuTrigger, ImageAsset, Menu, MenuItem, MenuItemClickedEvent, MenuItemType, TrayIcon, TrayIconClickedEvent;
+    show
+        ContextMenuTrigger,
+        ImageAsset,
+        Menu,
+        MenuItem,
+        MenuItemClickedEvent,
+        MenuItemType,
+        TrayIcon,
+        TrayIconClickedEvent;
 import 'package:tray_manager/tray_manager.dart' as native show Image;
 import 'package:window_manager/window_manager.dart';
 
