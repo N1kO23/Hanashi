@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -17,12 +18,22 @@ import 'remote/api_client.dart';
 /// blob never changes, so a cached one is valid forever; downloads are
 /// verified against their hash.
 class MediaCache {
-  /// Under [dir], which holds nothing else.
-  MediaCache(Directory dir, this.api)
+  /// Under [dir], which holds nothing else. [keptBytes] is how much of what
+  /// it decrypted it keeps in memory (see [bytes]).
+  MediaCache(Directory dir, this.api, {this.keptBytes = 48 << 20})
     : root = Directory('${dir.path}/blobs'),
       outgoing = Directory('${dir.path}/outgoing') {
     unawaited(_forgetDecrypted(dir));
   }
+
+  /// At most this much decrypted media stays in memory; a file larger than a
+  /// quarter of it is not kept.
+  final int keptBytes;
+
+  /// What [bytes] decrypted lately, the newest last, by hash and key.
+  final _decrypted = <String, Uint8List>{};
+  var _decryptedSize = 0;
+  final _decrypting = <String, Future<Uint8List>>{};
 
   final Directory root;
 
@@ -62,15 +73,50 @@ class MediaCache {
   /// The blob of [hash] decrypted with [key] into memory (as it is without
   /// one), downloading it first if needed (see [blob]). Throws
   /// [DecryptionFailed] if [key] does not open it.
+  ///
+  /// What it decrypted lately it keeps (see [keptBytes]), and hands out again
+  /// as the very same bytes: a picture shown again, scrolling back up a chat,
+  /// is not decrypted again, nor decoded again (Flutter's image cache knows
+  /// one by its bytes).
   Future<Uint8List> bytes(
     String hash, {
     Uint8List? key,
     String? host,
     int? maxBytes,
     void Function(double progress)? onProgress,
-  }) async {
-    final file = await blob(hash, host: host, maxBytes: maxBytes, onProgress: onProgress);
-    return key == null ? file.readAsBytes() : FileCipher.decryptBytes(file.path, key);
+  }) {
+    final id = key == null ? hash : '$hash ${base64.encode(key)}';
+    final kept = _decrypted.remove(id);
+    if (kept != null) {
+      _decrypted[id] = kept; // The newest now.
+      return Future.value(kept);
+    }
+    // Forgotten a turn after it is done: never before it is stored, even if
+    // it fails at once. (A block body: `remove` returns this very future,
+    // which an arrow would hand on, failure and all, to nobody.)
+    return _decrypting.putIfAbsent(id, () async {
+      try {
+        final file = await blob(hash, host: host, maxBytes: maxBytes, onProgress: onProgress);
+        final plain = key == null ? await file.readAsBytes() : await FileCipher.decryptBytes(file.path, key);
+        _keep(id, plain);
+        return plain;
+      } finally {
+        unawaited(
+          Future(() {
+            _decrypting.remove(id);
+          }),
+        );
+      }
+    });
+  }
+
+  void _keep(String id, Uint8List plain) {
+    if (plain.length > keptBytes ~/ 4) return;
+    _decrypted[id] = plain;
+    _decryptedSize += plain.length;
+    while (_decryptedSize > keptBytes) {
+      _decryptedSize -= _decrypted.remove(_decrypted.keys.first)!.length;
+    }
   }
 
   /// The blob of [hash] decrypted with [key] into [path], as [bytes] does.
@@ -141,6 +187,9 @@ class MediaCache {
 
   /// Forgets the blob of [hash] (its message was deleted).
   Future<void> remove(String hash) async {
+    for (final id in [..._decrypted.keys.where((id) => id.startsWith(hash))]) {
+      _decryptedSize -= _decrypted.remove(id)!.length;
+    }
     try {
       await cached(hash)?.delete();
     } on FileSystemException {

@@ -115,6 +115,40 @@ void main() {
       expect(File('${dir.path}/saved').readAsBytesSync(), data);
     });
 
+    test('keeps what it decrypted lately, as the same bytes, within its limit', () async {
+      final cache = MediaCache(Directory('${dir.path}/media'), api, keptBytes: 2000);
+      final keys = <String, Uint8List>{};
+      Future<String> blobOf(int size) async {
+        final (_, path, key) = await sealed(size);
+        final hash = 'sha256:${(keys.length + 10).toRadixString(16).padLeft(64, '0')}';
+        await cache.put(hash, File(path));
+        keys[hash] = key;
+        return hash;
+      }
+
+      final first = await blobOf(500);
+      final shown = await cache.bytes(first, key: keys[first]);
+      expect(identical(await cache.bytes(first, key: keys[first]), shown), isTrue, reason: 'shown again');
+      // Three more fill it; one more leaves out the one shown longest ago.
+      for (final hash in [await blobOf(500), await blobOf(500), await blobOf(500)]) {
+        await cache.bytes(hash, key: keys[hash]);
+      }
+      expect(identical(await cache.bytes(first, key: keys[first]), shown), isTrue, reason: 'still within the limit');
+      final fifth = await blobOf(500);
+      await cache.bytes(fifth, key: keys[fifth]);
+      final second = keys.keys.elementAt(1);
+      final again = await cache.bytes(second, key: keys[second]);
+      expect(identical(await cache.bytes(second, key: keys[second]), again), isTrue);
+      // One too large for it is not kept (asked for again once the first is done).
+      final large = await blobOf(600);
+      final once = await cache.bytes(large, key: keys[large]);
+      await Future<void>.delayed(Duration.zero);
+      expect(identical(await cache.bytes(large, key: keys[large]), once), isFalse);
+      // Removed: neither the blob nor what was decrypted of it stays.
+      await cache.remove(first);
+      await expectLater(cache.bytes(first, key: keys[first]), throwsA(isA<ApiException>()));
+    });
+
     test('forgets what versions before kept decrypted, but not what is still to be sent', () async {
       final media = Directory('${dir.path}/media');
       final decrypted = File('${media.path}/ab/${'ab' * 32}')
