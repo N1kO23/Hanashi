@@ -169,7 +169,7 @@ The image runs without Compose too, with a MariaDB of your own:
 docker run -d --name hanashi -p 8080:8080 -v hanashi-media:/data \
   -e HANASHI_DB_DSN='hanashi:secret@tcp(db.example.org:3306)/hanashi' \
   -e HANASHI_HOST=chat.example.org \
-  n1ko23/hanashi-server:1.0.1
+  n1ko23/hanashi-server:1.0.2
 ```
 
 From source (needs Go 1.26+ and a MariaDB database):
@@ -482,6 +482,11 @@ keyPassword=...
   it (its creator's, or for a direct chat the one sorting first) cannot be
   reached, and cannot move to another. Off-grid transports
   (Meshtastic/Reticulum) are far off. See [where these stand](docs/federation.md).
+
+## Security
+
+Please report vulnerabilities privately, not as issues: see
+[SECURITY.md](SECURITY.md).
 
 ## License
 

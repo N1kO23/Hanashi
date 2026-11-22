@@ -60,8 +60,9 @@ Future<Uint8List> aeadOpen(
   List<int> sealed, {
   List<int> aad = const [],
 }) async {
-  if (sealed.length < 12 + 16)
+  if (sealed.length < 12 + 16) {
     throw const DecryptionFailed('Ciphertext is too short');
+  }
   try {
     final box = SecretBox.fromConcatenation(
       sealed,
@@ -125,10 +126,11 @@ class RecoveryKey {
     final out = <int>[];
     for (final char in cleaned.split('')) {
       final digit = _crockford.indexOf(char);
-      if (digit < 0)
+      if (digit < 0) {
         throw const FormatException(
           'The recovery key contains characters it cannot have',
         );
+      }
       value = (value << 5) | digit;
       bits += 5;
       if (bits >= 8) {
@@ -137,8 +139,9 @@ class RecoveryKey {
       }
       value &= (1 << bits) - 1;
     }
-    if (out.length != 34)
+    if (out.length != 34) {
       throw const FormatException('The recovery key has the wrong length');
+    }
     final key = out.sublist(0, 32);
     final checksum = await _checksum(key);
     if (checksum[0] != out[32] || checksum[1] != out[33]) {
@@ -205,8 +208,9 @@ Future<AccountSecrets> openSecrets(
   String blob,
 ) async {
   final map = (jsonDecode(blob) as Map).cast<String, Object?>();
-  if (map['v'] != 1)
+  if (map['v'] != 1) {
     throw const FormatException('Unknown secret storage version');
+  }
   final key = await hkdf(recoveryKey.bytes, 'hanashi-ssss-v1');
   final plain = await aeadOpen(
     key,

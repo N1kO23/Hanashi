@@ -8,7 +8,9 @@ plugins {
 
 android {
     namespace = "app.nullpointr.hanashi"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_local_notifications needs 37 or later; Flutter's own default
+    // once it is higher.
+    compileSdk = maxOf(flutter.compileSdkVersion, 37)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

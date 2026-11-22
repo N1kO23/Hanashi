@@ -995,18 +995,22 @@ class Envelope {
     final ts = json['ts'];
     final type = json['type'];
     final body = json['body'];
-    if (v is! int || v < 1)
+    if (v is! int || v < 1) {
       throw FormatException('v must be a positive int', v);
-    if (id is! String || !isUlid(id))
+    }
+    if (id is! String || !isUlid(id)) {
       throw FormatException('id must be a ULID', id);
-    if (conv is! String || conv.isEmpty)
+    }
+    if (conv is! String || conv.isEmpty) {
       throw FormatException('conv must be a string', conv);
+    }
     if (from is! String || UserId.tryParse(from) == null) {
       throw FormatException('from must be name@host', from);
     }
     if (ts is! int) throw FormatException('ts must be an int', ts);
-    if (type is! String || type.isEmpty)
+    if (type is! String || type.isEmpty) {
       throw FormatException('type must be a string', type);
+    }
     final bodyMap = _asMap(body, 'body');
     if (utf8.encode(jsonEncode(bodyMap)).length > maxBodyBytes) {
       throw const FormatException('body is too large');
@@ -1137,13 +1141,15 @@ class Envelope {
   void _validateKnownBody() {
     switch (messageType) {
       case MessageType.text:
-        if (body['text'] is! String)
+        if (body['text'] is! String) {
           throw const FormatException('text body needs "text"');
+        }
         replyTo; // These throw if malformed.
         link;
       case MessageType.image || MessageType.video || MessageType.file:
-        if (body['media'] == null)
+        if (body['media'] == null) {
           throw const FormatException('media body needs "media"');
+        }
         media;
         replyTo;
         final caption = body['text'];

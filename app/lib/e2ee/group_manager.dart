@@ -62,9 +62,11 @@ enum LeafProblemKind {
   /// The user's identity key changed and the change was not accepted yet.
   identityChanged,
 
-  /// This very device again, beside its own leaf: openmls before 0.9.2
-  /// (GHSA-94v4-rg25-x625) kept the old leaf when a resync by external
-  /// commit removed it, and that leaf kept receiving the group's secrets.
+  /// This very device again, beside its own leaf (two members adding it at
+  /// once, say). A device has one leaf; another would go on receiving the
+  /// group's secrets. (openmls before 0.9.2, GHSA-94v4-rg25-x625, left one
+  /// behind after a resync by external commit; Hanashi has had the fix from
+  /// 0.9.0 on.)
   staleOwnLeaf,
 }
 
@@ -1048,7 +1050,10 @@ class GroupManager {
       return;
     }
     try {
-      await mls.joinFromWelcome(base64.decode(item.data['data'] as String));
+      await mls.joinFromWelcome(conv, base64.decode(item.data['data'] as String));
+    } on WelcomeToAnotherGroup catch (e) {
+      _log.warning('Refusing a Welcome from ${item.fromUser}/${item.fromDevice}: $e');
+      return;
     } catch (e) {
       _log.info(
         'Welcome to $conv (epoch ${item.data['epoch']}) from ${item.fromUser}/${item.fromDevice} not usable: $e',
@@ -1215,8 +1220,9 @@ class GroupManager {
       );
     }
     final opened = await _open(wire, log: _log.info);
-    if (opened == null)
+    if (opened == null) {
       return ReceivedMessage(envelope: _placeholderFor(wire), wire: raw);
+    }
     return ReceivedMessage(
       envelope: opened.envelope,
       contentKey: opened.contentKey,
@@ -1450,8 +1456,9 @@ class GroupManager {
       rotatedAt: rotatedAt,
       sentSince: state.sentSince,
       now: now,
-    ))
+    )) {
       return;
+    }
     await _requireVerified('updating keys in $conv');
     _log.info("Updating this device's keys in $conv");
     await _withLease(conv, epoch: await mls.epoch(conv), (lease) async {

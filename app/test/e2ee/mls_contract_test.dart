@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hanashi/e2ee/encryption_identity.dart' show DeviceSigner;
 import 'package:hanashi/e2ee/mls_service.dart';
 import 'package:openmls/openmls.dart';
 
@@ -209,6 +210,55 @@ void main() {
     expect(result.stagedCommitInfo!.selfRemoved, isTrue);
     expect(await bob.engine.groupIsActive(groupIdBytes: gid), isFalse);
     await expectLater(bob.read(gid, await alice.write(gid, 'secret')), throwsA(anything));
+  });
+
+  test('a Welcome to a group this device is in is refused, and the group stays as it was', () async {
+    // Someone else makes a group of their own under the same ID, and invites Bob to it.
+    final mallory = await _Device.create('mallory/d1');
+    await mallory.engine.createGroupWithBuilder(
+      config: config,
+      signerBytes: mallory.signer,
+      credentialIdentity: utf8.encode(mallory.name),
+      signerPublicKey: mallory.publicKey,
+      groupId: Uint8List.fromList(gid),
+      capabilities: _caps,
+    );
+    final add = await mallory.engine.addMembers(
+      groupIdBytes: gid,
+      signerBytes: mallory.signer,
+      keyPackagesBytes: [await bob.keyPackage()],
+    );
+    await expectLater(
+      bob.engine.joinGroupFromWelcome(config: config, welcomeBytes: add.welcome, signerBytes: bob.signer),
+      throwsA(anything),
+    );
+    expect(await bob.members(gid), ['alice/d1', 'bob/d1']);
+    expect(await bob.read(gid, await alice.write(gid, 'still ours')), 'still ours');
+  });
+
+  test('the app joins a Welcome only to the conversation it came for', () async {
+    final keys = MlsSignatureKeyPair.generate(ciphersuite: _suite);
+    final carol = await MlsService.open(
+      dbPath: ':memory:',
+      dbKey: Uint8List(32),
+      signer: DeviceSigner(
+        signerBytes: serializeSigner(ciphersuite: _suite, privateKey: keys.privateKey(), publicKey: keys.publicKey()),
+        publicKey: keys.publicKey(),
+      ),
+      userId: 'carol',
+      deviceId: 'd1',
+    );
+    addTearDown(carol.close);
+    final add = await alice.engine.addMembers(
+      groupIdBytes: gid,
+      signerBytes: alice.signer,
+      keyPackagesBytes: [base64.decode((await carol.createKeyPackages(1)).single)],
+    );
+    // The server says it is to conv-2; the Welcome itself names conv-1.
+    await expectLater(carol.joinFromWelcome('conv-2', add.welcome), throwsA(isA<WelcomeToAnotherGroup>()));
+    expect((await carol.hasGroup('conv-1'), await carol.hasGroup('conv-2')), (false, false));
+    await carol.joinFromWelcome('conv-1', add.welcome);
+    expect(await carol.hasGroup('conv-1'), isTrue);
   });
 
   group('what a commit can vouch for', () {

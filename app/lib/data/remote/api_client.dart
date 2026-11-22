@@ -139,8 +139,9 @@ class ApiClient {
   static Map<String, Object?> _decode(http.Response response) {
     Map<String, Object?> body = const {};
     try {
-      if (response.body.isNotEmpty)
+      if (response.body.isNotEmpty) {
         body = (jsonDecode(response.body) as Map).cast<String, Object?>();
+      }
     } on FormatException {
       throw ApiException(
         response.statusCode,

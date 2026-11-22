@@ -220,16 +220,18 @@ class SasSession {
     Map<String, Object?> data,
     SasParty from,
   ) async {
-    if (state == SasState.cancelled || state == SasState.verified)
+    if (state == SasState.cancelled || state == SasState.verified) {
       return const [];
+    }
     if (data['txn'] != txn) return const [];
     if (type == SasType.cancel) {
       state = SasState.cancelled;
       cancelReason = data['reason'] as String? ?? 'Cancelled';
       return const [];
     }
-    if (them != null && from != them)
+    if (them != null && from != them) {
       return const []; // Another device; ignore.
+    }
     try {
       switch (type) {
         case SasType.accept when initiator && state == SasState.requested:

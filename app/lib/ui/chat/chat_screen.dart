@@ -75,8 +75,9 @@ class _ChatViewState extends ConsumerState<ChatView> {
     _loadOlder();
     // The list is reversed: its far end is the oldest message.
     _scroll.addListener(() {
-      if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 400)
+      if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 400) {
         _loadOlder();
+      }
     });
   }
 
@@ -147,7 +148,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
     }
     for (var i = 0; i < 50 && mounted; i++) {
       final row = _rowKeys[messageId]?.currentContext;
-      if (row != null) {
+      if (row != null && row.mounted) {
         await Scrollable.ensureVisible(row, alignment: 0.5, duration: const Duration(milliseconds: 250));
         if (!mounted) return;
         setState(() => _highlighted = messageId);
@@ -165,8 +166,9 @@ class _ChatViewState extends ConsumerState<ChatView> {
   }
 
   void _loadOlder() => Future.microtask(() {
-    if (mounted)
+    if (mounted) {
       ref.read(chatRepositoryProvider).loadOlderMessages(widget.conversationId);
+    }
   });
 
   static bool get _isMobile => Platform.isAndroid || Platform.isIOS;
@@ -382,8 +384,9 @@ class _ChatViewState extends ConsumerState<ChatView> {
   void _markRead() {
     // Deferred so that notifying listeners never happens during a build.
     Future.microtask(() {
-      if (mounted)
+      if (mounted) {
         ref.read(chatRepositoryProvider).markRead(widget.conversationId);
+      }
     });
   }
 

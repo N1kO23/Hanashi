@@ -63,8 +63,9 @@ class KeyDirectory {
   Future<TrustedDevices> _load(String userId) async {
     final keys = await api.userKeys(userId);
     final published = keys.identityKey;
-    if (published == null)
+    if (published == null) {
       return TrustedDevices(userId: userId, devices: const {});
+    }
 
     String trusted;
     var changed = false;

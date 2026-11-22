@@ -99,9 +99,10 @@ jobs:
       - name: Dependencies
         run: flutter pub get
       - name: Analyze
+        # Lints too, not only warnings and errors.
         run: |
-          (cd protocol && dart analyze)
-          (cd app && dart analyze)
+          (cd protocol && dart analyze --fatal-infos)
+          (cd app && dart analyze --fatal-infos)
       - name: Protocol tests
         working-directory: protocol
         run: dart test

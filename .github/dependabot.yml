@@ -1,0 +1,48 @@
+# Weekly update pull requests, minor and patch updates of each kind in one.
+# Not here: the Flutter version (FLUTTER_VERSION in workflows/ci.yml), and
+# packaging/linux/Dockerfile's Ubuntu 22.04, the oldest the Linux packages
+# run on, kept on purpose.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # The app and the protocol package: one pub workspace, one pubspec.lock.
+  - package-ecosystem: pub
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      pub:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: gomod
+    directory: /server
+    schedule:
+      interval: weekly
+    groups:
+      go:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  # The server image's Go and Alpine.
+  - package-ecosystem: docker
+    directory: /server
+    schedule:
+      interval: weekly
+
+  # LiveKit in docker-compose.yml. MariaDB stays on its long-term release
+  # (11.8) until moved on purpose: people's databases follow it.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: mariadb
+        update-types: [version-update:semver-major, version-update:semver-minor]

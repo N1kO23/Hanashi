@@ -8,6 +8,17 @@ import 'encryption_identity.dart';
 
 const _log = Log('mls');
 
+/// A Welcome whose group is not the conversation it came for (see
+/// [MlsService.joinFromWelcome]).
+class WelcomeToAnotherGroup implements Exception {
+  const WelcomeToAnotherGroup(this.conv);
+
+  final String conv;
+
+  @override
+  String toString() => 'The Welcome is to another group than $conv';
+}
+
 /// One member device (leaf) of a group.
 class MlsLeaf {
   const MlsLeaf({required this.index, required this.userId, required this.deviceId, required this.signatureKey});
@@ -204,14 +215,17 @@ class MlsService {
   Future<Uint8List> groupInfo(String conv) =>
       _engine.exportGroupInfo(groupIdBytes: _gid(conv), signerBytes: _signer.signerBytes);
 
-  /// Joins from a Welcome; returns the conversation ID.
-  Future<String> joinFromWelcome(Uint8List welcome) async {
-    final result = await _engine.joinGroupFromWelcome(
-      config: config,
-      welcomeBytes: welcome,
-      signerBytes: _signer.signerBytes,
-    );
-    return utf8.decode(result.groupId);
+  /// Joins [conv]'s group from a Welcome. The conversation is the server's
+  /// word, the group ID in the Welcome its sender's: a Welcome to another
+  /// group is refused before anything is stored, or a server could pass one
+  /// to a group this device is in as an invitation to a new one.
+  Future<void> joinFromWelcome(String conv, Uint8List welcome) async {
+    final named = (await _engine.inspectWelcome(config: config, welcomeBytes: welcome)).groupId;
+    final expected = _gid(conv);
+    if (named.length != expected.length || Iterable.generate(named.length).any((i) => named[i] != expected[i])) {
+      throw WelcomeToAnotherGroup(conv);
+    }
+    await _engine.joinGroupFromWelcome(config: config, welcomeBytes: welcome, signerBytes: _signer.signerBytes);
   }
 
   /// Joins (or rejoins, replacing this device's stale leaf) by external commit.
