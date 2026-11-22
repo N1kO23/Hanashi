@@ -1,0 +1,5 @@
+# Commits that only reformat code, which `git blame` skips (GitHub does on its
+# own; locally after `git config blame.ignoreRevsFile .git-blame-ignore-revs`).
+
+# All Dart code formatted at 120 columns.
+79df3106d23c199b462506938327367fb92d9928
