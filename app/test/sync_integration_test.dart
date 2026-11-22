@@ -2757,6 +2757,17 @@ void main() {
     final tablet = await _Device.signIn(server, 'kumiko');
     final onTablet = await tablet.repo.watchStickerPacks().firstWhere(ready).timeout(_timeout);
     expect(onTablet.single.archive!.hash, hers.archive!.hash);
+    // Kept encrypted on both: nothing in their folders reads without the key.
+    for (final device in [kumiko, tablet]) {
+      final kept = [
+        for (final entry in stickerPacksDir(device.storage.supportDir).listSync(recursive: true))
+          if (entry is File) entry,
+      ];
+      expect(kept, hasLength(9), reason: 'the index and 8 pictures');
+      for (final file in kept) {
+        expect(utf8.decode(file.readAsBytesSync().sublist(0, 4), allowMalformed: true), 'MTF2', reason: file.path);
+      }
+    }
 
     // Kept from it, then the pack removed on one device: gone on the
     // others, while what was kept of it stays and still goes.

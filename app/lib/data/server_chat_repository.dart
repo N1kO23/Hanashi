@@ -2168,7 +2168,7 @@ class ServerChatRepository implements ChatRepository {
     final list = await _packs();
     final views = <StickerPack>[];
     for (final entry in list.entries) {
-      final stored = await _packStore.load(entry.archive.hash);
+      final stored = await _packStore.load(entry.archive);
       if (stored != null) {
         views.add(stored.view(entry));
       } else {
@@ -2231,11 +2231,11 @@ class ServerChatRepository implements ChatRepository {
     for (final entry in (await _packs()).entries) {
       if (_disposed) return;
       final hash = entry.archive.hash;
-      if (await _packStore.load(hash) != null) continue;
+      if (await _packStore.load(entry.archive) != null) continue;
       try {
         final (bytes: _, :pack) = await _downloadPack(entry.archive);
         if (pack.manifest.id != entry.id) throw const PackageException('This sticker pack is not the one listed');
-        await _packStore.install(pack, hash);
+        await _packStore.install(pack, entry.archive);
       } on Object catch (e) {
         _log.warning('Could not fetch sticker pack ${entry.id}: $e');
         _failedPacks.add(hash);
@@ -2314,7 +2314,7 @@ class ServerChatRepository implements ChatRepository {
     final archive = await _uploadPack(bytes);
     _keepingPacks.add(archive.hash);
     try {
-      await _packStore.install(pack, archive.hash);
+      await _packStore.install(pack, archive);
       late PackList list;
       await store.update(_packsData, (current) {
         list = PackList.fromJson(current);
@@ -2382,13 +2382,13 @@ class ServerChatRepository implements ChatRepository {
     if (sent != null) return (StickerRef.media(sent, source: source), null);
     // Kept before this device sent one of its own: on a server already.
     if (sticker.media case final media?) return (StickerRef.media(media, source: source), null);
-    final plain = File(path);
-    final encrypted = await _encryptForUpload(plain);
+    final plain = await packPicture(item);
+    final encrypted = await _encryptBytesForUpload(plain);
     // This device shows it without downloading anything.
     await media.put(encrypted.hash, encrypted.file);
     final picture = MediaRef(
       hash: encrypted.hash,
-      size: await plain.length(),
+      size: plain.length,
       mime: item.mime ?? 'image/webp',
       width: item.width,
       height: item.height,
@@ -2701,11 +2701,20 @@ class ServerChatRepository implements ChatRepository {
 
   /// Encrypts a file with a fresh key into the outgoing folder; the outbox
   /// uploads it from there.
-  Future<({File file, String hash, List<int> key})> _encryptForUpload(File plain) async {
+  Future<({File file, String hash, List<int> key})> _encryptForUpload(File plain) =>
+      _sealForUpload((output, key) => FileCipher.encrypt(plain.path, output, key, maxSize: maxUploadBytes));
+
+  /// As [_encryptForUpload], from memory: never written decrypted.
+  Future<({File file, String hash, List<int> key})> _encryptBytesForUpload(Uint8List plain) =>
+      _sealForUpload((output, key) => FileCipher.encryptBytes(plain, output, key, maxSize: maxUploadBytes));
+
+  Future<({File file, String hash, List<int> key})> _sealForUpload(
+    Future<void> Function(String output, Uint8List key) encrypt,
+  ) async {
     final key = randomBytes(32);
     final dir = await media.outgoing.create(recursive: true);
     final tmp = File('${dir.path}/${newUlid()}');
-    await FileCipher.encrypt(plain.path, tmp.path, key, maxSize: maxUploadBytes);
+    await encrypt(tmp.path, key);
     final hash = await hashFile(tmp.path);
     final file = await tmp.rename('${dir.path}/${hash.substring('sha256:'.length)}');
     return (file: file, hash: hash, key: key);

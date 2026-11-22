@@ -28,6 +28,18 @@ abstract final class FileCipher {
   static Future<void> encrypt(String input, String output, Uint8List key, {int? maxSize}) =>
       Isolate.run(() => _encrypt(input, output, key, maxSize));
 
+  /// Encrypts [plain] into [output] as [encrypt] does a file: for what is
+  /// only in memory, never to be written decrypted.
+  static Future<void> encryptBytes(Uint8List plain, String output, Uint8List key, {int? maxSize}) => Isolate.run(
+    () => _encryptFrom(
+      plain.length,
+      (chunk, offset, length) => chunk.setRange(0, length, plain, offset),
+      output,
+      key,
+      maxSize,
+    ),
+  );
+
   /// Throws [DecryptionFailed] if the file was tampered with or the key is wrong.
   static Future<void> decrypt(String input, String output, Uint8List key) =>
       Isolate.run(() => _decrypt(input, output, key));
@@ -63,25 +75,48 @@ abstract final class FileCipher {
   ]);
 
   static Future<void> _encrypt(String input, String output, Uint8List key, int? maxSize) async {
+    final source = File(input).openSync();
+    try {
+      await _encryptFrom(
+        source.lengthSync(),
+        (chunk, _, length) {
+          for (var read = 0; read < length;) {
+            final n = source.readIntoSync(chunk, read, length);
+            if (n == 0) throw FileSystemException('The file got shorter', input);
+            read += n;
+          }
+        },
+        output,
+        key,
+        maxSize,
+      );
+    } finally {
+      source.closeSync();
+    }
+  }
+
+  /// Encrypts [length] bytes, which [read] puts at the start of each chunk
+  /// (those from offset on, as many as asked for), into [output].
+  static Future<void> _encryptFrom(
+    int length,
+    void Function(Uint8List chunk, int offset, int length) read,
+    String output,
+    Uint8List key,
+    int? maxSize,
+  ) async {
     final aes = AesGcm.with256bits();
     final secretKey = SecretKey(key);
     final prefix = randomBytes(7);
     final header = Uint8List.fromList([..._magic, ...prefix]);
-    final source = File(input).openSync();
     final sink = File(output).openSync(mode: FileMode.write);
     try {
       sink.writeFromSync(header);
-      final length = source.lengthSync();
       final total = paddedLength(length, maxSize: maxSize);
       var offset = 0, counter = 0;
       do {
         final chunk = Uint8List(min(chunkSize, total - offset));
         final data = max(0, min(chunk.length, length - offset));
-        for (var read = 0; read < data;) {
-          final n = source.readIntoSync(chunk, read, data);
-          if (n == 0) throw FileSystemException('The file got shorter', input);
-          read += n;
-        }
+        if (data > 0) read(chunk, offset, data);
         if (data < chunk.length && offset + data == length) chunk[data] = 0x80;
         offset += chunk.length;
         final last = offset >= total;
@@ -91,7 +126,6 @@ abstract final class FileCipher {
         if (last) break;
       } while (true);
     } finally {
-      source.closeSync();
       sink.closeSync();
     }
   }

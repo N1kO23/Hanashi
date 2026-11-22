@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:hanashi_protocol/hanashi_protocol.dart';
 
 /// How far a pack the user keeps is on this device.
@@ -14,12 +16,14 @@ enum StickerPackState {
 
 /// A sticker of a pack, as this device shows it.
 class PackSticker {
-  const PackSticker({required this.id, this.path, this.mime, this.width, this.height, this.emoji});
+  const PackSticker({required this.id, this.path, this.key, this.mime, this.width, this.height, this.emoji});
 
   final String id;
 
-  /// Its picture on this device.
+  /// Its picture on this device: encrypted with [key] (see `FileCipher`), or
+  /// a plain file without one (the demo's).
   final String? path;
+  final Uint8List? key;
 
   final String? mime;
   final int? width;

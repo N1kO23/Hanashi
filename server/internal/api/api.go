@@ -31,7 +31,7 @@ import (
 	"hanashi/server/internal/store"
 )
 
-const Version = "1.0.4"
+const Version = "1.0.5"
 
 const (
 	snapshotMessages = 30

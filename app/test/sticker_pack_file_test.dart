@@ -287,8 +287,20 @@ void main() {
     setUp(() => dir = Directory.systemTemp.createTempSync('hanashi_store_'));
     tearDown(() => dir.delete(recursive: true));
 
-    const one = 'sha256:1111111111111111111111111111111111111111111111111111111111111111';
-    const two = 'sha256:2222222222222222222222222222222222222222222222222222222222222222';
+    // Packs' files on the server, with the keys only account data holds.
+    final one = MediaRef(
+      hash: 'sha256:${'1' * 64}',
+      size: 1,
+      mime: 'application/zip',
+      key: base64.encode(List.filled(32, 1)),
+    );
+    final two = MediaRef(
+      hash: 'sha256:${'2' * 64}',
+      size: 1,
+      mime: 'application/zip',
+      key: base64.encode(List.filled(32, 2)),
+    );
+    String folderOf(MediaRef archive) => '${dir.path}/packs/${StickerPackStore.folderName(archive.hash)}';
 
     StickerPackFile packOf(List<String> ids) => readStickerPackNow(
       writeContentPackage(
@@ -310,8 +322,8 @@ void main() {
         [for (final s in kept.stickers) (s.id, s.path!.split('/').last)],
         [('con', '000.png'), ('b.c', '001.png'), ('z', '002.png')],
       );
-      expect(File(kept.stickers[1].path!).readAsBytesSync(), syntheticSticker(2));
-      expect(Directory('${dir.path}/packs/${StickerPackStore.folderName(one)}').existsSync(), isTrue);
+      expect(await packPicture(kept.stickers[1]), syntheticSticker(2));
+      expect(Directory(folderOf(one)).existsSync(), isTrue);
 
       final again = await StickerPackStore(Directory('${dir.path}/packs')).load(one);
       expect((again!.id, again.title, again.stickers.length), ('test-pack', 'Test pack', 3));
@@ -323,20 +335,48 @@ void main() {
       await store.install(packOf(['a']), one);
       await store.install(packOf(['b']), two);
       Directory('${dir.path}/packs/.incoming-left-behind').createSync();
-      await store.gc({two});
+      await store.gc({two.hash});
       expect(await store.load(one), isNull);
       expect(await store.load(two), isNotNull);
       expect(Directory('${dir.path}/packs').listSync().map((e) => e.path.split('/').last), [
-        StickerPackStore.folderName(two),
+        StickerPackStore.folderName(two.hash),
       ]);
 
-      File('${dir.path}/packs/${StickerPackStore.folderName(two)}/index.json').writeAsStringSync('{');
+      File('${folderOf(two)}/index.sealed').writeAsStringSync('{');
       expect(await StickerPackStore(Directory('${dir.path}/packs')).load(two), isNull);
       final reinstalled = await StickerPackStore(Directory('${dir.path}/packs')).install(packOf(['c']), two);
       expect(reinstalled.stickers.single.id, 'c');
 
       await store.clear();
       expect(Directory('${dir.path}/packs').existsSync(), isFalse);
+    });
+
+    test('are kept encrypted, readable only with their key', () async {
+      final store = StickerPackStore(Directory('${dir.path}/packs'));
+      final kept = await store.install(packOf(['a', 'b']), one);
+      final files = Directory(folderOf(one)).listSync().whereType<File>().toList();
+      expect(files.map((f) => f.uri.pathSegments.last).toSet(), {'index.sealed', '000.png', '001.png'});
+      for (final file in files) {
+        final bytes = file.readAsBytesSync();
+        expect(utf8.decode(bytes.sublist(0, 4)), 'MTF2', reason: file.path);
+        expect(bytes, isNot(syntheticSticker(1)));
+        expect(latin1.decode(bytes), isNot(contains('Test pack')), reason: file.path);
+      }
+      expect(await packPicture(kept.stickers.first), syntheticSticker(1));
+      // Not with another key, which another account's file of it would have.
+      final elsewhere = MediaRef(hash: one.hash, size: 1, mime: 'application/zip', key: two.key);
+      expect(await StickerPackStore(Directory('${dir.path}/packs')).load(elsewhere), isNull);
+    });
+
+    test('one kept decrypted, as before 1.0.5, is fetched again and kept encrypted', () async {
+      final old = Directory(folderOf(one))..createSync(recursive: true);
+      File('${old.path}/index.json').writeAsStringSync(jsonEncode({'archive': one.hash, 'id': 'test-pack'}));
+      File('${old.path}/000.png').writeAsBytesSync(syntheticSticker(1));
+      final store = StickerPackStore(Directory('${dir.path}/packs'));
+      expect(await store.load(one), isNull);
+      await store.install(packOf(['a']), one);
+      expect(File('${old.path}/index.json').existsSync(), isFalse);
+      expect(File('${old.path}/000.png').readAsBytesSync(), isNot(syntheticSticker(1)));
     });
   });
 }

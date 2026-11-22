@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:hashlib/hashlib.dart';
 
 import '../e2ee/file_cipher.dart';
+import 'decrypted_cache.dart';
 import 'media_stream.dart';
 import 'remote/api_client.dart';
 
@@ -30,10 +31,8 @@ class MediaCache {
   /// quarter of it is not kept.
   final int keptBytes;
 
-  /// What [bytes] decrypted lately, the newest last, by hash and key.
-  final _decrypted = <String, Uint8List>{};
-  var _decryptedSize = 0;
-  final _decrypting = <String, Future<Uint8List>>{};
+  /// What [bytes] decrypted lately, by hash and key.
+  late final _decrypted = DecryptedCache(maxBytes: keptBytes);
 
   final Directory root;
 
@@ -86,37 +85,10 @@ class MediaCache {
     void Function(double progress)? onProgress,
   }) {
     final id = key == null ? hash : '$hash ${base64.encode(key)}';
-    final kept = _decrypted.remove(id);
-    if (kept != null) {
-      _decrypted[id] = kept; // The newest now.
-      return Future.value(kept);
-    }
-    // Forgotten a turn after it is done: never before it is stored, even if
-    // it fails at once. (A block body: `remove` returns this very future,
-    // which an arrow would hand on, failure and all, to nobody.)
-    return _decrypting.putIfAbsent(id, () async {
-      try {
-        final file = await blob(hash, host: host, maxBytes: maxBytes, onProgress: onProgress);
-        final plain = key == null ? await file.readAsBytes() : await FileCipher.decryptBytes(file.path, key);
-        _keep(id, plain);
-        return plain;
-      } finally {
-        unawaited(
-          Future(() {
-            _decrypting.remove(id);
-          }),
-        );
-      }
+    return _decrypted.get(id, () async {
+      final file = await blob(hash, host: host, maxBytes: maxBytes, onProgress: onProgress);
+      return key == null ? file.readAsBytes() : FileCipher.decryptBytes(file.path, key);
     });
-  }
-
-  void _keep(String id, Uint8List plain) {
-    if (plain.length > keptBytes ~/ 4) return;
-    _decrypted[id] = plain;
-    _decryptedSize += plain.length;
-    while (_decryptedSize > keptBytes) {
-      _decryptedSize -= _decrypted.remove(_decrypted.keys.first)!.length;
-    }
   }
 
   /// The blob of [hash] decrypted with [key] into [path], as [bytes] does.
@@ -187,9 +159,7 @@ class MediaCache {
 
   /// Forgets the blob of [hash] (its message was deleted).
   Future<void> remove(String hash) async {
-    for (final id in [..._decrypted.keys.where((id) => id.startsWith(hash))]) {
-      _decryptedSize -= _decrypted.remove(id)!.length;
-    }
+    _decrypted.forget((id) => id.startsWith(hash));
     try {
       await cached(hash)?.delete();
     } on FileSystemException {

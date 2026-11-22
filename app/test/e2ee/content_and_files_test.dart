@@ -175,6 +175,19 @@ void main() {
       }
     });
 
+    test('encrypts from memory as it does from a file', () async {
+      final key = randomBytes(32);
+      for (final data in [Uint8List(0), randomBytes(1), randomBytes(FileCipher.chunkSize * 2 + 3)]) {
+        await FileCipher.encryptBytes(data, '${dir.path}/enc', key);
+        expect(await FileCipher.decryptBytes('${dir.path}/enc', key), data, reason: '${data.length} bytes');
+        expect(
+          File('${dir.path}/enc').lengthSync(),
+          FileCipher.encryptedSize(FileCipher.paddedLength(data.length)),
+          reason: 'padded as a file is',
+        );
+      }
+    });
+
     test('decrypting in parts detects tampering and wrong keys too', () async {
       final key = randomBytes(32);
       File('${dir.path}/plain').writeAsBytesSync(randomBytes(FileCipher.chunkSize * 3));
