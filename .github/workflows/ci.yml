@@ -1,8 +1,8 @@
 # Tests every change (server, protocol, app, and the Linux desktop app end to
-# end). Builds the app for every platform only for a tag like v0.2.0, or when
-# run by hand, and keeps the builds as workflow artifacts: the builds take
-# most of the Actions minutes, macOS's above all. A tag also publishes them
-# as a GitHub release, once the tests pass.
+# end). Every push, and a run by hand, also builds the app for every platform
+# and the server's Docker image, keeping the builds as workflow artifacts;
+# pull requests are only tested. A tag like v0.2.0 also publishes the builds
+# as a GitHub release once the tests pass, and pushes the image.
 #
 # Android release signing uses these repository secrets when they are set:
 #   ANDROID_KEYSTORE_BASE64    the .jks keystore, base64-encoded
@@ -172,11 +172,11 @@ jobs:
           cat "$out/log"
           grep -q 'All tests passed' "$out/log"
 
-  # Only for a tag or a run by hand; the builds need it, so they are skipped
-  # along with it.
+  # Not for pull requests; the builds need it, so they are skipped along with
+  # it.
   version:
     name: Version
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       name: ${{ steps.version.outputs.name }}
@@ -474,8 +474,8 @@ jobs:
       - name: Check the versions
         # The image says the server's version (its Version constant), and
         # docker-compose.yml names the image of its own version: both must be
-        # the release's. (A run by hand checks them against app/pubspec.yaml,
-        # before tagging.)
+        # the release's. (Runs without a tag check them against
+        # app/pubspec.yaml, so a mismatch shows before tagging.)
         run: |
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             version="${GITHUB_REF_NAME#v}"
@@ -497,7 +497,7 @@ jobs:
         run: echo "$DOCKERHUB_TOKEN" | docker login --username "${DOCKER_IMAGE%%/*}" --password-stdin
       - name: Build, and push for a tag
         # For both CPU types; arm64 is cross-compiled (see server/Dockerfile),
-        # with no emulation. A run by hand only builds them.
+        # with no emulation. Runs without a tag only build them.
         run: |
           tags=(--tag "$DOCKER_IMAGE:$VERSION")
           # A pre-release (v1.2.0-beta.1) is not the latest.

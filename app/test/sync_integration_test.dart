@@ -148,7 +148,8 @@ Future<GoServer> _startServer() async {
 
 /// One verified device: its own secure store, MLS database and local cache.
 class _Device {
-  _Device(this.account, this.api, this.store, this.identity, this.clock, [this.client]);
+  _Device(this.account, this.api, this.store, this.identity, this.clock, [this.client, AppDatabase? db])
+    : db = db ?? AppDatabase(NativeDatabase.memory());
 
   final Account account;
   final ApiClient api;
@@ -178,7 +179,8 @@ class _Device {
     mediaDir: Directory('${dir.path}/media'),
     supportDir: dir,
   );
-  late final db = AppDatabase(NativeDatabase.memory());
+  /// Its local cache.
+  final AppDatabase db;
   late ServerChatRepository repo;
   final signedOut = Completer<void>();
 
@@ -212,6 +214,7 @@ class _Device {
     bool verify = true,
     DateTime Function() clock = DateTime.now,
     http.Client? client,
+    AppDatabase? db,
   }) async {
     final anonymous = ApiClient(server.url);
     final auth = register
@@ -243,7 +246,7 @@ class _Device {
       account: account,
       store: store,
     );
-    final device = _Device(account, api, store, identity, clock, client);
+    final device = _Device(account, api, store, identity, clock, client, db);
     addTearDown(device.close);
     device.repo = device._repository(() => device.signedOut.complete());
     if (register) {
@@ -304,6 +307,27 @@ class _Device {
     await db.close();
     api.close();
     await dir.delete(recursive: true);
+  }
+}
+
+/// A device's cache that, once [letGo] is set, holds back marking a message
+/// sent until it completes: a send stopped half way, after the server took it.
+class _HeldMarkingSent extends AppDatabase {
+  _HeldMarkingSent() : super(NativeDatabase.memory());
+
+  Completer<void>? letGo;
+
+  /// The ID of the first message held back.
+  final reached = Completer<String>();
+
+  @override
+  Future<void> markSent(String id, int seq) async {
+    final hold = letGo;
+    if (hold != null) {
+      if (!reached.isCompleted) reached.complete(id);
+      await hold.future;
+    }
+    return super.markSent(id, seq);
   }
 }
 
@@ -1205,6 +1229,30 @@ void main() {
     );
     await Future<void>.delayed(const Duration(milliseconds: 300));
     expect(await kumiko.repo.watchMessages(conv).first, hasLength(1));
+  });
+
+  test('a device that stops while sending marks what it sent before its database closes', () async {
+    final server = await _startServer();
+    final db = _HeldMarkingSent();
+    final kumiko = await _Device.signIn(server, 'kumiko', register: true, db: db);
+    final sota = await _Device.signIn(server, 'sota', register: true);
+    final conv = await _becomeContacts(kumiko, sota);
+    await kumiko.waitForConversation((c) => c.id == conv);
+
+    // The server has the message; marking it sent waits while the device stops.
+    db.letGo = Completer();
+    await kumiko.repo.sendText(conv, 'See you tomorrow');
+    final held = await db.reached.future.timeout(_timeout);
+    var disposed = false;
+    final disposing = kumiko.repo.dispose().then((_) => disposed = true);
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    expect(disposed, isFalse, reason: 'it waits for the message under way');
+
+    db.letGo!.complete();
+    await disposing;
+    final row = await db.messageRow(held);
+    expect(row?.state, DeliveryState.sent);
+    expect(row?.seq, isNotNull);
   });
 
   test('a server as it comes refuses apps from before 0.9.0, and only those', () async {

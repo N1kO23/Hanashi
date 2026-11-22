@@ -156,7 +156,8 @@ class ServerChatRepository implements ChatRepository {
   Future<void> _queue = Future.value();
   final _pendingReads = <String, int>{};
   final _loadingHistory = <String>{};
-  var _flushing = false;
+  /// The outbox flush under way, which [dispose] lets finish.
+  Future<void>? _flushing;
   var _flushAgain = false;
 
   // Key backup (see [_uploadBackups]).
@@ -328,6 +329,10 @@ class ServerChatRepository implements ChatRepository {
     await _offline.cancel();
     await _presenceChanges.close();
     await _socket.stop();
+    // A flush under way stops at its next message (the socket failed what it
+    // was sending), once the one it sent is marked so: before the database
+    // may close. An upload takes long, and ends as the connections close below.
+    await _flushing?.timeout(const Duration(seconds: 3), onTimeout: () {});
     await _started?.catchError((Object _) {});
     await _queue;
     await _uploading?.catchError((Object _) {});
@@ -674,11 +679,12 @@ class ServerChatRepository implements ChatRepository {
   Future<void> flushOutbox() async {
     // Not open yet (another engine holds the lock, say): sent once connected.
     if (_mls == null) return;
-    if (_flushing) {
+    if (_flushing != null) {
       _flushAgain = true;
       return;
     }
-    _flushing = true;
+    final done = Completer<void>();
+    _flushing = done.future;
     try {
       do {
         _flushAgain = false;
@@ -692,6 +698,8 @@ class ServerChatRepository implements ChatRepository {
           try {
             await _uploadAttachments(pending);
             await _deleteFromServer(pending.envelope);
+            // Uploads take long; the encryption state may be closing now.
+            if (_disposed) return;
             final outgoing = await _withHistory(pending.envelope);
             if (outgoing == null) {
               _log.info('Not sharing the history of $conv: this account has no keys to it');
@@ -745,11 +753,13 @@ class ServerChatRepository implements ChatRepository {
           }
         }
         for (final conv in sentTo) {
+          if (_disposed) return;
           await _serial(() => _repair(conv, () => groups.rotateKeysIfDue(conv)));
         }
       } while (_flushAgain);
     } finally {
-      _flushing = false;
+      _flushing = null;
+      done.complete();
     }
   }
 
