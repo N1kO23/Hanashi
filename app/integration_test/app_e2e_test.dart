@@ -388,9 +388,9 @@ void main() {
       expect(image.media!.thumb, isNotNull);
       // Kumiko downloads the encrypted upload and decrypts it to the original.
       final received = (await tester.runAsync(
-        () => kumiko.repo.mediaFile(image.media!),
+        () => kumiko.repo.mediaBytes(image.media!),
       ))!;
-      expect(received.readAsBytesSync(), photo.readAsBytesSync());
+      expect(received, photo.readAsBytesSync());
 
       if (hasFfmpeg) {
         // Metadata and thumbnail come from libmpv on this device.

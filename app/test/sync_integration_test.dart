@@ -2327,7 +2327,7 @@ void main() {
     final avatar = (await _profileOf(kumiko, phone.me, (p) => p.avatar != null)).avatar!;
     expect((await _profileOf(desktop, phone.me, (p) => p.avatar != null)).avatar!.hash, avatar.hash);
     // Kumiko gets the square picture; the server only ever saw ciphertext.
-    final seen = img.decodeJpg((await kumiko.repo.mediaFile(avatar))!.readAsBytesSync())!;
+    final seen = img.decodeJpg((await kumiko.repo.mediaBytes(avatar))!)!;
     expect((seen.width, seen.height), (256, 256));
     final stored = await (await kumiko.api.openMedia(avatar.hash)).stream.fold<List<int>>([], (a, b) => a..addAll(b));
     expect(img.decodeImage(Uint8List.fromList(stored)), isNull);
@@ -2362,7 +2362,7 @@ void main() {
     // A new device learns it from the stored record...
     final laptop = await _Device.signIn(server, 'sota');
     expect((await _profileOf(laptop, phone.me, (p) => p.avatar != null)).avatar!.hash, avatar.hash);
-    expect(img.decodeJpg((await laptop.repo.mediaFile(avatar))!.readAsBytesSync())!.width, 256);
+    expect(img.decodeJpg((await laptop.repo.mediaBytes(avatar))!)!.width, 256);
     // ...and hears when another device changes it.
     await laptop.repo.setAvatar(null);
     await _profileOf(phone, phone.me, (p) => p.avatar == null);
@@ -2490,18 +2490,35 @@ void main() {
     );
     for (final device in [kumiko, desktop]) {
       expect(
-        (await device.repo.mediaFile(imageRef))!.readAsBytesSync(),
+        (await device.repo.mediaBytes(imageRef))!,
         photo.readAsBytesSync(),
       );
       final thumb = img.decodeJpg(
-        (await device.repo.mediaFile(imageRef.thumb!))!.readAsBytesSync(),
+        (await device.repo.mediaBytes(imageRef.thumb!))!,
       )!;
       // Small enough to stay as large as it is.
       expect((thumb.width, thumb.height), (1200, 800));
       expect(
-        (await device.repo.mediaFile(file.media!))!.readAsStringSync(),
+        utf8.decode((await device.repo.mediaBytes(file.media!))!),
         'Meeting at five.',
       );
+    }
+    // Nothing decrypted is kept: not by those who got them, nor by the
+    // sender, whose cache has them too, nor the thumbnail it made.
+    final made = Directory('${phone.dir.path}/tmp');
+    expect(made.existsSync() ? made.listSync().where((e) => e.path.contains('-thumb')) : const [], isEmpty);
+    for (final device in [phone, kumiko, desktop]) {
+      final kept = [
+        for (final entry in device.storage.mediaDir.listSync(recursive: true))
+          if (entry is File) entry,
+      ];
+      expect(kept, isNotEmpty, reason: device.me);
+      for (final file in kept) {
+        final bytes = file.readAsBytesSync();
+        expect(utf8.decode(bytes.sublist(0, 4), allowMalformed: true), 'MTF2', reason: file.path);
+        expect(bytes, isNot(photo.readAsBytesSync()), reason: file.path);
+        expect(utf8.decode(bytes, allowMalformed: true), isNot(contains('Meeting at five.')), reason: file.path);
+      }
     }
   });
 
@@ -2536,9 +2553,9 @@ void main() {
     final thumb = link.thumb!;
     expect((thumb.width, thumb.height, thumb.mime), (1200, 630, 'image/jpeg'));
     expect(thumb.key, isNotNull);
-    expect((await kumiko.repo.mediaFile(thumb))!.readAsBytesSync(), picture.bytes);
+    expect((await kumiko.repo.mediaBytes(thumb))!, picture.bytes);
     // The sender shows it without downloading; the server has ciphertext.
-    expect(phone.repo.cachedMediaFile(thumb.hash)!.readAsBytesSync(), picture.bytes);
+    expect((await phone.repo.localMediaBytes(thumb))!, picture.bytes);
     final stored = await (await kumiko.api.openMedia(thumb.hash)).stream.toBytes();
     const jpeg = [0xFF, 0xD8];
     expect(picture.bytes.sublist(0, 2), jpeg);
@@ -2551,7 +2568,7 @@ void main() {
       (full.mime, full.width, full.height, full.thumb?.hash, full.thumb?.key),
       ('image/png', 1200, 630, thumb.hash, thumb.key),
     );
-    expect((await kumiko.repo.mediaFile(full))!.readAsBytesSync(), cover);
+    expect((await kumiko.repo.mediaBytes(full))!, cover);
     expect(file.existsSync(), isFalse);
   });
 
@@ -2583,9 +2600,9 @@ void main() {
     expect((link.kind, link.site, link.color), (LinkKind.gif, 'FxTwitter', '#6363ff'));
     final media = link.media!;
     expect((media.mime, media.size, media.width, media.height), ('video/mp4', video.length, 320, 180));
-    expect((await kumiko.repo.mediaFile(media))!.readAsBytesSync(), video);
+    expect((await kumiko.repo.mediaBytes(media))!, video);
     // The sender keeps its own copy, not the download; the server has ciphertext, padded.
-    expect(phone.repo.cachedMediaFile(media.hash)!.readAsBytesSync(), video);
+    expect((await phone.repo.localMediaBytes(media))!, video);
     expect(file.existsSync(), isFalse);
     final stored = await (await kumiko.api.openMedia(media.hash)).stream.toBytes();
     expect(stored.length, FileCipher.encryptedSize(padme(video.length + 1)));
@@ -2676,7 +2693,7 @@ void main() {
       ..writeAsBytesSync(img.encodePng(img.Image(width: 300, height: 200)..clear(img.ColorRgb8(240, 150, 170))));
     await sota.repo.setGroupPicture(club, file.path);
     final picture = (await kumiko.waitForConversation((s) => s.id == club && s.picture != null)).picture!;
-    expect(img.decodeJpg((await kumiko.repo.mediaFile(picture))!.readAsBytesSync())!.width, 256);
+    expect(img.decodeJpg((await kumiko.repo.mediaBytes(picture))!)!.width, 256);
     bool line(ChatMessage m) => m.envelope.type == Envelope.membershipType && m.envelope.body['change'] == 'picture';
     await kumiko.waitForMessages(club, (l) => l.where(line).length == 1);
 
@@ -2721,7 +2738,7 @@ void main() {
     final source = sticker.source!;
     expect((sticker.isNamed, source.pack, source.id, source.title), (false, 'test-pack', '05', 'Test pack'));
     expect(source.archive!.hash, added.archive!.hash);
-    final shown = img.decodePng((await kumiko.repo.mediaFile(sticker.media!))!.readAsBytesSync())!;
+    final shown = img.decodePng((await kumiko.repo.mediaBytes(sticker.media!))!)!;
     expect((shown.width, shown.height, shown.getPixel(0, 0).a, shown.getPixel(64, 64).a), (128, 128, 0, 255));
     // Sent again: the same picture, not uploaded again.
     await phone.repo.sendSticker(conv, const StickerRef.named(pack: 'test-pack', id: '05'));
@@ -2777,7 +2794,7 @@ void main() {
     final got = await kumiko.waitForMessages(conv, (l) => l.any((m) => m.envelope.sticker != null) && _allDecrypted(l));
     final sticker = got.lastWhere((m) => m.envelope.sticker != null).envelope.sticker!;
     expect(sticker.source!.id, '03');
-    expect(await kumiko.repo.mediaFile(sticker.media!), isNotNull);
+    expect(await kumiko.repo.mediaBytes(sticker.media!), isNotNull);
   });
 
   test("the user's own stickers: made from an image once, sent encrypted, and kept on all their devices", () async {
@@ -2817,7 +2834,7 @@ void main() {
     final got = await kumiko.waitForMessages(conv, (l) => l.any((m) => m.envelope.sticker != null) && _allDecrypted(l));
     final sticker = got.singleWhere((m) => m.envelope.sticker != null).envelope.sticker!;
     expect(sticker, made);
-    final shown = img.decodePng((await kumiko.repo.mediaFile(sticker.media!))!.readAsBytesSync())!;
+    final shown = img.decodePng((await kumiko.repo.mediaBytes(sticker.media!))!)!;
     // Still transparent around the square.
     expect((shown.width, shown.height, shown.getPixel(0, 0).a, shown.getPixel(256, 192).a), (512, 384, 0, 255));
 
@@ -2968,7 +2985,7 @@ void main() {
     final got = await kumiko.waitForMessages(conv, (l) => _texts(l).contains('Hi :cat: :dog:'));
     final message = got.singleWhere((m) => m.envelope.text == 'Hi :cat: :dog:');
     expect(message.envelope.emojis.keys, ['cat']);
-    final shown = img.decodePng((await kumiko.repo.mediaFile(message.envelope.emojis['cat']!))!.readAsBytesSync())!;
+    final shown = img.decodePng((await kumiko.repo.mediaBytes(message.envelope.emojis['cat']!))!)!;
     expect((shown.width, shown.getPixel(0, 0).a, shown.getPixel(64, shown.height ~/ 2).a), (CustomEmoji.size, 0, 255));
 
     // Edited once gone from the set, it keeps its picture.
@@ -3046,7 +3063,7 @@ void main() {
     final received = await phone.waitForMessages(conv, (l) => l.length == 3 && _allDecrypted(l));
     final [_, own, klipy] = [for (final m in received) m.envelope];
     expect((own.messageType, own.gif!.media!.hash), (MessageType.gif, photo.media!.hash));
-    expect((await phone.repo.mediaFile(own.gif!.media!))!.readAsBytesSync(), file.readAsBytesSync());
+    expect((await phone.repo.mediaBytes(own.gif!.media!))!, file.readAsBytesSync());
     expect((klipy.messageType, klipy.gif!.remote!.url, klipy.gif!.remote!.title), (MessageType.gif, dance.url, 'Dance'));
 
     // Saved GIFs reach the user's other devices.
@@ -3228,8 +3245,8 @@ void main() {
       final received = await kumiko.waitForMessages(conv, (l) => l.length == 1 && _allDecrypted(l));
       final ref = received.single.envelope.media!;
       expect((ref.host, ref.thumb!.host), ('a.test', 'a.test'));
-      expect((await kumiko.repo.mediaFile(ref))!.readAsBytesSync(), photo.readAsBytesSync());
-      expect(img.decodeJpg((await kumiko.repo.mediaFile(ref.thumb!))!.readAsBytesSync()), isNotNull);
+      expect((await kumiko.repo.mediaBytes(ref))!, photo.readAsBytesSync());
+      expect(img.decodeJpg((await kumiko.repo.mediaBytes(ref.thumb!))!), isNotNull);
     });
 
     test('a group across three servers: one of each joins, talks, and shares a photo', () async {
@@ -3270,7 +3287,7 @@ void main() {
         final received = await device.waitForMessages(club, (l) => l.any((m) => m.envelope.media != null) && _allDecrypted(l));
         final ref = received.firstWhere((m) => m.envelope.media != null).envelope.media!;
         expect(ref.host, 'c.test');
-        expect((await device.repo.mediaFile(ref))!.readAsBytesSync(), photo.readAsBytesSync());
+        expect((await device.repo.mediaBytes(ref))!, photo.readAsBytesSync());
       }
     });
 

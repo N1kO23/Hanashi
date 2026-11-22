@@ -714,10 +714,10 @@ class _LinkCard extends ConsumerWidget {
     final thumb = link.thumb;
     final media = link.media;
     final gif = media != null && link.kind == LinkKind.gif;
-    final file = thumb == null ? null : ref.watch(mediaFileProvider(mediaFileKey(thumb))).value;
+    final thumbBytes = thumb == null ? null : ref.watch(mediaBytesProvider(mediaKey(thumb))).value;
     // An animated image plays once it is here.
     final animation = gif && media.mime.startsWith('image/') && media.size <= maxInlineAnimationBytes
-        ? ref.watch(mediaFileProvider(mediaFileKey(media))).value
+        ? ref.watch(mediaBytesProvider(mediaKey(media))).value
         : null;
     final w = (media ?? thumb)?.width, h = (media ?? thumb)?.height;
     final aspect = w != null && h != null && w > 0 && h > 0 ? w / h : 16 / 9;
@@ -737,8 +737,8 @@ class _LinkCard extends ConsumerWidget {
             children: [
               if (gif && media.mime.startsWith('video/'))
                 LoopingVideo(media: media, poster: thumb)
-              else if ((animation ?? file) != null)
-                Image.file((animation ?? file)!, fit: BoxFit.cover, gaplessPlayback: true)
+              else if ((animation ?? thumbBytes) != null)
+                Image.memory((animation ?? thumbBytes)!, fit: BoxFit.cover, gaplessPlayback: true)
               else
                 const ColoredBox(color: Color(0x33000000)),
               if (gif || loadsGif) const Positioned(left: 6, bottom: 6, child: GifBadge()),
@@ -1176,11 +1176,11 @@ class _VisualMediaBody extends ConsumerWidget {
         ? (w / h).clamp(0.6, 2.0)
         : 4 / 3;
     final thumb = media.thumb;
-    final thumbFile = thumb == null
+    final thumbBytes = thumb == null
         ? null
-        : ref.watch(mediaFileProvider(mediaFileKey(thumb))).value;
+        : ref.watch(mediaBytesProvider(mediaKey(thumb))).value;
     final animated = !isVideo && _animatedImages.contains(media.mime) && media.size <= maxInlineAnimationBytes;
-    final shown = (animated ? ref.watch(mediaFileProvider(mediaFileKey(media))).value : null) ?? thumbFile;
+    final shown = (animated ? ref.watch(mediaBytesProvider(mediaKey(media))).value : null) ?? thumbBytes;
     return GestureDetector(
       onTap: () => MediaViewerScreen.open(context, envelope),
       child: SizedBox(
@@ -1193,7 +1193,7 @@ class _VisualMediaBody extends ConsumerWidget {
               if (shown != null)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
-                  child: Image.file(
+                  child: Image.memory(
                     shown,
                     fit: BoxFit.cover,
                     gaplessPlayback: true,

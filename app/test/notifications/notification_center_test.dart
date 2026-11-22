@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -360,7 +360,8 @@ void main() {
       db: db,
       me: me,
       notifier: display,
-      pictureFile: (ref) async => ref.hash == broken.hash ? throw StateError('offline') : File('/cache/${ref.hash}'),
+      pictureBytes: (ref) async =>
+          ref.hash == broken.hash ? throw StateError('offline') : Uint8List.fromList(ref.hash.codeUnits),
     );
     await withPictures.update();
     await receive('club', kumiko, 'Sota!');
@@ -368,7 +369,7 @@ void main() {
     await receive('club', 'aiko@test.local', 'No picture yet');
     await withPictures.update();
     expect([for (final l in display.shown.single.lines) l.picture], [
-      '/cache/${picture.hash}',
+      picture.hash.codeUnits,
       null, // Not to be had now: the notification shows anyway.
       null,
     ]);

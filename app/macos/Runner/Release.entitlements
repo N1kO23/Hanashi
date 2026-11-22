@@ -4,6 +4,10 @@
 <dict>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- The player streams videos from a server of the app's on 127.0.0.1:
+	     encrypted media, and links' videos (see lib/data/media_stream.dart). -->
+	<key>com.apple.security.network.server</key>
+	<true/>
 	<key>com.apple.security.files.user-selected.read-write</key>
 	<true/>
 	<key>com.apple.security.app-sandbox</key>

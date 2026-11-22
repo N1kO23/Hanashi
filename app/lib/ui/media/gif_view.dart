@@ -7,6 +7,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:hanashi_protocol/hanashi_protocol.dart';
 
+import '../../data/chat_repository.dart' show PlayableMedia;
 import '../../state/providers.dart';
 import '../theme/hanashi_theme.dart';
 
@@ -60,10 +61,10 @@ class UploadedImage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final file = media.size <= maxInlineAnimationBytes ? ref.watch(mediaFileProvider(mediaFileKey(media))).value : null;
+    final full = media.size <= maxInlineAnimationBytes ? ref.watch(mediaBytesProvider(mediaKey(media))).value : null;
     final thumb = media.thumb;
-    final shown = file ?? (thumb == null ? null : ref.watch(mediaFileProvider(mediaFileKey(thumb))).value);
-    return shown == null ? placeholder : Image.file(shown, fit: fit, gaplessPlayback: true, cacheWidth: cacheWidth);
+    final shown = full ?? (thumb == null ? null : ref.watch(mediaBytesProvider(mediaKey(thumb))).value);
+    return shown == null ? placeholder : Image.memory(shown, fit: fit, gaplessPlayback: true, cacheWidth: cacheWidth);
   }
 }
 
@@ -84,49 +85,65 @@ class _LoopingVideoState extends ConsumerState<LoopingVideo> {
   Player? _player;
   VideoController? _controller;
 
+  /// Ends the stream the player plays from.
+  Future<void> Function()? _close;
+  var _disposed = false;
+
   @override
   void initState() {
     super.initState();
     if (widget.media.size > maxInlineAnimationBytes) return;
-    final file = ref.listenManual(mediaFileProvider(mediaFileKey(widget.media)), (_, next) {
-      final file = next.value;
-      if (file != null && _player == null) setState(() => _play(file.path));
-    });
-    final here = file.read().value;
-    if (here != null) _play(here.path);
+    unawaited(_start());
   }
 
-  void _play(String path) {
+  Future<void> _start() async {
+    final PlayableMedia? playable;
+    try {
+      playable = await ref.read(chatRepositoryProvider).playableMedia(widget.media);
+    } on Object {
+      return; // Not here (offline, say): the picture stays.
+    }
+    if (playable == null) return;
+    if (_disposed) {
+      await playable.close?.call();
+      return;
+    }
+    _close = playable.close;
     final Player player;
     try {
       player = Player();
     } catch (_) {
       return; // No player on this device: the picture stays.
     }
-    _player = player;
-    _controller = VideoController(player);
+    setState(() {
+      _player = player;
+      _controller = VideoController(player);
+    });
     player
       ..setVolume(0)
       ..setPlaylistMode(PlaylistMode.single)
-      ..open(Media(path));
+      ..open(Media(playable.uri));
   }
 
   @override
   void dispose() {
-    _player?.dispose();
+    _disposed = true;
+    // The player first: it stops reading from the stream.
+    final close = _close;
+    unawaited(_player?.dispose().whenComplete(() => close?.call()) ?? close?.call() ?? Future.value());
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final poster = widget.poster;
-    final picture = poster == null ? null : ref.watch(mediaFileProvider(mediaFileKey(poster))).value;
+    final picture = poster == null ? null : ref.watch(mediaBytesProvider(mediaKey(poster))).value;
     final controller = _controller;
     return Stack(
       fit: StackFit.expand,
       children: [
         if (picture != null)
-          Image.file(picture, fit: widget.fit, gaplessPlayback: true)
+          Image.memory(picture, fit: widget.fit, gaplessPlayback: true)
         else
           const GifPlaceholder(),
         if (controller != null)

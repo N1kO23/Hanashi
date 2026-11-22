@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:hashlib/hashlib.dart';
 import 'package:hanashi_protocol/hanashi_protocol.dart';
@@ -700,14 +701,36 @@ class MockChatRepository implements ChatRepository {
     _notify();
   }
 
+  /// The demo's media: plain files of this device's.
+  File? mediaFileOf(MediaRef media) => _files[media.hash];
+
+  /// Read at once (the demo's files are small, and widget tests' clocks
+  /// never let a read of the disk finish), and the same bytes each time, as
+  /// pictures are cached by them.
   @override
-  Future<File?> mediaFile(
-    MediaRef media, {
-    void Function(double progress)? onProgress,
-  }) async => _files[media.hash];
+  Future<Uint8List?> mediaBytes(MediaRef media, {void Function(double progress)? onProgress}) async {
+    final file = mediaFileOf(media);
+    return file == null ? null : _bytes[file.path] ??= file.readAsBytesSync();
+  }
+
+  final _bytes = <String, Uint8List>{};
 
   @override
-  File? cachedMediaFile(String hash) => _files[hash];
+  Future<Uint8List?> localMediaBytes(MediaRef media) => mediaBytes(media);
+
+  @override
+  Future<PlayableMedia?> playableMedia(MediaRef media, {void Function(double progress)? onProgress}) async {
+    final file = mediaFileOf(media);
+    return file == null ? null : (uri: file.path, close: null);
+  }
+
+  @override
+  Future<bool> saveMedia(MediaRef media, String path, {void Function(double progress)? onProgress}) async {
+    final file = mediaFileOf(media);
+    if (file == null) return false;
+    await file.copy(path);
+    return true;
+  }
 
   @override
   Stream<Set<String>> watchIdentityChanges() => Stream.value(const {});

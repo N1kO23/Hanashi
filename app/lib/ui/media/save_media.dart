@@ -24,12 +24,15 @@ Future<void> saveMedia(
   void Function(double progress)? onProgress,
 }) async {
   final messenger = ScaffoldMessenger.of(context);
+  final repository = ref.read(chatRepositoryProvider);
   try {
-    final file = await ref.read(chatRepositoryProvider).mediaFile(media, onProgress: onProgress);
-    if (file == null) throw const FileSystemException('This file is not available');
     final name = safeFileName(media.name ?? defaultFileName(media));
     if (_isDesktop) {
-      final saved = await _saveToDownloads(file, name);
+      final saved = await _saveToDownloads(name, media.size, (path) async {
+        if (!await repository.saveMedia(media, path, onProgress: onProgress)) {
+          throw const FileSystemException('This file is not available');
+        }
+      });
       messenger.showSnackBar(
         SnackBar(
           content: Text('Saved to ${saved.path}'),
@@ -41,7 +44,9 @@ Future<void> saveMedia(
         ),
       );
     } else {
-      final uri = await FilePicker.saveFile(fileName: name, bytes: await file.readAsBytes(), mimeType: media.mime);
+      final bytes = await repository.mediaBytes(media, onProgress: onProgress);
+      if (bytes == null) throw const FileSystemException('This file is not available');
+      final uri = await FilePicker.saveFile(fileName: name, bytes: bytes, mimeType: media.mime);
       if (uri != null) messenger.showSnackBar(SnackBar(content: Text('Saved $name')));
     }
   } catch (e) {
@@ -65,13 +70,22 @@ Future<String?> saveBytes(Uint8List bytes, String name, {required String mime}) 
   return uri == null ? null : name;
 }
 
-Future<File> _saveToDownloads(File cached, String name) async {
+/// [name] in Downloads/Hanashi, [size] bytes long: one saved before, or one
+/// [write] makes (whole, or not at all).
+Future<File> _saveToDownloads(String name, int size, Future<void> Function(String path) write) async {
   final base = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
   final dir = Directory('${base.path}/Hanashi');
   await dir.create(recursive: true);
-  final target = File('${dir.path}/${uniqueFileName(dir, name, await cached.length())}');
-  if (!target.existsSync()) await cached.copy(target.path);
-  return target;
+  final target = File('${dir.path}/${uniqueFileName(dir, name, size)}');
+  if (target.existsSync()) return target;
+  final part = File('${target.path}.part');
+  try {
+    await write(part.path);
+    return await part.rename(target.path);
+  } catch (_) {
+    if (part.existsSync()) await part.delete();
+    rethrow;
+  }
 }
 
 /// Strips path separators and control characters from a sender-chosen name.

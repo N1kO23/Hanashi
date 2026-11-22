@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:hanashi_protocol/hanashi_protocol.dart';
 
@@ -228,12 +228,21 @@ abstract interface class ChatRepository {
   /// key. Throws an `AttachmentException` or `ApiException`.
   Future<void> setGroupPicture(String conversationId, String? path);
 
-  /// A local, decrypted copy of a media blob, downloaded if needed; null
-  /// when media is unavailable (demo data).
-  Future<File?> mediaFile(MediaRef media, {void Function(double progress)? onProgress});
+  /// [media] decrypted into memory, downloaded first if need be; null when
+  /// media is unavailable (demo data). For pictures and other small files:
+  /// the cache keeps media encrypted, and nothing decrypted is written.
+  Future<Uint8List?> mediaBytes(MediaRef media, {void Function(double progress)? onProgress});
 
-  /// The local copy if this device already has it; never downloads.
-  File? cachedMediaFile(String hash);
+  /// [media] decrypted, if this device has it; never downloads.
+  Future<Uint8List?> localMediaBytes(MediaRef media);
+
+  /// [media] for a player, decrypted as it plays (see `EncryptedMediaStream`),
+  /// downloaded first if need be; null when media is unavailable.
+  Future<PlayableMedia?> playableMedia(MediaRef media, {void Function(double progress)? onProgress});
+
+  /// Saves [media] decrypted as [path], downloading it first if need be;
+  /// false when media is unavailable.
+  Future<bool> saveMedia(MediaRef media, String path, {void Function(double progress)? onProgress});
 
   /// Users whose security key changed and who the user has not reviewed yet.
   Stream<Set<String>> watchIdentityChanges();
@@ -300,3 +309,7 @@ abstract interface class ChatRepository {
   /// Signs another device out.
   Future<void> revokeDevice(String deviceId);
 }
+
+/// Where a player finds media ([uri]: a file, or a stream on this device),
+/// and what to call once it is done with it.
+typedef PlayableMedia = ({String uri, Future<void> Function()? close});

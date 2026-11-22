@@ -141,5 +141,58 @@ void main() {
       await expectBroken((b) => b.addAll(b.sublist(header, header + chunk))); // Extra chunk.
       await expectBroken((_) {}, key: randomBytes(32));
     });
+
+    test('decrypts into memory, and in parts, as it does to a file', () async {
+      final key = randomBytes(32);
+      const size = FileCipher.chunkSize;
+      for (final data in [
+        Uint8List(0),
+        randomBytes(1),
+        Uint8List.fromList([1, 0x80]),
+        Uint8List(size), // Zeros, as the padding is.
+        randomBytes(size),
+        randomBytes(size * 3 + 17),
+      ]) {
+        final reason = '${data.length} bytes';
+        File('${dir.path}/plain').writeAsBytesSync(data);
+        await FileCipher.encrypt('${dir.path}/plain', '${dir.path}/enc', key);
+        expect(await FileCipher.decryptBytes('${dir.path}/enc', key), data, reason: reason);
+        final reader = await FileCipherReader.open('${dir.path}/enc', key);
+        try {
+          expect(reader.length, data.length, reason: reason);
+          Future<List<int>> read(int start, int end) async => [
+            for (final part in await reader.read(start, end).toList()) ...part,
+          ];
+          expect(await read(0, data.length), data, reason: reason);
+          final ranges = [(0, 1), (1, 7), (size - 3, size + 5), (size, size * 2), (data.length - 2, data.length + 9)];
+          for (final (start, end) in ranges) {
+            final from = start.clamp(0, data.length), to = end.clamp(from, data.length);
+            expect(await read(start, end), data.sublist(from, to), reason: '$start-$end of $reason');
+          }
+        } finally {
+          reader.close();
+        }
+      }
+    });
+
+    test('decrypting in parts detects tampering and wrong keys too', () async {
+      final key = randomBytes(32);
+      File('${dir.path}/plain').writeAsBytesSync(randomBytes(FileCipher.chunkSize * 3));
+      await FileCipher.encrypt('${dir.path}/plain', '${dir.path}/enc', key);
+      await expectLater(FileCipherReader.open('${dir.path}/enc', randomBytes(32)), throwsA(isA<DecryptionFailed>()));
+      final bytes = File('${dir.path}/enc').readAsBytesSync();
+      bytes[header + chunk + 5] ^= 1; // In the second chunk.
+      File('${dir.path}/enc').writeAsBytesSync(bytes);
+      final reader = await FileCipherReader.open('${dir.path}/enc', key);
+      try {
+        expect(await reader.read(0, 10).length, 1); // The first is fine.
+        await expectLater(
+          reader.read(FileCipher.chunkSize, FileCipher.chunkSize + 10).toList(),
+          throwsA(isA<DecryptionFailed>()),
+        );
+      } finally {
+        reader.close();
+      }
+    });
   });
 }

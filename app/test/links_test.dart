@@ -197,7 +197,7 @@ void main() {
     final viewer = find.byType(MediaViewerScreen);
     expect(find.descendant(of: viewer, matching: find.text('Cats & dogs')), findsOneWidget);
     final shown = tester.widget<Image>(find.descendant(of: viewer, matching: find.byType(Image)));
-    expect((shown.image as FileImage).file.path, picture.path);
+    expect((shown.image as MemoryImage).bytes, picture.readAsBytesSync());
     // Only a picture the sender's app made: the link has the real thing.
     expect(find.byKey(const Key('viewer-download')), findsNothing);
     await tester.tap(find.byKey(const Key('viewer-open-link')));
@@ -274,7 +274,7 @@ void main() {
 
     // The GIF itself, playing; no button to play it.
     final shown = tester.widget<Image>(within(dance.url, find.byType(Image)));
-    expect((shown.image as FileImage).file.path, animation.path);
+    expect((shown.image as MemoryImage).bytes, animation.readAsBytesSync());
     expect(within(dance.url, find.byType(GifBadge)), findsOneWidget);
     expect(within(dance.url, find.byIcon(Icons.play_arrow_rounded)), findsNothing);
 
@@ -723,7 +723,7 @@ class _NoVideos extends _Pictures {
   final File gif;
 
   @override
-  Future<File?> mediaFile(MediaRef media, {void Function(double progress)? onProgress}) async => switch (media.hash) {
+  File? mediaFileOf(MediaRef media) => switch (media.hash) {
     _gifHash => gif,
     _ when media.mime.startsWith('video/') => null,
     _ => picture,
@@ -737,7 +737,7 @@ class _Pictures extends MockChatRepository {
   final File picture;
 
   @override
-  Future<File?> mediaFile(MediaRef media, {void Function(double progress)? onProgress}) async => picture;
+  File? mediaFileOf(MediaRef media) => picture;
 }
 
 /// The setting to load from websites, as given.

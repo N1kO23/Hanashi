@@ -408,7 +408,7 @@ final notificationCenterProvider = Provider<NotificationCenter?>((ref) {
     notifier: notifier,
     appInForeground: () => ref.read(appForegroundProvider),
     // Read when needed: the repository itself depends on this.
-    pictureFile: (picture) => ref.read(chatRepositoryProvider).mediaFile(picture),
+    pictureBytes: (picture) => ref.read(chatRepositoryProvider).mediaBytes(picture),
     appName: () => ref.read(activeThemeProvider).shownName,
   );
 });
@@ -585,18 +585,19 @@ final devicesProvider = FutureProvider.autoDispose<List<DeviceInfo>>(
   (ref) => ref.watch(chatRepositoryProvider).devices(),
 );
 
-/// A local, decrypted copy of a media blob (null in demo mode). Keyed by
-/// hash, key and where it is, so equal references share one download.
-final mediaFileProvider = FutureProvider.autoDispose.family<File?, ({String hash, String? key, String? host})>(
+/// A media blob decrypted into memory, for pictures (null in demo mode): the
+/// cache keeps it encrypted. Keyed by hash, key and where it is, so equal
+/// references share one download.
+final mediaBytesProvider = FutureProvider.autoDispose.family<Uint8List?, ({String hash, String? key, String? host})>(
   (ref, media) => ref
       .watch(chatRepositoryProvider)
-      .mediaFile(
+      .mediaBytes(
         MediaRef(hash: media.hash, size: 0, mime: 'application/octet-stream', key: media.key, host: media.host),
       ),
 );
 
 /// The provider argument for [media].
-({String hash, String? key, String? host}) mediaFileKey(MediaRef media) =>
+({String hash, String? key, String? host}) mediaKey(MediaRef media) =>
     (hash: media.hash, key: media.key, host: media.host);
 
 /// GIF search for the GIF tab: KLIPY with the server's key, called from this

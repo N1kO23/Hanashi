@@ -76,7 +76,10 @@ server is Go with MariaDB. 0.9 started afresh under a new name (see
   Compare emoji with a contact to verify them too: if their security key
   ever changes, Hanashi holds your messages to them until you check again.
   Names, profiles and group titles and pictures are end-to-end encrypted too,
-  and reach someone new at once, without any of the chat's messages.
+  and reach someone new at once, without any of the chat's messages. On the
+  device, the database is encrypted, and media stay as the server has them:
+  photos are decrypted into memory to show them, videos and audio as they
+  play, and nothing to the disk but a file you save.
 - Direct chats and group chats: start a group from Contacts, add people,
   rename it or leave from the group's info. Any member can do these; there
   are no group admins. Whoever adds someone can share the chat history with
@@ -169,7 +172,7 @@ The image runs without Compose too, with a MariaDB of your own:
 docker run -d --name hanashi -p 8080:8080 -v hanashi-media:/data \
   -e HANASHI_DB_DSN='hanashi:secret@tcp(db.example.org:3306)/hanashi' \
   -e HANASHI_HOST=chat.example.org \
-  n1ko23/hanashi-server:1.0.2
+  n1ko23/hanashi-server:1.0.3
 ```
 
 From source (needs Go 1.26+ and a MariaDB database):
@@ -476,8 +479,7 @@ keyPassword=...
 - iOS gets no push notifications (that needs Apple's push service and a
   developer account); it catches up when opened. Start at login is not
   available on macOS yet.
-- Received photos, videos and files are cached decrypted on the device; the
-  app's database is encrypted, but these are not yet.
+- Sticker packs you keep are stored unpacked on the device, not encrypted.
 - Across servers, a chat or group cannot change while the server that orders
   it (its creator's, or for a direct chat the one sorting first) cannot be
   reached, and cannot move to another. Off-grid transports

@@ -37,7 +37,7 @@ class _WithPictures extends MockChatRepository {
   static final files = <String, File>{};
 
   @override
-  Future<File?> mediaFile(MediaRef media, {void Function(double progress)? onProgress}) async => files[media.hash];
+  File? mediaFileOf(MediaRef media) => files[media.hash];
 }
 
 void main() {
@@ -377,8 +377,9 @@ void main() {
     // Decoded first (real I/O), so that they show as soon as they are built.
     await tester.runAsync(() async {
       final context = tester.element(find.byType(Scaffold).first);
-      for (final file in _WithPictures.files.values) {
-        await precacheImage(FileImage(file), context);
+      for (final hash in _WithPictures.files.keys) {
+        final bytes = await repo.mediaBytes(MediaRef(hash: hash, size: 0, mime: 'image/png'));
+        await precacheImage(MemoryImage(bytes!), context);
       }
     });
     await tester.tap(find.text('Club Room'));

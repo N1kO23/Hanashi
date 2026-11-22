@@ -41,7 +41,7 @@ Future<void> syncForPush({
     db: db,
     me: account.userId,
     notifier: notifier,
-    pictureFile: (picture) => repository.mediaFile(picture),
+    pictureBytes: (picture) => repository.mediaBytes(picture),
     appName: appName,
   );
   repository = ServerChatRepository(

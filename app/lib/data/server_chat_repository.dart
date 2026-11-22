@@ -1037,7 +1037,7 @@ class ServerChatRepository implements ChatRepository {
       if (file == null || key == null) continue;
       try {
         final keys = decodeHistoryKeys(
-          await (await media.get(file.hash, key: base64.decode(key), host: _elsewhere(file))).readAsBytes(),
+          await media.bytes(file.hash, key: base64.decode(key), host: _elsewhere(file)),
         );
         await db.addSharedKeys(share, {
           for (final MapEntry(key: id, value: contentKey) in keys.entries) id: base64.encode(contentKey.toBytes()),
@@ -1079,7 +1079,7 @@ class ServerChatRepository implements ChatRepository {
       try {
         final key = card.key;
         if (key == null || card.size > ProfileCard.maxBytes) throw const FormatException('Not a profile card');
-        final bytes = await (await media.get(card.hash, key: base64.decode(key), host: _elsewhere(card))).readAsBytes();
+        final bytes = await media.bytes(card.hash, key: base64.decode(key), host: _elsewhere(card));
         await media.remove(card.hash); // Kept in the database.
         final decoded = bytes.length > ProfileCard.maxBytes ? null : jsonDecode(utf8.decode(bytes));
         if (decoded is! Map) throw const FormatException('Not a profile card');
@@ -1697,7 +1697,7 @@ class ServerChatRepository implements ChatRepository {
     try {
       if (limit != null && FileCipher.encryptedSize(file.size + 1) > limit) return null;
       final encrypted = await _encryptForUpload(plain);
-      await media.put(encrypted.hash, plain);
+      await media.put(encrypted.hash, encrypted.file);
       final ref = MediaRef(
         hash: encrypted.hash,
         size: file.size,
@@ -1722,7 +1722,7 @@ class ServerChatRepository implements ChatRepository {
     final plain = await File('${tempDir.path}/link-${newUlid()}.$extension').writeAsBytes(picture.bytes);
     try {
       final encrypted = await _encryptForUpload(plain);
-      await media.put(encrypted.hash, plain);
+      await media.put(encrypted.hash, encrypted.file);
       final ref = MediaRef(
         hash: encrypted.hash,
         size: picture.bytes.length,
@@ -2102,10 +2102,10 @@ class ServerChatRepository implements ChatRepository {
       final upload = await _encryptForUpload(made.file);
       try {
         await api.uploadFile(upload.file, 'application/octet-stream');
+        await media.put(upload.hash, upload.file);
       } finally {
         await upload.file.delete();
       }
-      await media.put(upload.hash, made.file);
       return MediaRef(
         hash: upload.hash,
         size: await made.file.length(),
@@ -2250,14 +2250,13 @@ class ServerChatRepository implements ChatRepository {
     final key = archive.key;
     if (key == null) throw const PackageException('This sticker pack is damaged');
     if (archive.size > stickerPackLimits.maxBytes) throw const PackageException('This sticker pack is too large');
-    final file = await media.get(
-      archive.hash,
-      key: base64.decode(key),
-      host: _elsewhere(archive),
-      maxBytes: _maxPackDownload,
-    );
     try {
-      final bytes = await file.readAsBytes();
+      final bytes = await media.bytes(
+        archive.hash,
+        key: base64.decode(key),
+        host: _elsewhere(archive),
+        maxBytes: _maxPackDownload,
+      );
       return (bytes: bytes, pack: await readStickerPack(bytes));
     } finally {
       // Kept extracted instead.
@@ -2386,7 +2385,7 @@ class ServerChatRepository implements ChatRepository {
     final plain = File(path);
     final encrypted = await _encryptForUpload(plain);
     // This device shows it without downloading anything.
-    await media.put(encrypted.hash, plain);
+    await media.put(encrypted.hash, encrypted.file);
     final picture = MediaRef(
       hash: encrypted.hash,
       size: await plain.length(),
@@ -2624,10 +2623,10 @@ class ServerChatRepository implements ChatRepository {
       final upload = await _encryptForUpload(picture);
       try {
         await api.uploadFile(upload.file, 'application/octet-stream');
+        await media.put(upload.hash, upload.file);
       } finally {
         await upload.file.delete();
       }
-      await media.put(upload.hash, picture);
       return MediaRef(
         hash: upload.hash,
         size: await picture.length(),
@@ -2666,6 +2665,8 @@ class ServerChatRepository implements ChatRepository {
     final original = await _encryptForUpload(File(prepared.path));
     final thumbPath = prepared.thumbnailPath;
     final thumb = thumbPath == null ? null : await _encryptForUpload(File(thumbPath));
+    // Made for this: only its encrypted copy stays.
+    if (thumbPath != null) await File(thumbPath).delete().catchError((Object _) => File(thumbPath));
     final plain = prepared.media;
     final ref = MediaRef(
       hash: original.hash,
@@ -2680,9 +2681,9 @@ class ServerChatRepository implements ChatRepository {
           ? null
           : MediaRef(hash: thumb.hash, size: plain.thumb!.size, mime: plain.thumb!.mime, key: base64.encode(thumb.key)),
     ).at(_host);
-    // This device shows the plaintext without downloading anything.
-    await media.put(original.hash, File(prepared.path));
-    if (thumb != null) await media.put(thumb.hash, File(thumbPath!));
+    // This device shows it without downloading anything.
+    await media.put(original.hash, original.file);
+    if (thumb != null) await media.put(thumb.hash, thumb.file);
     await send(
       PendingMessage(
         Envelope.media(
@@ -2702,7 +2703,7 @@ class ServerChatRepository implements ChatRepository {
   /// uploads it from there.
   Future<({File file, String hash, List<int> key})> _encryptForUpload(File plain) async {
     final key = randomBytes(32);
-    final dir = await Directory('${media.root.path}/outgoing').create(recursive: true);
+    final dir = await media.outgoing.create(recursive: true);
     final tmp = File('${dir.path}/${newUlid()}');
     await FileCipher.encrypt(plain.path, tmp.path, key, maxSize: maxUploadBytes);
     final hash = await hashFile(tmp.path);
@@ -2711,21 +2712,38 @@ class ServerChatRepository implements ChatRepository {
   }
 
   @override
-  Future<File?> mediaFile(MediaRef ref, {void Function(double progress)? onProgress}) => media.get(
-    ref.hash,
-    key: ref.key == null ? null : base64.decode(ref.key!),
-    host: _elsewhere(ref),
-    onProgress: onProgress,
-  );
+  Future<Uint8List?> mediaBytes(MediaRef ref, {void Function(double progress)? onProgress}) =>
+      media.bytes(ref.hash, key: _keyOf(ref), host: _elsewhere(ref), onProgress: onProgress);
+
+  @override
+  Future<Uint8List?> localMediaBytes(MediaRef ref) async =>
+      media.cached(ref.hash) == null ? null : media.bytes(ref.hash, key: _keyOf(ref));
+
+  @override
+  Future<PlayableMedia?> playableMedia(MediaRef ref, {void Function(double progress)? onProgress}) async {
+    final stream = await media.stream(
+      ref.hash,
+      key: _keyOf(ref),
+      mime: ref.mime,
+      host: _elsewhere(ref),
+      onProgress: onProgress,
+    );
+    return (uri: '${stream.address}', close: stream.close);
+  }
+
+  @override
+  Future<bool> saveMedia(MediaRef ref, String path, {void Function(double progress)? onProgress}) async {
+    await media.decryptTo(ref.hash, path, key: _keyOf(ref), host: _elsewhere(ref), onProgress: onProgress);
+    return true;
+  }
+
+  static Uint8List? _keyOf(MediaRef ref) => ref.key == null ? null : base64.decode(ref.key!);
 
   /// The host of [ref]'s server, if it is another than this user's.
   String? _elsewhere(MediaRef ref) => ref.host == _host ? null : ref.host;
 
   /// The host of this user's server, where what they upload is.
   String get _host => UserId.parse(me).host;
-
-  @override
-  File? cachedMediaFile(String hash) => media.cached(hash);
 
   @override
   Future<void> retry(String messageId) async {
@@ -3153,10 +3171,16 @@ class SignedOutRepository implements ChatRepository {
   Future<void> setGroupPicture(String conversationId, String? path) async {}
 
   @override
-  Future<File?> mediaFile(MediaRef media, {void Function(double progress)? onProgress}) async => null;
+  Future<Uint8List?> mediaBytes(MediaRef media, {void Function(double progress)? onProgress}) async => null;
 
   @override
-  File? cachedMediaFile(String hash) => null;
+  Future<Uint8List?> localMediaBytes(MediaRef media) async => null;
+
+  @override
+  Future<PlayableMedia?> playableMedia(MediaRef media, {void Function(double progress)? onProgress}) async => null;
+
+  @override
+  Future<bool> saveMedia(MediaRef media, String path, {void Function(double progress)? onProgress}) async => false;
 
   @override
   Stream<Set<String>> watchIdentityChanges() => Stream.value(const {});

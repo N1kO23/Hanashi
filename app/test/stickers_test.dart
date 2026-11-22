@@ -343,10 +343,16 @@ void main() {
       for (final sticker in stickers) {
         await precacheImage(ResizeImage(FileImage(File(sticker.path!)), width: 96), context);
       }
-      await precacheImage(ResizeImage(FileImage(File(stickers[1].path!)), width: 160), context);
     });
     await openStickers(tester);
     await tester.tap(find.byKey(const ValueKey('sticker-test-pack-02')));
+    await tester.pumpAndSettle();
+    // The one sent shows from its message's picture, as a sent one does.
+    final sent = (await lastSent(tester, repo)).media!;
+    await tester.runAsync(() async {
+      final context = tester.element(find.byType(Scaffold).first);
+      await precacheImage(ResizeImage(MemoryImage((await repo.mediaBytes(sent))!), width: 160), context);
+    });
     await tester.pumpAndSettle();
     await openStickers(tester);
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/phone_stickers.png'));

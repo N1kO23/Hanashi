@@ -264,7 +264,7 @@ class _Nothing extends MockChatRepository {
   _Nothing() : super(latency: Duration.zero, autoReply: false, now: testNow);
 
   @override
-  Future<File?> mediaFile(MediaRef media, {void Function(double progress)? onProgress}) async => null;
+  File? mediaFileOf(MediaRef media) => null;
 }
 
 /// Has [file] for every file asked for.
@@ -274,5 +274,5 @@ class _Files extends MockChatRepository {
   final File file;
 
   @override
-  Future<File?> mediaFile(MediaRef media, {void Function(double progress)? onProgress}) async => file;
+  File? mediaFileOf(MediaRef media) => file;
 }

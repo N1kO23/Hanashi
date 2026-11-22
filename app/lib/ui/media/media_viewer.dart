@@ -210,9 +210,10 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       (_, final remote?) => _RemoteImageView(media: remote),
       (final media?, _) when audio || video => _VideoView(
         load: (onProgress) async {
-          final file = await ref.read(chatRepositoryProvider).mediaFile(media, onProgress: onProgress);
-          if (file == null) throw const _Unavailable();
-          return (uri: file.path, close: null);
+          // Streamed from the encrypted cache, decrypted as it plays.
+          final playable = await ref.read(chatRepositoryProvider).playableMedia(media, onProgress: onProgress);
+          if (playable == null) throw const _Unavailable();
+          return playable;
         },
         audio: audio,
         loop: loop,
@@ -476,7 +477,7 @@ class _ImageView extends ConsumerStatefulWidget {
 }
 
 class _ImageViewState extends ConsumerState<_ImageView> {
-  File? _file;
+  Uint8List? _bytes;
   double? _progress;
   Object? _error;
 
@@ -485,25 +486,25 @@ class _ImageViewState extends ConsumerState<_ImageView> {
     super.initState();
     ref
         .read(chatRepositoryProvider)
-        .mediaFile(widget.media, onProgress: (p) => mounted ? setState(() => _progress = p) : null)
+        .mediaBytes(widget.media, onProgress: (p) => mounted ? setState(() => _progress = p) : null)
         .then(
-          (file) => mounted ? setState(() => _file = file) : null,
+          (bytes) => mounted ? setState(() => _bytes = bytes) : null,
           onError: (Object e) => mounted ? setState(() => _error = e) : null,
         );
   }
 
   @override
   Widget build(BuildContext context) {
-    final file = _file;
-    if (file != null) return _ZoomableImage(FileImage(file), smooth: widget.standIn);
+    final bytes = _bytes;
+    if (bytes != null) return _ZoomableImage(MemoryImage(bytes), smooth: widget.standIn);
     if (_error != null) return _Message('Could not load the photo: $_error');
     // Show the thumbnail, if cached, while the full image downloads.
     final thumb = widget.media.thumb;
-    final thumbFile = thumb == null ? null : ref.watch(mediaFileProvider(mediaFileKey(thumb))).value;
+    final thumbBytes = thumb == null ? null : ref.watch(mediaBytesProvider(mediaKey(thumb))).value;
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (thumbFile != null) Image.file(thumbFile, fit: BoxFit.contain),
+        if (thumbBytes != null) Image.memory(thumbBytes, fit: BoxFit.contain),
         Center(child: CircularProgressIndicator(value: _progress, color: Colors.white)),
       ],
     );
@@ -838,12 +839,12 @@ class _SourceViewState extends ConsumerState<_SourceView> {
     } else {
       // The picture the sender's app made, until the user agrees.
       final thumb = widget.link.thumb;
-      final file = thumb == null ? null : ref.watch(mediaFileProvider(mediaFileKey(thumb))).value;
+      final thumbBytes = thumb == null ? null : ref.watch(mediaBytesProvider(mediaKey(thumb))).value;
       shown = Stack(
         fit: StackFit.expand,
         children: [
-          if (file != null)
-            Image.file(file, fit: BoxFit.contain, color: Colors.black45, colorBlendMode: BlendMode.darken),
+          if (thumbBytes != null)
+            Image.memory(thumbBytes, fit: BoxFit.contain, color: Colors.black45, colorBlendMode: BlendMode.darken),
           Center(
             child: FilledButton.icon(
               key: const Key('source-ask'),

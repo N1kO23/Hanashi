@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:hanashi_protocol/hanashi_protocol.dart';
 
@@ -42,8 +42,8 @@ class NotificationLine {
   final String text;
   final DateTime time;
 
-  /// The sender's profile picture, decrypted on this device (a file path).
-  final String? picture;
+  /// The sender's profile picture, decrypted in memory: never written so.
+  final Uint8List? picture;
 }
 
 /// What a contact notification tells.
@@ -188,7 +188,7 @@ class NotificationCenter {
     required this.notifier,
     bool Function()? appInForeground,
     DateTime Function()? clock,
-    this.pictureFile,
+    this.pictureBytes,
     String Function()? appName,
   }) : _appInForeground = appInForeground ?? (() => false),
        _clock = clock ?? DateTime.now,
@@ -208,8 +208,8 @@ class NotificationCenter {
   /// Whether a chat is still muted.
   final DateTime Function() _clock;
 
-  /// A local copy of a profile picture, downloaded and decrypted if need be.
-  final Future<File?> Function(MediaRef picture)? pictureFile;
+  /// A profile picture, decrypted (and downloaded first if need be).
+  final Future<Uint8List?> Function(MediaRef picture)? pictureBytes;
 
   static const maxLines = 5;
 
@@ -373,7 +373,7 @@ class NotificationCenter {
     required bool audible,
   }) async {
     final lines = [for (final s in shown) s.item];
-    final pictures = <String, String?>{};
+    final pictures = <String, Uint8List?>{};
     final latest = lines.length > maxLines ? lines.sublist(lines.length - maxLines) : lines;
     // Only with previews: a picture shows who wrote.
     if (preferences.preview) {
@@ -497,14 +497,14 @@ class NotificationCenter {
   static Set<String> _setOf(String? value) => {...?value?.split(',').where((user) => user.isNotEmpty)};
   static String? _joined(Set<String> users) => users.isEmpty ? null : users.join(',');
 
-  /// [user]'s profile picture as a local file; null without one, or if it
-  /// cannot be had now (offline, say): the notification shows without it.
-  Future<String?> _picture(String user) async {
+  /// [user]'s profile picture; null without one, or if it cannot be had now
+  /// (offline, say): the notification shows without it.
+  Future<Uint8List?> _picture(String user) async {
     final avatar = AppDatabase.mediaRefOf((await db.profileRow(user))?.avatar);
-    final file = pictureFile;
-    if (avatar == null || file == null) return null;
+    final bytes = pictureBytes;
+    if (avatar == null || bytes == null) return null;
     try {
-      return (await file(avatar))?.path;
+      return await bytes(avatar);
     } on Object {
       return null;
     }

@@ -363,7 +363,7 @@ class LocalNotifier implements NotificationDisplay, CallAlerts {
                         line.time,
                         Person(
                           name: line.sender,
-                          icon: line.picture == null ? null : BitmapFilePathAndroidIcon(line.picture!),
+                          icon: line.picture == null ? null : ByteArrayAndroidIcon(line.picture!),
                         ),
                       ),
                   ],

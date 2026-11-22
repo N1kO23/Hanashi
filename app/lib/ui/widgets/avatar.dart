@@ -25,10 +25,10 @@ class Avatar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final picture = this.picture ?? ref.watch(profilesProvider.select((p) => p.value?[id]?.avatar));
-    final file = picture == null ? null : ref.watch(mediaFileProvider(mediaFileKey(picture))).value;
-    if (file != null) {
+    final bytes = picture == null ? null : ref.watch(mediaBytesProvider(mediaKey(picture))).value;
+    if (bytes != null) {
       return ClipOval(
-        child: Image.file(file, width: size, height: size, fit: BoxFit.cover, gaplessPlayback: true),
+        child: Image.memory(bytes, width: size, height: size, fit: BoxFit.cover, gaplessPlayback: true),
       );
     }
     final colors = context.palette.avatarColors;

@@ -380,7 +380,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('action-download')));
     await tester.pumpAndSettle();
-    // Downloading it was tried: the demo has no files (so nothing is saved).
-    expect(find.textContaining('Could not save the file: FileSystemException: This file is not available'), findsOneWidget);
+    // Saving it was tried, and failed: the demo has no files, and no
+    // Downloads folder in tests.
+    expect(find.textContaining('Could not save the file'), findsOneWidget);
   });
 }

@@ -15,21 +15,38 @@ import 'package:integration_test/integration_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:hanashi/data/attachments.dart';
+import 'package:hanashi/data/chat_repository.dart' show PlayableMedia;
+import 'package:hanashi/data/media_stream.dart';
 import 'package:hanashi/data/mock_chat_repository.dart';
+import 'package:hanashi/e2ee/file_cipher.dart';
+import 'package:hanashi/e2ee/primitives.dart' show randomBytes;
 import 'package:hanashi/state/providers.dart';
 import 'package:hanashi/ui/media/media_viewer.dart';
 import 'package:hanashi/ui/media/video_probe.dart';
 import 'package:hanashi_protocol/hanashi_protocol.dart';
 
-/// Hands out local files for media, as a repository does once they are
-/// downloaded and decrypted.
+/// Hands out local files for media as a repository does: pictures decrypted
+/// into memory, videos and audio streamed from an encrypted copy (see
+/// [EncryptedMediaStream]), as the app streams its cache's.
 class _Files extends MockChatRepository {
   _Files(this.files);
 
   final Map<String, File> files;
+  late final _sealed = Directory.systemTemp.createTempSync('hanashi_sealed_');
 
   @override
-  Future<File?> mediaFile(MediaRef media, {void Function(double progress)? onProgress}) async => files[media.hash];
+  File? mediaFileOf(MediaRef media) => files[media.hash];
+
+  @override
+  Future<PlayableMedia?> playableMedia(MediaRef media, {void Function(double progress)? onProgress}) async {
+    final file = files[media.hash];
+    if (file == null) return null;
+    final key = randomBytes(32);
+    final sealed = '${_sealed.path}/${media.hash.substring('sha256:'.length)}';
+    await FileCipher.encrypt(file.path, sealed, key);
+    final stream = await EncryptedMediaStream.start(sealed, key: key, mime: media.mime);
+    return (uri: '${stream.address}', close: stream.close);
+  }
 }
 
 void main() {
@@ -131,6 +148,16 @@ void main() {
       }
       expect(find.byType(MediaViewerScreen), findsOneWidget);
       expect(find.textContaining('Could not load'), findsNothing, reason: name);
+      // The player read the stream: it knows how long it is. (A video's
+      // controls, which say so, come back when the pointer moves.)
+      if (envelope.messageType != MessageType.image) {
+        final hover = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await hover.addPointer(location: tester.getCenter(find.byType(MediaViewerScreen)));
+        await hover.moveBy(const Offset(4, 4));
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.textContaining(RegExp(r'/ 00:0[23]$')), findsWidgets, reason: name);
+        await hover.removePointer();
+      }
       // Closed with the back button, Escape (which the video controls also
       // take, for leaving full screen) or Backspace.
       switch (i % 3) {
