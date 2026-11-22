@@ -77,7 +77,7 @@ type aboutServer struct {
 
 func (a *API) aboutThisServer() (aboutServer, error) {
 	if a.cfg.NoHubMove {
-		return aboutServer{}, &Error{http.StatusNotFound, "user_not_found", ""} // As servers before moves.
+		return aboutServer{}, &Error{http.StatusNotFound, "user_not_found", ""} // As servers before 1.1.0.
 	}
 	return aboutServer{Version: Version, Features: []string{featureHubMove}, HandingOver: a.cfg.HandOver == config.HandOverAll}, nil
 }

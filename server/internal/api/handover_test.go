@@ -22,7 +22,7 @@ func withQuickHandOvers() serverOption {
 	return func(c *config.Config) { c.HandOverRetry = 100 * time.Millisecond }
 }
 
-// withoutHubMove makes the server one from before conversations could move.
+// withoutHubMove makes the server one from before 1.1.0, which cannot follow a move.
 func withoutHubMove() serverOption {
 	return func(c *config.Config) { c.NoHubMove = true }
 }

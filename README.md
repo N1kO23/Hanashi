@@ -173,7 +173,7 @@ The image runs without Compose too, with a MariaDB of your own:
 docker run -d --name hanashi -p 8080:8080 -v hanashi-media:/data \
   -e HANASHI_DB_DSN='hanashi:secret@tcp(db.example.org:3306)/hanashi' \
   -e HANASHI_HOST=chat.example.org \
-  n1ko23/hanashi-server:1.0.5
+  n1ko23/hanashi-server:1.1.0
 ```
 
 From source (needs Go 1.26+ and a MariaDB database):
@@ -229,8 +229,8 @@ down a server that federates without ending its users' chats with others, set
 elsewhere, and logs when it is done ("every conversation with members on other
 servers is handed over"). Then give it a minute to tell the other servers
 before you shut it down. Your users stay in what it handed over while it runs.
-A conversation moves only if every server of its members can follow it: while
-one from before moves has members in it, it stays where it is.
+A conversation moves only if every server of its members runs 1.1.0 or later:
+while an older one has members in it, it stays where it is.
 
 The server logs every request with the user and device that sent it, and the
 error code of those that failed. With `HANASHI_LOG_LEVEL=debug` it also logs

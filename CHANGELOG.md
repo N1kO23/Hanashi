@@ -1,10 +1,12 @@
 # Changelog
 
 What changed in each release, the newest first. Apps and servers of every
-1.0 release work with each other; a server needs updating only where a
-release says so. Each release's notes on GitHub are its section here.
+release since 1.0.0 work with each other; a server needs updating only where
+a release says so. Each release's notes on GitHub are its section here.
 
 ## [Unreleased]
+
+## [1.1.0] - 2026-11-22
 
 ### Fixed
 
@@ -21,7 +23,7 @@ release says so. Each release's notes on GitHub are its section here.
   none of that server's users are in it, the server hands the group to the
   server with the most of its other members, which runs it from then on.
   Nothing changes for the people in it, and their apps need no update. It
-  moves only if the servers of all its members run this release or later.
+  moves only if the servers of all its members run 1.1.0 or later.
 - `HANASHI_HAND_OVER=all` hands over every chat and group with members on
   other servers, for shutting a server down without ending its users' chats
   with others (see the README).
@@ -110,7 +112,8 @@ carries over from versions before 0.9 (see
 - Servers say where their source code is (`HANASHI_SOURCE_URL`), as the AGPL
   asks of a server run for others.
 
-[Unreleased]: https://github.com/N1kO23/Hanashi/compare/v1.0.5...HEAD
+[Unreleased]: https://github.com/N1kO23/Hanashi/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/N1kO23/Hanashi/compare/v1.0.5...v1.1.0
 [1.0.5]: https://github.com/N1kO23/Hanashi/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/N1kO23/Hanashi/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/N1kO23/Hanashi/compare/v1.0.2...v1.0.3

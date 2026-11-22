@@ -124,7 +124,7 @@ Known limits of what is built:
   after it moved takes its whole order from the hub it is at now, and cannot
   check it with the first hub, which may be gone. Its users still get in only
   through a contact, and devices still check each Welcome.
-- **Servers from before moves** can neither follow a conversation that moves (it
+- **Servers before 1.1.0** can neither follow a conversation that moves (it
   stays where it is while one of them has members in it) nor join one that
   moved.
 

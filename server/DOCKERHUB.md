@@ -11,7 +11,7 @@ The apps, for Android, iOS, Linux, Windows and macOS, are on the
 ## Tags
 
 - `latest`: the newest release.
-- `1.0.5` and so on: one per release. Pin one, and upgrade when you choose to.
+- `1.1.0` and so on: one per release. Pin one, and upgrade when you choose to.
 
 Each is built for `linux/amd64` and `linux/arm64` (a Raspberry Pi or an ARM
 server, say).
@@ -39,7 +39,7 @@ services:
     restart: unless-stopped
 
   hanashi:
-    image: n1ko23/hanashi-server:1.0.5
+    image: n1ko23/hanashi-server:1.1.0
     depends_on:
       mariadb:
         condition: service_healthy
@@ -73,7 +73,7 @@ With a MariaDB you already have:
 docker run -d --name hanashi -p 8080:8080 -v hanashi-media:/data \
   -e HANASHI_DB_DSN='hanashi:secret@tcp(db.example.org:3306)/hanashi' \
   -e HANASHI_HOST=chat.example.org \
-  n1ko23/hanashi-server:1.0.5
+  n1ko23/hanashi-server:1.1.0
 ```
 
 ## Settings

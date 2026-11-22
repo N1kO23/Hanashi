@@ -395,7 +395,7 @@ var schema = []string{
 // migrations[v] takes a database from schema v-1 to v, for those after
 // firstSchema. Each statement can run again, should a step stop halfway.
 var migrations = map[int][]string{
-	// Conversations move from hub to hub: what there was is of term 0.
+	// 1.1.0: conversations move from hub to hub; what there was is of term 0.
 	14: {
 		`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS hub_term int(11) NOT NULL DEFAULT 0`,
 		`ALTER TABLE events ADD COLUMN IF NOT EXISTS hub_term int(11) NOT NULL DEFAULT 0`,

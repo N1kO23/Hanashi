@@ -1354,7 +1354,7 @@ process per database**. Leases and epoch checks happen under the same lock.
 All bodies are JSON. Errors are `{"error": "<code>", "message": "..."}` with
 an HTTP status code. A `502 server_unreachable` for a conversation another
 server orders adds `"server": "<host>"`, the server that could not be reached
-(older servers leave it out). Except where noted, requests need
+(servers before 1.1.0 leave it out). Except where noted, requests need
 `Authorization: Bearer <token>`. The key, MLS, inbox, verification, account
 data and push endpoints are listed in their sections above.
 
@@ -1646,8 +1646,8 @@ for the hub to be back.
 
 **Which server.** The hub asks every other member's server what it is,
 `query/server`, answered with
-`{"version", "features": ["hub-move"], "handingOver"?}`. Servers from before
-moves answer it with an error. If any of them lacks `hub-move` or cannot be
+`{"version", "features": ["hub-move"], "handingOver"?}`. Servers before 1.1.0
+answer it with an error. If any of them lacks `hub-move` or cannot be
 reached, the conversation stays for now, and the hub tries again later (after
 10 minutes, doubling up to 6 hours). Of the others that are not handing over all
 they order themselves, it chooses the one with the most of the conversation's
@@ -1689,7 +1689,7 @@ conversation with `503 conv_moved`, as does the new hub until it has the
 [Sending](#sending)); by then their server relays to the new hub, which it also
 learns of at once from the old one, told so. The old hub still gives copies
 that missed the move the events of the terms it ordered, `hub_moved` included.
-A server from before moves cannot join a conversation that moved.
+A server before 1.1.0 cannot join a conversation that moved.
 
 ### Files, verification, typing and presence across servers
 

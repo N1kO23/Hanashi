@@ -93,7 +93,7 @@ type Config struct {
 	// shorten it.
 	HandOverRetry time.Duration
 	// NoHubMove makes the server one that cannot follow a conversation to
-	// another hub, as older servers cannot (for tests).
+	// another hub, as servers before 1.1.0 cannot (for tests).
 	NoHubMove bool
 	// LiveKitURL is where apps reach the LiveKit server that carries calls
 	// (ws:// or wss://; see docs/calls.md), with tokens this server signs
